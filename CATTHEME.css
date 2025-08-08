@@ -1,0 +1,170 @@
+:root {
+  --page-margin: #3a1e00;
+
+  --editor-background: #2a1600;
+  --primary-text: #ffddb3;
+  --secondary-text: #ffa64d;
+  --text-selection: #ff7f00cc;
+  --box-selection-fill: rgba(255, 127, 0, 0.65);
+  --loop-accent: #ff8c00;
+  --link-accent: #ffb84d;
+  --ui-widget-background: #3d2100;
+  --ui-widget-focus: #7a3f00;
+  --pitch-background: #4d2a00;
+  --tonic: #a05a1b;
+  --fifth-note: #703d00;
+  --white-piano-key: #ffe6b3;
+  --black-piano-key: #7a4f2a;
+  --track-editor-bg-pitch: #ffa64d80;
+  --track-editor-bg-pitch-dim: #a05a1b80;
+  --track-editor-bg-noise: #ffa64d80;
+  --track-editor-bg-noise-dim: #a05a1b80;
+  --track-editor-bg-mod: #ffa64d80;
+  --track-editor-bg-mod-dim: #a05a1b80;
+  --multiplicative-mod-slider: #ff7f00;
+  --overwriting-mod-slider: #cc6600;
+  --indicator-primary: #ff9900;
+  --indicator-secondary: #cc6600;
+  --select2-opt-group: #7a3f00;
+  --input-box-outline: #4d2a00;
+  --mute-button-normal: #ffb84d;
+  --mute-button-mod: #ff7f00;
+
+  --pitch1-secondary-channel: #7a3f00;
+  --pitch1-primary-channel: #ffb366;
+  --pitch1-secondary-note: #a6691a;
+  --pitch1-primary-note: #ffddb3;
+
+  --pitch2-secondary-channel: #995c00;
+  --pitch2-primary-channel: #ffcc80;
+  --pitch2-secondary-note: #995c00;
+  --pitch2-primary-note: #ffcc80;
+
+  --pitch3-secondary-channel: #cc7f19;
+  --pitch3-primary-channel: #ffddb3;
+  --pitch3-secondary-note: #cc7f19;
+  --pitch3-primary-note: #ffddb3;
+
+  --pitch4-secondary-channel: #b36b1a;
+  --pitch4-primary-channel: #ffb366;
+  --pitch4-secondary-note: #b36b1a;
+  --pitch4-primary-note: #ffb366;
+
+  --pitch5-secondary-channel: #a05a1b;
+  --pitch5-primary-channel: #ffa64d;
+  --pitch5-secondary-note: #995c00;
+  --pitch5-primary-note: #ffa64d;
+
+  --pitch6-secondary-channel: #703d00;
+  --pitch6-primary-channel: #ff7f00;
+  --pitch6-secondary-note: #703d00;
+  --pitch6-primary-note: #ff7f00;
+
+  --pitch7-secondary-channel: #a05a1b;
+  --pitch7-primary-channel: #ffa64d;
+  --pitch7-secondary-note: #a05a1b;
+  --pitch7-primary-note: #ffa64d;
+
+  --pitch8-secondary-channel: #b36b1a;
+  --pitch8-primary-channel: #ffb366;
+  --pitch8-secondary-note: #b36b1a;
+  --pitch8-primary-note: #ffb366;
+
+  --pitch9-secondary-channel: #cc7f19;
+  --pitch9-primary-channel: #ffddb3;
+  --pitch9-secondary-note: #cc7f19;
+  --pitch9-primary-note: #ffddb3;
+
+  --pitch10-secondary-channel: #995c00;
+  --pitch10-primary-channel: #ffcc80;
+  --pitch10-secondary-note: #995c00;
+  --pitch10-primary-note: #ffcc80;
+
+  --noise1-secondary-channel: #7a4f2a;
+  --noise1-primary-channel: #e6cca6;
+  --noise1-secondary-note: #7a4f2a;
+  --noise1-primary-note: #e6cca6;
+
+  --noise2-secondary-channel: #b39e72;
+  --noise2-primary-channel: #fff1cc;
+  --noise2-secondary-note: #b39e72;
+  --noise2-primary-note: #fff1cc;
+
+  --noise3-secondary-channel: #a05a1b;
+  --noise3-primary-channel: #f0c380;
+  --noise3-secondary-note: #a05a1b;
+  --noise3-primary-note: #f0c380;
+
+  --noise4-secondary-channel: #995c00;
+  --noise4-primary-channel: #ffb366;
+  --noise4-secondary-note: #995c00;
+  --noise4-primary-note: #ffb366;
+
+  --noise5-secondary-channel: #4d2a00;
+  --noise5-primary-channel: #d9a066;
+  --noise5-secondary-note: #4d2a00;
+  --noise5-primary-note: #d9a066;
+
+  --mod1-secondary-channel: #7a4515;
+  --mod1-primary-channel: #cc8040;
+  --mod1-secondary-note: #7a4515;
+  --mod1-primary-note: #cc8040;
+
+  --mod2-secondary-channel: #b39e72;
+  --mod2-primary-channel: #ffcc80;
+  --mod2-secondary-note: #b39e72;
+  --mod2-primary-note: #ffcc80;
+
+  --mod3-secondary-channel: #d98c4a;
+  --mod3-primary-channel: #ffa64d;
+  --mod3-secondary-note: #b37433;
+  --mod3-primary-note: #ffb366;
+
+  --mod4-secondary-channel: #cc6600;
+  --mod4-primary-channel: #ff7f00;
+  --mod4-secondary-note: #cc6600;
+  --mod4-primary-note: #ff7f00;
+
+  --mod-label-primary: #4d2a00;
+  --mod-label-secondary-text: #ffb366;
+  --mod-label-primary-text: white;
+
+  --disabled-note-primary: #b3a18c;
+  --disabled-note-secondary: #665746;
+}
+
+.pattern-area.load,
+#pattern-area.load {
+  background-image: url("https://media.tenor.com/LMlPPrFAVjEAAAAM/me-irl-kungfugloves.gif");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+}
+
+.pattern-area.load::before,
+#pattern-area.load::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+body:not(:has(.beepboxEditorContainer)) {
+  background-image: url("https://media.tenor.com/LMlPPrFAVjEAAAAM/me-irl-kungfugloves.gif");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.pattern-area,
+#pattern-area,
+.track-editor,
+#track-editor {
+  background-color: transparent !important;
+}
+
+.editor-background {
+  background: transparent !important;
+}
