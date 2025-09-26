@@ -1,28 +1,26 @@
 <!DOCTYPE html>
 <html lang="en" ondblclick="document.documentElement.requestFullscreen()">
 <head>
-    <script>
-        const before = new Set(Object.keys(window));
 
-    </script>
+
     <link rel="icon" type="image/png" sizes="192x192" href="./favico.png">
-
-    <script   src="./lame.min.js"></script>
-    <script src="./jquery-3.4.1.min.js"></script>
+ 
+    <script   src="./lame.min.js" defer></script>
+    <script src="./jquery-3.4.1.min.js" defer></script>
     <link href="./select2.min.css" rel="stylesheet" />
-    <script src="./select2.min.js"></script>
+    <script src="./select2.min.js" defer></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="./jszip.min.js" type="text/javascript" charset="utf-8"></script>
 
-
+ 
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FruityBox</title>
 
-    <meta name="application-name" content="Paandora's Box" />
+    <meta name="application-name" content="Fruity Box" />
     <meta name="apple-mobile-web-app-title" content="Paandora's Box">
-	<meta name="description" content="Paandora's Box is an online tool for sketching and sharing instrumental music." />
-    <meta name="keywords" content="chiptune, instrumental, music, song, melody, composition, tool, free, square wave, NES, NSF, JummBox, jummbox, BeepBox, beepbox, Pandora's Box" />
+	<meta name="description" content="FruityBox Box is an online tool for sketching and sharing instrumental music." />
+    <meta name="keywords" content="chiptune, instrumental, music, song, melody, composition, tool, free, square wave, NES, NSF, JummBox, jummbox, BeepBox, beepbox, FruityBox " />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -46,8 +44,15 @@
         }
  
 
-
-
+#plugins-content {
+	margin: 0px;
+	overflow-x: hidden;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	align-content: center;
+}
+ 
 
         body {
             margin: auto;
@@ -118,16 +123,7 @@
             margin: 0;
         }
 		
-        /* wide screen */
-/*		@media (min-width: 711px) {
-            html {
-                width: 100%;
-            }
-
-            body {
-                width: 100%;
-            }
-*/
+ 
             .column-container {
 				width: 710px;
                 display: flex;
@@ -162,25 +158,155 @@
         }
     </style>
 </head> 
-<script test="beepbox_editor.js" src="./samples2.js"></script>
-<script test="beepbox_editor.js" src="./calmsounds1.js"></script>
-<script test="beepbox_editor.js" src="./samplesofchillsounds.js"></script>
-<script test="beepbox_editor.js" src="./samples.js"></script>
-<script test="beepbox_editor.js" src="./test.js"></script>
-<script test="beepbox_editor.js" src="./rawsamples.js"></script>
-<script test="beepbox_editor.js" src="./sample1.js"></script>
-<script test="beepbox_editor.js" src="./fnfsamples.js"></script>
-<script test="beepbox_editor.js" src="./mysamples.js"></script>
-<script test="beepbox_editor.js" src="./standarddrumsamples.js"></script>
+<script  src="./samples2.js" defer></script>
+<script  src="./calmsounds1.js" defer></script>
+<script  src="./samplesofchillsounds.js" defer></script>
+<script  src="./samples.js" defer></script>
+<script  src="./test.js" defer></script>
+<script  src="./rawsamples.js" defer></script>
+<script  src="./sample1.js" defer></script>
+<script  src="./fnfsamples.js" defer></script>
+<script  src="./mysamples.js" defer></script>
+<script  src="./standarddrumsamples.js" defer></script>
+ 
+ 
  
 <body>
+	
+	    <script>
+let topZ = 1000;
+
+function POPUP(x, y, title, content, framecolor = "#000080") {
+	const win = document.createElement("div");
+	Object.assign(win.style, {
+		position: "absolute",
+		left: x + "px",
+		top: y + "px",
+		width: "300px",
+		height: "150px",
+		border: `2px solid ${framecolor}`,
+		background: "#e0e0e0",
+		resize: "both",
+		overflow: "hidden",
+		boxShadow: "5px 5px 10px rgba(0,0,0,0.5)",
+		minWidth: "200px",
+		minHeight: "100px",
+		zIndex: ++topZ,
+		fontWeight: "200",
+		fontFamily: "sans-serif"
+	});
+
+	const titlebar = document.createElement("div");
+	Object.assign(titlebar.style, {
+		background: framecolor,
+		color: "#fff",
+		padding: "2px 5px",
+		cursor: "grab",
+		display: "flex",
+		fontWeight: "200",
+		fontFamily: "sans-serif",
+		justifyContent: "space-between",
+		alignItems: "center",
+		userSelect: "none"
+	});
+
+	const titleText = document.createElement("span");
+	titleText.textContent = title;
+
+	const buttons = document.createElement("div");
+	const closeBtn = document.createElement("button");
+	closeBtn.type = "button";
+	closeBtn.className = "no-drag";
+	closeBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="white"><line x1="4" y1="4" x2="20" y2="20" stroke="white" stroke-width="2"/><line x1="20" y1="4" x2="4" y2="20" stroke="white" stroke-width="2"/></svg>`;
+	Object.assign(closeBtn.style, {
+		background: "red",
+		border: "none",
+		cursor: "pointer",
+		width: "24px",
+		height: "24px",
+		padding: "0",
+		display: "flex",
+		justifyContent: "center",
+		alignItems: "center"
+	});
+	closeBtn.addEventListener("mousedown", e => e.stopPropagation());
+	closeBtn.addEventListener("touchstart", e => { e.stopPropagation(); }, { passive: false });
+	closeBtn.addEventListener("click", () => win.remove());
+
+	buttons.appendChild(closeBtn);
+	titlebar.appendChild(titleText);
+	titlebar.appendChild(buttons);
+
+	const contentDiv = document.createElement("div");
+	Object.assign(contentDiv.style, {
+		padding: "10px",
+		height: "calc(100% - 26px)",
+		overflow: "auto"
+	});
+	contentDiv.innerHTML = content;
+
+	win.appendChild(titlebar);
+	win.appendChild(contentDiv);
+	document.body.appendChild(win);
+
+	let isDragging = false, offsetX = 0, offsetY = 0;
+
+	function startDrag(e) {
+		const target = e.target;
+		if (target && target.closest && target.closest('.no-drag')) return;
+		isDragging = true;
+		const evt = e.touches ? e.touches[0] : e;
+		offsetX = evt.clientX - win.offsetLeft;
+		offsetY = evt.clientY - win.offsetTop;
+		titlebar.style.cursor = "grabbing";
+		document.body.style.overflow = "hidden";
+		e.preventDefault();
+	}
+
+	function drag(e) {
+		if (!isDragging) return;
+		const evt = e.touches ? e.touches[0] : e;
+		let newX = evt.clientX - offsetX;
+		let newY = evt.clientY - offsetY;
+		newX = Math.max(0, Math.min(window.innerWidth - win.offsetWidth, newX));
+		newY = Math.max(0, Math.min(document.body.scrollHeight - win.offsetHeight, newY));
+		win.style.left = newX + "px";
+		win.style.top = newY + "px";
+	}
+
+	function endDrag() {
+		isDragging = false;
+		titlebar.style.cursor = "grab";
+		document.body.style.overflow = "";
+	}
+
+	titlebar.addEventListener("mousedown", startDrag);
+	document.addEventListener("mousemove", drag);
+	document.addEventListener("mouseup", endDrag);
+	titlebar.addEventListener("touchstart", startDrag, { passive: false });
+	document.addEventListener("touchmove", drag, { passive: false });
+	document.addEventListener("touchend", endDrag);
+	win.addEventListener("mousedown", () => win.style.zIndex = ++topZ);
+	win.addEventListener("touchstart", () => win.style.zIndex = ++topZ);
+}
+
+
+ 
+ 
+
+    	
+    
+    </script>
+	
+	
+	
     <div id="beepboxEditorContainer">
         <noscript>
             Sorry, FruityBox requires a JavaScript-enabled browser.
         </noscript>
     </div>
     <div id="text-content">
-        <section>
+        <section>  
 
             <h1>
                 <font class="fbox" color="#FF5100">Fruity Box</font>
@@ -188,7 +314,7 @@
             </h1>
 			
 			<strong id="introduction">
-				<center>Audio samples in FruityBox</font></center>
+				<center><t id="randomtext">FruityBox That's because i like all of fruit's</t></font></center>
             </strong>
 			
 			<p>
@@ -196,14 +322,14 @@
 			</p>
 
 			<p>
-				<font color="#edbebb">FruityBox was made to create music with your custom preset's !</font>
+				<font color="#edbebb">FruityBox was made to create music with more customisation !</font>
 			</p>
 			<p>
 				<font color="#edbebb">The original program beepbox made by <font color="#adeeeb">John Neski</font> </font> <br>
 				<font color="#edbebb">Mod is maded by <font color="#adeeeb">Kashumy Github/Krystian</font> </font>
             </p>
             <p id="introduction">
-				FruityBox may not work properly in other versions of beepbox because it uses new additional functions
+             FruityBox is a tool for making and sharing instrumental music. Make sure that your volume is turned up, then press the play button!
             </p>
 			<p style="text-align: center;"></p>
             <p>
@@ -218,7 +344,33 @@
             </main>
  
         </div>
-        
+        </div>
+<script>
+let randomarr2=["≽(◕ ᴗ ◕)≼", "≽(ᴗ _ ᴗ)≼", "≽(⌐ _ ⌐)≼", "≽(ᵕ ‿ ᵕ)≼", "♥️","💚","🌺","🌷","🌹","💐","🌿","🌾","🌵","🍀","☘️","🌲","🌳","🪨","⛰️","✨","🍉","🍑","🍊","🍒","🍓","🥭","🍍","🍌","🌽","🍋","🥑","🫐","🍇"]
+let randomarr=["Wacky Box!",
+"FruityBox That's because of the fruit's inside of it","You can 'Make A Music' ",
+"Lol I installed Ransomware :D","WHO READS DESCRIPTION",
+"Im a chiptune do you?",
+" Is Your JavaScript Enabled ? ",
+"I just putted here random useless long text just to make you read this for no reason . Also did you know you can disable showdescription in preferences",
+"Please don't feed the synthesizer",
+"404 Melody Not Found","808 Error not found ",
+"You can use samples!",
+"Do not Disable PLUGINS ! ",
+"I accidentally made dubstep...",
+"Do robots dream of 8-bit sheep?",
+"Please, for the love of God, do not increase the master gain and lower the second ratio.",
+"Why are you reading this?",
+"Too much bass is never enough",
+"Now featuring at least one sound",
+"The melody you made is now sent to space. Lol im joking this is not consistent with user privacy ",
+"Composed entirely in a caffeine frenzy",
+"Making music with the blender is Crazy.",
+"We don't steal your data ! Just Like in the other beepbox mods"]
+document.getElementById("randomtext").innerText= randomarr[parseInt(Math.random()*randomarr.length)]
+
+document.getElementById("jummboxPlant").innerText= randomarr2[parseInt(Math.random()*randomarr2.length)]
+</script>
         
          
   <style>
@@ -245,32 +397,47 @@
     }
     #fileList{
         background:#252525;
-        min-width:100px;
+        min-width:90vw;
         min-height:50px;
+        max-height:400px; overflow: hidden scroll;
+    }
+#themeList{
+        background:#252525;
+        min-width:90vw;
+        min-height:50px;
+        max-height:400px; overflow: hidden scroll;
     }
   </style>
+  
+ <div id="plugins-content">
+  
+  
 <h1>SAMPLER FILE MANAGER</h1>
+<details>
   <input type="file" id="fileInput" accept=".mp3,.wav,.ogg,.m4a">
   <div class="menu">
     <label>Sample name:</label>
     <input id="varname" type="text">
     <label>Compression larger number smaller compression:</label>
-    <input id="compressionLevel" type="number" min="2" max="1000" value="1000">
+    <input id="compressionLevel" type="number" min="2" max="1000" value="10000">
  <label>Max Sample Length:</label>
     <input id="audiolength" type="number" min="100" max="2500000" value="250000" placeholder="250000">
       <label>Extra Sample detune:</label>
-<input id="detunesample" type="number" min="-55" max="55" placeholder="detune" value="-12">
+<input id="detunesample" type="number" min="-55" max="55" placeholder="detune" value="-55">
 <input id="expressions" type="number" min="0.5" max="5" placeholder="expression" value="2.0">
     <button id="generateButton" disabled>Create</button>
   </div>
-all your samples will be generated i wave for chipwave at the bottom 
+all your samples will be generated in wave for chipwave at the bottom 
   <div id="fileList"></div>
-    <button id="generateZip" >Save As Zip</button>
-    <button id="importZipReplace" >Import Zip Replace</button>
-    <button id="importZip" >Import Zip Add</button>
-    <br>
-    
+  <div><button id="generateZip" >Save As Zip</button>
+    <button id="importZipReplace" >Import Zip And Remove All</button>
+    <button id="importZip" >Import Zip Add</button></div>
+ 
+
 <script>
+
+
+
 function floatToWav(samples, sampleRate = 44100) {
   const buffer = new ArrayBuffer(44 + samples.length * 2);
   const view = new DataView(buffer);
@@ -449,44 +616,67 @@ document.getElementById('importZipReplace').addEventListener('click', () => {
     
     
   <script>
-    let db;
-    let filesMap = [];
+  
+  
+  
+  let db , db2;
+  let CustomThemes={};
+let filesMap = [];
+let allfilesloaded = 0;
 
-    const request = indexedDB.open("HyperBoxData", 1);
-    request.onupgradeneeded = function(event) {
-      db = event.target.result;
-      db.createObjectStore("files", { keyPath: "id" });
+const request = indexedDB.open("HyperBoxData", 1);
+request.onupgradeneeded = function(event) {
+ db = event.target.result;
+ db.createObjectStore("files", { keyPath: "id" });
+};
+request.onsuccess = function(event) {
+ db = event.target.result;
+ loadFiles();
+};
+function saveBuffer(id, name, buffer, extradetune1, expression1) {
+ const transaction = db.transaction(["files"], "readwrite");
+ const store = transaction.objectStore("files");
+ store.put({ id, name, buffer, extradetune: extradetune1, expression: expression1 });
+}
+function deleteFile(id) {
+ const transaction = db.transaction(["files"], "readwrite");
+ const store = transaction.objectStore("files");
+ store.delete(id);
+}
+function loadFiles() {
+ const transaction = db.transaction(["files"], "readonly");
+ const store = transaction.objectStore("files");
+ const countRequest = store.count();
+ countRequest.onsuccess = function() {
+  const total = countRequest.result;
+  let loaded = 0;
+  const request = store.openCursor();
+  request.onsuccess = function(event) {
+   const cursor = event.target.result;
+   if (cursor) {
+   	
+    const file = cursor.value;
+    filesMap[cursor.key] = {
+     name: file.name,
+     buffer: file.buffer,
+     extradetune: file.extradetune || -12,
+     expression: file.expression || 2.0,
     };
-    request.onsuccess = function(event) {
-      db = event.target.result;
-      loadFiles();
-    };
-
-    function saveBuffer(id, name, buffer,extradetune1,expression1) {
-      const transaction = db.transaction(["files"], "readwrite");
-      const store = transaction.objectStore("files");
-      store.put({ id, name, buffer,extradetune:extradetune1,expression:expression1 });
+    loaded++;
+    cursor.continue();
+   } else {
+    allfilesloaded = 1;
+    if(typeof updateSampledWaves === 'function' ){
+    updateSampledWaves()
     }
+   }
+  };
+ };
+}
+ 
+ 
 
-    function deleteFile(id) {
-      const transaction = db.transaction(["files"], "readwrite");
-      const store = transaction.objectStore("files");
-      store.delete(id);
-    }
-
-    function loadFiles() {
-      const transaction = db.transaction(["files"], "readonly");
-      const store = transaction.objectStore("files");
-      const request = store.openCursor();
-      request.onsuccess = function(event) {
-        const cursor = event.target.result;
-        if (cursor) {
-          filesMap[cursor.key] = { name: cursor.value.name, buffer: cursor.value.buffer, extradetune :cursor.value.extradetune|| document.getElementById('detunesample').value, expression: cursor.value.expression||document.getElementById('expressions').value  };
-          renderFileList();
-          cursor.continue();
-        }
-      };
-    }
+     
 
     function renderFileList() {
       const list = document.getElementById('fileList');
@@ -500,7 +690,7 @@ document.getElementById('importZipReplace').addEventListener('click', () => {
         span.textContent = filesMap[id].name;
 
         const btn = document.createElement('button');
-        btn.textContent = 'Usuń';
+        btn.textContent = 'X';
         btn.onclick = () => {
           delete filesMap[id];
           deleteFile(Number(id));
@@ -564,15 +754,16 @@ document.getElementById('fileInput').value = '';
 selectedFile = null; 
 document.getElementById('fileInput').value = '';
 document.getElementById('generateButton').disabled = true;
-
+loadFiles()
 
     });
   </script>
         
-        after creating a sample please wait seconds to load sample in the chip wave section :) page and you will have sample in chip wave on the top of the list
-    
-        <br>
-        for now samples are a little buggy so use samples at the end of your music
+        after creating a sample please wait to load sample in the chip wave section :)  
+        share zip file with samples and json music 🎵 
+    </details>
+ 
+        
         
  
         
@@ -583,6 +774,7 @@ document.getElementById('generateButton').disabled = true;
         }
     </style>
     <h1>SAMPLER EDITOR</h1>
+<details>
             <div id="editor_C01">
         <input type="file" id="fileInput_C01" accept="audio/*">
         <button id="loadBtn_C01" disabled>Load</button>
@@ -603,6 +795,7 @@ document.getElementById('generateButton').disabled = true;
 <button id="addAudioBtn_C01" disabled>connect Audio</button>
 
     </div>
+    </details>
     <script>
  
     let originalBuffer, outputUrl, selection={start:0,end:0,dragging:false};
@@ -820,7 +1013,7 @@ exportBtn.addEventListener('click', () => {
         openAudioLoopEditor_C01();
     </script>
         
-    </div>
+
 
     <!--
     Instead of loading js beepbox editor interface directly, test for browser support.
@@ -872,11 +1065,7 @@ exportBtn.addEventListener('click', () => {
 </body>
 </html>
 <script>
-    setTimeout(function() {
-    const after = Object.keys(this);
-    const userVars = after.filter(key => !before.has(key));
-    console.log(userVars)
-}, 2000)
+ 
 function applyZoom() {
       const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
       const isLandscape = window.matchMedia("(orientation: landscape)").matches;
@@ -887,15 +1076,12 @@ function applyZoom() {
       }
     }
 
-    applyZoom();
-
-    window.addEventListener("orientationchange", applyZoom);
-    window.addEventListener("resize", applyZoom);
+ 
   
 </script>
-
-<div style="font-family: sans-serif; background: #111; color: #fff; padding: 2rem;">
   <h1>Fade-out Plugin </h1>
+  <details>
+
   <p id="audioLength" style="margin-top:1rem;">Audio Length: <span id="lengthVal">0</span> seconds</p>
 
   <input type="file" id="fileInput88" accept=".wav" />
@@ -918,7 +1104,7 @@ function applyZoom() {
   </div>
 
   <button id="downloadButton34">Download</button>
-
+</details>
   <script>
     let audioCtx22 = new (window.AudioContext || window.webkitAudioContext)();
     let audioBuffer22 = null;
@@ -1046,8 +1232,143 @@ function applyZoom() {
       return btoa(binary);
     }
   </script>
+
+
+
+
+
+
+  <h1>Reverse Plugin</h1>
+  <details>
+<div style="font-family: sans-serif; background: #111; color: #fff; padding: 2rem;">
+
+  <p id="audioLength2" style="margin-top:1rem;">Audio Length: <span id="lengthVal2">0</span> seconds</p>
+
+  <input type="file" id="fileInput882" accept=".wav" />
+  <button id="downloadButton342">Download</button>
+
+  <script>
+    let audioCtx222 = new (window.AudioContext || window.webkitAudioContext)();
+    let audioBuffer222 = null;
+
+    document.getElementById('fileInput882').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return alert("Please select a file.");
+      const arrayBuffer = await file.arrayBuffer();
+      audioBuffer222 = await audioCtx222.decodeAudioData(arrayBuffer);
+      document.getElementById('lengthVal2').textContent = audioBuffer222.duration.toFixed(2);
+      alert("File loaded successfully.");
+    });
+
+    document.getElementById('downloadButton342').addEventListener('click', async () => {
+      if (!audioBuffer222) return alert("Please load an audio file first.");
+      // Reverse audio data
+      const reversedBuffer = audioCtx222.createBuffer(
+        audioBuffer222.numberOfChannels,
+        audioBuffer222.length,
+        audioBuffer222.sampleRate
+      );
+
+      for (let ch = 0; ch < audioBuffer222.numberOfChannels; ch++) {
+        const input = audioBuffer222.getChannelData(ch);
+        const output = reversedBuffer.getChannelData(ch);
+        for (let i = 0, j = input.length - 1; i < input.length; i++, j--) {
+          output[i] = input[j];
+        }
+      }
+
+      // Render in OfflineAudioContext
+      const ctx = new OfflineAudioContext(
+        reversedBuffer.numberOfChannels,
+        reversedBuffer.length,
+        reversedBuffer.sampleRate
+      );
+
+      const source = ctx.createBufferSource();
+      source.buffer = reversedBuffer;
+      source.connect(ctx.destination);
+      source.start();
+
+      const rendered = await ctx.startRendering();
+      const wav = encodeWAV(rendered);
+      const blob = new Blob([wav], { type: 'audio/wav' });
+
+      if (location.href.startsWith("file:///")) {
+        blob.arrayBuffer().then(buffer => {
+          const base64data = arrayBufferToBase64(buffer);
+          NativeJava.DownloadFile(base64data, 'reversed_audio.wav');
+        });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'reversed_audio.wav';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    });
+
+    function encodeWAV(buffer) {
+      const channels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const length = buffer.length;
+      const bitsPerSample = 16;
+      const bytesPerSample = bitsPerSample / 8;
+      const blockAlign = channels * bytesPerSample;
+      const byteRate = sampleRate * blockAlign;
+      const dataSize = length * blockAlign;
+
+      const bufferView = new DataView(new ArrayBuffer(44 + dataSize));
+      let offset = 0;
+
+      const writeString = (str) => {
+        for (let i = 0; i < str.length; i++) {
+          bufferView.setUint8(offset++, str.charCodeAt(i));
+        }
+      };
+
+      writeString('RIFF');
+      bufferView.setUint32(offset, 36 + dataSize, true); offset += 4;
+      writeString('WAVE');
+      writeString('fmt ');
+      bufferView.setUint32(offset, 16, true); offset += 4;
+      bufferView.setUint16(offset, 1, true); offset += 2;
+      bufferView.setUint16(offset, channels, true); offset += 2;
+      bufferView.setUint32(offset, sampleRate, true); offset += 4;
+      bufferView.setUint32(offset, byteRate, true); offset += 4;
+      bufferView.setUint16(offset, blockAlign, true); offset += 2;
+      bufferView.setUint16(offset, bitsPerSample, true); offset += 2;
+      writeString('data');
+      bufferView.setUint32(offset, dataSize, true); offset += 4;
+
+      for (let i = 0; i < length; i++) {
+        for (let ch = 0; ch < channels; ch++) {
+          let sample = buffer.getChannelData(ch)[i];
+          sample = Math.max(-1, Math.min(1, sample));
+          bufferView.setInt16(offset, sample * 32767, true);
+          offset += 2;
+        }
+      }
+
+      return bufferView.buffer;
+    }
+
+    function arrayBufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    }
+  </script>
 </div>
 
+  </details>
+
+
+  <h2>Advanced Audio Editor </h2>
+  <details>
 
 <div style="font-family: sans-serif; background: #111; color: #fff; padding: 2rem;">
 
@@ -1056,7 +1377,7 @@ function applyZoom() {
     #UUID18289WF { border: none; width: 100%; height: 150px; touch-action: none; background: #000000;}
   </style>
  
-  <h2>Advanced Audio Editor </h2>
+
   <input type="file" id="UUID18289FILEINPUT" accept=".wav" /><br /><br />
   <canvas id="UUID18289WF" width="800" height="150"></canvas> <br />
   <label>selected Volume:
@@ -1077,6 +1398,7 @@ function applyZoom() {
 <button onclick="UUID18289PLAYBUFFER(UUID18289CUBUFF);" >Play</button><br>
   <audio id="UUID18289AUDIOPLAYER" controls></audio>
 <button onclick="EXPORTBUFFERUID6()" >Download</button>
+</details>
 <script>
 const UUID18289CANVAS = document.getElementById('UUID18289WF');
 const UUID18289CTX = UUID18289CANVAS.getContext('2d');
@@ -1190,7 +1512,7 @@ async function applyPitchDetune(buffer, playbackRate) {
 document.getElementById("UUID18289SILENCE").addEventListener("click", function () {
   if (!UUID18289CUBUFF || !UUID18289SELECTION || UUID18289SELECTION.x2 === null) return;
 
-  saveUndo(); // zapisanie do undo stack
+  saveUndo(); 
 
   const x1 = Math.floor(UUID18289SELECTION.x1);
   const x2 = Math.floor(UUID18289SELECTION.x2);
@@ -1214,15 +1536,12 @@ document.getElementById("UUID18289SILENCE").addEventListener("click", function (
     for (let i = 0; i < silenceLength; i++) {
       out[x1fin + i] = 0;
     }
-
-    // Kopiuj po zaznaczeniu
     out.set(old.slice(x1fin), x1fin + silenceLength);
   }
 
   UUID18289CUBUFF = newBuf;
   UUID18289SELECTION = null;
   drawUUID18289WF(UUID18289CUBUFF);
-//  UUID18289PLAYBUFFER(UUID18289CUBUFF);
 });
 
 
@@ -1639,4 +1958,1540 @@ function encodeWav(samples, sampleRate, numChannels) {
 }
 </script>
 
+
+
+
+
+
+ 
+<style>
+#waveInputsContainer {
+  margin: 0;
+  width: 100vw;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  position: relative;
+  height: 30px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+   
+  .wave-input{
+  	width:25px;
+  }
+  .keyboard {
+    position: relative;
+     
+    overflow-x: scroll;
+    width: 100%;
+    max-width: 1050px;
+    height: 203px;
+    background:#5B5B5B;
+    zoom:0.8
+  }
+  .key {
+    position: absolute;
+    font-size: 30px;
+    display:flex;
+    justify-content: center;
+    align-items:end ;
+    width: 50px;
+    height: 200px;
+    border: 1px solid #000;
+    background-color: #FFFFFF;
+  }
+  .key:active{
+    transform: translate(0,-5px);
+    animation: 0.5s blued ;
+  }
+  @keyframes blued{
+    0%{
+      background:#898989
+    }
+    100%{
+    }
+  }
+  .black-key {
+    background-color: #000;
+    width:35px;
+    height: 100px;
+    margin-top: -10px;
+    margin: 0;
+    z-index: 1;
+  }
+  .active {
+    background-color: #4CCDF0;
+  }
+</style>
+</head>
+<h2> Whistle to Notes</h2>
+<details>
+	
+<style>
+ 
+#spectrogram {
+  border: 1px solid #333;
+  background:#000000;
+  display: block;
+  position: relative;
+  left:50vw; 
+  transform: translate(-50%,0) ;
+  width: 300px;
+  height: 300px;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sens-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#volColor {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #333;
+  border-radius: 3px;
+  display: inline-block;
+}
+#sensDb {
+  width: 72px;
+}
+</style>
+ 
+<div class="controls">
+  <button id="btnRec2">Record</button>
+  <button id="btnStop2" disabled>Stop</button>
+  <button id="btnPlay2">PlayGeneratedNotes</button>
+  <button id="btnExport2">ExportMM3</button>
+  <button id="btnExport3">ExportJSON</button>
+  <input type="file" id="fileInput" accept="audio/*">
+  <div class="sens-wrap">
+    <label for="sensDb">Sensitivity MIN</label>
+    <input type="number" id="sensDb" step="1" value="70" min="1000" max="-125">
+    <div id="volColor" title="Kolor czułości"></div>
+  </div>
+  <br>
+</div>
+<br>
+<canvas id="spectrogram"></canvas>
+<br>
+  	<label for="STABLE_N">Stable N</label>
+  	<input type="number" id="STABLE_N" step="1" value="2" oninput="if(!isNaN(STABLE_N)){STABLE_N=this.value; }"><br>
+  	<label for="SILENCE_N">Silence N</label>
+  	<input type="number" id="SILENCE_N" step="1" value="3" oninput="if(!isNaN(SILENCE_N)){SILENCE_N=this.value; }"><br>
+  	<label for="MIN_NOTE_MS">Min Note MS</label>
+  	<input type="number" id="MIN_NOTE_MS" step="1" value="6" oninput="if(!isNaN(MIN_NOTE_MS)){MIN_NOTE_MS=this.value; }"><br>
+  	<label for="CHANGE_HOLD_MS">Change Hold MS</label>
+  	<input type="number" id="CHANGE_HOLD_MS" step="1" value="5" oninput="if(!isNaN(CHANGE_HOLD_MS)){CHANGE_HOLD_MS=this.value; }"><br>
+ <label for="semitoneShift">Semitone Shift</label>
+<input type="number" id="semitoneShift" step="0.5" value="-12">
+
+<script>
+const audioctx24 = new (window.AudioContext || window.webkitAudioContext)()
+let analyser, mediaSource, isRecording3 = false, startTs = 0
+let playing = false, playingSources2 = [], timeouts = []
+let currentNote = null, currentStart = 0
+let stableBuf = [], silenceStreak = 0
+let pendingNote = null, pendingSince = 0
+var STABLE_N = 2, SILENCE_N = 3, MIN_NOTE_MS = 6, CHANGE_HOLD_MS = 5
+const audiobuff2 = [0, 1]
+let semitoneShift = -12
+document.getElementById('semitoneShift').addEventListener('input', e => {
+  const v = parseFloat(e.target.value)
+  if (!isNaN(v)) semitoneShift = v
+})
+
+const baseFrequencies2 = {
+  'c': 261.63, 'c#': 277.18, 'd': 293.66, 'd#': 311.13, 'e': 329.63,
+  'f': 349.23, 'f#': 369.99, 'g': 392, 'g#': 415.3, 'a': 440,
+  'a#': 466.16, 'h': 493.88
+}
+const order = ['c','c#','d','d#','e','f','f#','g','g#','a','a#','h']
+const octaves = [1,2,3,4,5,6,7]
+const bank = buildNoteBank()
+
+var music = { tempo: 1, run: [1], 1: { notes: [], instrument: 'square', nextSection: null, runallnotes: 1 } }
+
+const canvas2 = document.getElementById("spectrogram")
+const ctx2 = canvas2.getContext("2d")
+let sensitivityDb = parseFloat(document.getElementById('sensDb').value) || -50
+ 
+const scale = 1
+canvas2.width = canvas2.clientWidth * scale;
+canvas2.height = canvas2.clientHeight * scale;
+ctx2.scale(scale, scale);
+ 
+
+const volDiv = document.getElementById('volColor')
+
+function dbToColor(db) {
+  const t = Math.max(0, Math.min(1, db / 100))
+  const hue = Math.round((1 - t) * 120)
+  return `hsl(${hue},100%,50%)`
+}
+function updateSensitivityColor() {
+  volDiv.style.backgroundColor = dbToColor(sensitivityDb)
+}
+updateSensitivityColor()
+
+document.getElementById('sensDb').addEventListener('input', e => {
+  const v = parseFloat(e.target.value)
+  if (isFinite(v)) {
+    sensitivityDb = v
+    updateSensitivityColor()
+  }
+})
+function steps(value, step) {
+  return ((value % step) + step) % step
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function buildNoteBank() {
+  const rows = []
+  for (const o of octaves) {
+    for (const n of order) {
+      const f = baseFrequencies2[n] * Math.pow(2, o - 4)
+      rows.push({ name: n, oct: o, f })
+    }
+  }
+  rows.sort((a, b) => a.f - b.f)
+  for (let i = 0; i < rows.length; i++) {
+    const prev = rows[i - 1]?.f || rows[i].f / Math.pow(2, 1 / 12)
+    const next = rows[i + 1]?.f || rows[i].f * Math.pow(2, 1 / 12)
+    rows[i].lo = (prev + rows[i].f) / 2
+    rows[i].hi = (rows[i].f + next) / 2
+  }
+  return rows
+}
+
+function quantize(freq) {
+  for (const r of bank) {
+    const tolerance = r.f * 0.006 
+    if (freq >= r.lo + tolerance && freq < r.hi - tolerance) return r
+  }
+  return null
+}
+
+
+async function initMic() {
+	try {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+  mediaSource = audioctx24.createMediaStreamSource(stream)
+  analyser = audioctx24.createAnalyser()
+  analyser.fftSize = 1024
+  mediaSource.connect(analyser)
+	}catch (e){
+		POPUP(innerWidth/2-150, innerHeight/2-100 + window.scrollY
+     ,"Microphone Access Error",
+    		"<text style='color:black'>You must open FruityBox App and allow microphone access.</text>",
+    		"#00afdf"
+ 	);
+	}
+}
+function detectPitch() {
+  const N = analyser.fftSize
+  const buf = new Float32Array(N)
+  analyser.getFloatTimeDomainData(buf)
+  let rms = 0
+  for (let i = 0; i < N; i++) rms += buf[i] * buf[i]
+  rms = Math.sqrt(rms / N)
+  let db = 20 * Math.log10(rms + 1e-12)
+  db = Math.max(0, Math.min(100, db + 100))
+  if (db < sensitivityDb) return { freq: null, clarity: 0, db }
+
+  let minLag = Math.floor(audioctx24.sampleRate / 2000)
+  let maxLag = Math.floor(audioctx24.sampleRate / 150)
+  let bestLag = -1, bestCorr = 0
+  let sumSq = 0
+  for (let i = 0; i < N; i++) sumSq += buf[i] * buf[i]
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let corr = 0, energy = 0
+    for (let i = 0; i < N - lag; i++) {
+      corr += buf[i] * buf[i + lag]
+      energy += buf[i + lag] * buf[i + lag]
+    }
+    const norm = corr / Math.sqrt(sumSq * energy || 1)
+    if (norm > bestCorr) { bestCorr = norm; bestLag = lag }
+  }
+  if (bestLag < 0 || bestCorr < 0.6) return { freq: null, clarity: bestCorr, db }
+
+  const c1 = xcorrAt(buf, bestLag - 1), c2 = xcorrAt(buf, bestLag), c3 = xcorrAt(buf, bestLag + 1)
+  const shift = (c3 - c1) / (2 * (2 * c2 - c1 - c3) || 1)
+  const refinedLag = bestLag + shift
+  const freq = audioctx24.sampleRate / refinedLag
+  return { freq, clarity: bestCorr, db }
+}
+
+function xcorrAt(buf, lag) {
+  let N = buf.length, c = 0, ss1 = 0, ss2 = 0
+  for (let i = 0; i < N - lag; i++) {
+    c += buf[i] * buf[i + lag]
+    ss1 += buf[i] * buf[i]
+    ss2 += buf[i + lag] * buf[i + lag]
+  }
+  return c / Math.sqrt(ss1 * ss2 || 1)
+}
+
+ 
+
+let scrollSpeed = 5
+let frameDuration = 1000 / 60;
+let activeLabels = []
+function pushNote(noteObj) {
+  if (!noteObj) return
+  if (noteObj.dur < MIN_NOTE_MS) return
+  const shiftedF = noteObj.f * Math.pow(2, semitoneShift / 12)
+  music[1].notes.push([shiftedF, noteObj.start - startTs, noteObj.dur, 0.5, 1])
+  const label = quantize(shiftedF)
+  if (label) {
+    activeLabels.push({
+      text: label.name + label.oct,
+      freq: noteObj.f / Math.pow(2, semitoneShift / 12) ,
+      ticks: 30
+    })
+  }
+}
+
+function drawSpectrogram() {
+  if (!analyser) return
+  const bufferLength = analyser.frequencyBinCount
+  const data = new Uint8Array(bufferLength)
+  analyser.getByteFrequencyData(data)
+  const h = canvas2.height, w = canvas2.width
+  const scroll = scrollSpeed
+  const imgData = ctx2.getImageData(scroll, 0, w - scroll, h)
+  ctx2.putImageData(imgData, 0, 0)
+  const sr = audioctx24.sampleRate
+  const fMin = 300, fMax = 3000
+  for (let y = 0; y < h; y++) {
+    const frac = y / h
+    const f = fMin + (1 - frac) * (fMax - fMin)
+    const idx = Math.round(f * bufferLength / (sr / 2))
+    if (idx >= 0 && idx < bufferLength) {
+      const val = data[idx]
+      ctx2.fillStyle = `hsl(${240 - val * 240 / 255},100%,50%)`
+      ctx2.fillRect(w - scroll - 30, y, scroll, 1) 
+    }
+  }
+  const barW = 30
+  ctx2.fillStyle = "black"
+  ctx2.fillRect(w - barW, 0, barW, h)
+  ctx2.font = "14px sans-serif"
+  ctx2.textAlign = "center"
+  ctx2.textBaseline = "middle"
+  activeLabels.forEach(l => {
+    const alpha = (l.ticks / 30) ** 2
+    const frac = (l.freq - fMin) / (fMax - fMin)
+    const y = (1 - frac) * h
+    ctx2.fillStyle = `rgba(255,255,255,${alpha})`
+    ctx2.fillText(l.text, w - barW / 2, y)
+    l.ticks--
+  })
+  activeLabels = activeLabels.filter(l => l.ticks > 0)
+}
+
+
+
+let lastDrawnNote = null
+
+function loop() {
+  if (isRecording3) {
+    drawSpectrogram()
+
+    const { freq, db } = detectPitch()
+let q = null
+if (freq && db >= sensitivityDb) {
+  const shiftedFreq = freq * Math.pow(2, semitoneShift / 12)
+  q = quantize(shiftedFreq)
+}
+
+    if (q) {
+      stableBuf.push(q)
+      if (stableBuf.length > STABLE_N) stableBuf.shift()
+      const same = stableBuf.every(x => x && x.name === stableBuf[0].name && x.oct === stableBuf[0].oct)
+      if (!currentNote && same) {
+        currentNote = { name: q.name, oct: q.oct, f: q.f }
+        currentStart = performance.now()
+        silenceStreak = 0
+        pendingNote = null
+      } else if (currentNote && (currentNote.name !== q.name || currentNote.oct !== q.oct) && same) {
+        if (!pendingNote) {
+          pendingNote = { name: q.name, oct: q.oct, f: q.f }
+          pendingSince = performance.now()
+        } else if (performance.now() - pendingSince > CHANGE_HOLD_MS) {
+          const now = performance.now()
+          pushNote({ f: currentNote.f, start: currentStart, dur: now - currentStart })
+          currentNote = pendingNote
+          currentStart = now
+          pendingNote = null
+        }
+      } else {
+        pendingNote = null
+        silenceStreak = 0
+      }
+    } else {
+      stableBuf = []
+      pendingNote = null
+      silenceStreak++
+      if (currentNote && silenceStreak >= SILENCE_N) {
+        const now = performance.now()
+        pushNote({ f: currentNote.f, start: currentStart, dur: now - currentStart })
+        currentNote = null
+      }
+    }
+  }
+  if (!loopRunning) return;
+  
+  setTimeout(function(){ loop() }, frameDuration);
+}
+let loopRunning = false;
+
+document.getElementById('btnRec2').onclick = async () => {
+  await audioctx24.resume()
+  await initMic()
+  isRecording3 = true
+  music[1].notes = []
+  currentNote = null
+  startTs = performance.now()
+  stableBuf = []
+  silenceStreak = 0
+  pendingNote = null
+  ctx2.clearRect(0, 0, canvas2.width, canvas2.height)
+  document.getElementById('btnRec2').disabled = true
+  document.getElementById('btnStop2').disabled = false
+  if (!loopRunning) {
+	loopRunning = true
+	loop()
+}
+}
+
+document.getElementById('btnStop2').onclick = () => {
+	 
+	   startTs = 0
+  isRecording3 = false
+  if (currentNote) {
+    const now = performance.now()
+    pushNote({ f: currentNote.f, start: currentStart, dur: now - currentStart })
+    currentNote = null
+  }
+  document.getElementById('btnRec2').disabled = false
+  document.getElementById('btnStop2').disabled = true
+}
+
+document.getElementById('btnExport2').onclick = () => {
+  const blob = new Blob([JSON.stringify(music)], { type: 'application/octet-stream' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'music.mm3'
+  a.click()
+  URL.revokeObjectURL(url)
+  if (location.href.startsWith("file:///")) {
+	NativeJava.DownloadText(JSON.stringify(music), "music.mm3");
+}
+}
+function convertToFruityBox(mm3) {
+  		const notes = mm3["1"].notes;
+  		notes.sort((a, b) => a[1] - b[1]);
+  		const tempo = parseFloat(document.getElementById("tempoData").value)||200 ;
+  		const ticksPerBeat = 8;
+  		const beatsPerBar = 8;
+  		const ticksPerBar = ticksPerBeat * beatsPerBar;
+  		const msPerTick = 60000 / tempo / ticksPerBeat;
+  		const channels = [];
+  		function createEmptyChannel(numPatterns) {
+  const patterns = Array.from({ length: numPatterns }, () => ({ notes: [] }));
+  const sequence = [...Array(numPatterns).keys()];
+return {
+	type: "pitch",
+	name: "triangle",
+	instruments: [{
+		type: "chip",
+		volume: 0,
+		eqFilter: [],
+		eqFilterType: false,
+		eqSimpleCut: 10,
+		eqSimplePeak: 0,
+		eqSubFilters0: [],
+		effects: [],
+		fadeInSeconds: 0,
+		fadeOutTicks: 48,
+		wave: "triangle",
+		envelopes: []
+	}],
+	patterns: patterns,
+	sequence: sequence,
+	octaveScrollBar: 0
+};
+}
+function hasOverlap(existingNotes, startTick, endTick) {
+  			return existingNotes.some(note => {
+  				const nStart = note.points[0].tick;
+  				const nEnd = note.points[1].tick;
+  				return (startTick < nEnd && endTick > nStart);
+});
+}
+let maxEndTick = 0;
+for (const [freq, startMs, lenMs] of notes) {
+	let msLEg = 500;
+if (document.getElementById("TypeSelect").value == "A")  {
+	msLEg = parseInt(lenMs / 6)
+}else if (document.getElementById("TypeSelect").value == "B") {
+	msLEg = parseInt(lenMs / 8)
+}else if ( !isNaN(document.getElementById("TypeSelect").value) ) {
+	msLEg = parseInt(document.getElementById("TypeSelect").value)
+}
+const clippedLenMs = Math.max(40, msLEg);
+const absEndTick = Math.round((startMs + clippedLenMs) / msPerTick);
+  if (absEndTick > maxEndTick) maxEndTick = absEndTick;
+}
+const numPatterns = Math.ceil(maxEndTick / ticksPerBar)+1;
+  		for (const [freq, startMs, lenMs] of notes) {
+  			const absStartTick = Math.round(startMs / msPerTick);
+let msLEg=500;
+if (document.getElementById("TypeSelect").value == "A") {
+	msLEg = parseInt(lenMs / 6)
+} else if (document.getElementById("TypeSelect").value == "B") {
+	msLEg = parseInt(lenMs / 8)
+} else if (!isNaN(document.getElementById("TypeSelect").value)) {
+	msLEg = parseInt(document.getElementById("TypeSelect").value)
+}
+const clippedLenMs = Math.max(40, msLEg );
+const absEndTick = Math.round((startMs + clippedLenMs) / msPerTick);
+  			const patternIndex = Math.floor(absStartTick / ticksPerBar);
+  			const startTick = absStartTick % ticksPerBar;
+  			let endTick = absEndTick % ticksPerBar;
+if (endTick <= startTick) {
+	endTick = startTick + 1;
+	if (endTick > ticksPerBar) endTick = ticksPerBar; 
+}
+const pitch = freqToPitchIndex(freq);
+ if (pitch === null) continue;
+  			let placed = false;
+  			for (let c = 0; c <= channels.length; c++) {
+  				if (channels[c] === undefined) channels[c] = createEmptyChannel(numPatterns);
+  				const pattern = channels[c].patterns[patternIndex];
+  				if (!hasOverlap(pattern.notes, startTick, endTick)) {
+  					pattern.notes.push({
+  						pitches: [pitch],
+  						points: [
+  							{ tick: startTick, pitchBend: 0, volume: 100, forMod: false },
+  							{ tick: endTick, pitchBend: 0, volume: 100, forMod: false }
+  						],
+  						continuesLastPattern: false
+  					});
+  					placed = true;
+  					break;
+  				}
+  			}
+if (!placed) {
+	const newChan = createEmptyChannel(numPatterns);
+	channels.push(newChan);
+	const pattern = newChan.patterns[patternIndex];
+	pattern.notes.push({
+		pitches: [pitch],
+		points: [
+			{ tick: startTick, pitchBend: 0, volume: 100, forMod: false },
+			{ tick: endTick, pitchBend: 0, volume: 100, forMod: false }
+		],
+		continuesLastPattern: false
+	});
+}
+}
+  		return {
+  			name: "FruitySong",
+  			format: "FruityBox",
+  			version: 5,
+  			scale: "Free",
+  			key: "C",
+  			introBars: 0,
+  			loopBars: 2,
+  			beatsPerBar,
+  			ticksPerBeat,
+  			beatsPerMinute: tempo,
+  			reverb: 0,
+  			masterGain: 1,
+  			compressionThreshold: 1,
+  			limitThreshold: 1,
+  			limitDecay: 4,
+  			limitRise: 4000,
+  			limitRatio: 1,
+  			compressionRatio: 1,
+  			layeredInstruments: false,
+  			patternInstruments: false,
+  			channels
+  		};
+  	}
+  	
+  	function freqToPitchIndex(freq) {
+  		const midi = 69 + 12 * Math.log2(freq / 440);
+  		const pitch = Math.round(midi - 12);
+  		if (pitch < 0 || pitch > 95*2) return null;
+  		return pitch;
+  	}
+  	
+document.getElementById('btnExport3').onclick = () => {
+	let fruitybox=convertToFruityBox(music)
+	let	jsonfull=JSON.stringify(fruitybox, null, 2)
+	const blob = new Blob([jsonfull], { type: 'application/octet-stream' })
+	const url = URL.createObjectURL(blob)
+	const a = document.createElement('a')
+	a.href = url
+	a.download = 'fruit.json'
+	a.click()
+	URL.revokeObjectURL(url)
+	if (location.href.startsWith("file:///")) {
+		NativeJava.DownloadText(jsonfull, "fruit.json");
+	}
+}
+
+document.getElementById('btnPlay2').onclick = () => playMusic1(music)
+
+ 
+async function playTone3(audioCTX2, frequency, duration, volume, customInstrument, volumeEasing=1) {
+	return new Promise(resolve => {
+		 
+		const sampleRate = audioCTX2.sampleRate;
+		const frameCount = sampleRate * (((duration+500) / 1000));
+		const buffer = audioCTX2.createBuffer(1, frameCount, sampleRate);
+		const data = buffer.getChannelData(0);
+		const waveformLength = audiobuff.length;
+		for (let i = 0; i < frameCount; i++) {
+			let time = i / sampleRate;
+			let amplitude = volume;
+			if (volumeEasing === 1) {
+				amplitude *= Math.exp(-5 * time / ((duration+500) / 1000)) ;
+			} else if (volumeEasing > 1) {
+				amplitude *= 1 - Math.exp(-5 * time / (((duration+500) / 1000) * volumeEasing));
+			}
+			let wavePosition = (i * frequency * waveformLength / sampleRate) % waveformLength;
+			let index = Math.floor(wavePosition);
+			let nextIndex = (index + 1) % waveformLength;
+			let frac = wavePosition - index;
+			let sample = audiobuff[index] * (1 - frac) + audiobuff[nextIndex] * frac;
+			data[i] = amplitude * sample;
+		}
+		const source = audioCTX2.createBufferSource();
+		source.buffer = buffer;
+		source.connect(audioCTX2.destination);
+		playingSources.push(source);
+		source.start();
+		const keyId = Object.keys(frequencies).find(k => Math.abs(frequencies[k] - frequency ) < 1);
+		if (keyId) document.getElementById(keyId)?.classList.add('active');
+		setTimeout(function() {
+			if (keyId) document.getElementById(keyId)?.classList.remove('active');
+		}, 200)
+		source.onended = () => {
+			resolve();
+		};
+	});
+}
+function playMusic1(score) {
+  timeouts.forEach(t => clearTimeout(t))
+  timeouts = []
+  playingSources2.forEach(s => { try { s.stop() } catch (e) {} })
+  playingSources2 = []
+  if (playing) { playing = false; return }
+  playing = true
+  const notes = score[1].notes.slice()
+  const tempo = score[1].tempo || score.tempo || 1
+  for (const n of notes) {
+    const [hz, offset, dur, vol] = n
+    const t = setTimeout(() => {
+      if (!playing) return
+      playTone3(audioctx24, hz, dur / tempo, vol,0,1).then(() => {})
+    }, offset / tempo)
+    timeouts.push(t)
+  }
+  if (notes.length) {
+    const last = notes[notes.length - 1]
+    const total = (last[1] + last[2]) / tempo
+    const endT = setTimeout(() => { playing = false }, total + 50)
+    timeouts.push(endT)
+  } else {
+    playing = false
+  }
+}
+
+document.getElementById('fileInput').addEventListener('change', async e => {
+  const file = e.target.files[0]
+  if (!file) return
+  try {
+    const arrayBuffer = await file.arrayBuffer()
+    const audioBuf = await audioctx24.decodeAudioData(arrayBuffer)
+    analyser = audioctx24.createAnalyser()
+    analyser.fftSize = 1024
+    const src = audioctx24.createBufferSource()
+    src.buffer = audioBuf
+    src.connect(analyser)
+    const proc = audioctx24.createScriptProcessor(1024, 1, 1)
+    src.connect(proc)
+    proc.connect(audioctx24.destination)
+    startTs = performance.now()
+    stableBuf = []
+    currentNote = null
+    proc.onaudioprocess = () => {
+      const { freq, db } = detectPitch()
+      let q = null
+if (freq && db >= sensitivityDb) {
+  const shiftedFreq = freq * Math.pow(2, semitoneShift / 12)
+  q = quantize(shiftedFreq)
+}
+
+      if (q) {
+        stableBuf.push(q)
+        if (stableBuf.length > STABLE_N) stableBuf.shift()
+        const same = stableBuf.every(x => x && x.name === stableBuf[0].name && x.oct === stableBuf[0].oct)
+        if (!currentNote && same) {
+          currentNote = { name: q.name, oct: q.oct, f: q.f }
+          currentStart = performance.now()
+        } else if (currentNote && (currentNote.name !== q.name || currentNote.oct !== q.oct) && same) {
+          const now = performance.now()
+          music[1].notes.push([currentNote.f, currentStart - startTs, now - currentStart, 0.5, 1])
+          currentNote = { name: q.name, oct: q.oct, f: q.f }
+          currentStart = now
+        }
+      } else {
+        if (currentNote) {
+          silenceStreak++
+          if (silenceStreak >= SILENCE_N) {
+            const now = performance.now()
+            music[1].notes.push([currentNote.f, currentStart - startTs, now - currentStart, 0.5, 1])
+            currentNote = null
+            silenceStreak = 0
+          }
+        }
+      }
+    }
+    src.start()
+  } catch (err) {}
+})
+</script>
+</details>
+
+
+
+<h2>Melody Maker</h2>
+ <details>
+ 	
+ 	
+  <div style="color:black; user-select: none;  background:white; min-height:600px">
+    duration:
+<select id="durationL">
+  <option value="500">500</option>
+  <option value="1000">1000</option>
+  <option value="1500">1500</option>
+  <option value="2000">2000</option>
+  <option value="2500">2500</option>
+  <option value="3000">3000</option>
+</select>
+<br>
+<button id="startRecordingButton">start recording</button>
+<button id="stopRecordingButton" disabled>stop recording</button>
+Import music <input type="file" id="ImportMusic" accept=".mm3">
+<button onclick="playMusic(music)">play recorded music</button>
+<button onclick="recordreset()">reset record</button>
+<button onclick="saveAsBlob()">SAVE as mm3</button>
+<button onclick="removefrombuttonstext()">notext</button>
+  Octaves: <input type="number" id="octaves" value="3" min="1" max="7">
+  Start Octave: <input type="number" id="startOctave" value="3" min="0" max="8">
+  
+  <button onclick="generateKeyboard()">Build Keyboard</button>
+  <br>
+<label><input type="checkbox" id="metronomeToggle"> Hear Metronome</label>
+Metronome Time (ms): <input type="number" style="width:60px" id="metronomeTime" value="4000" min="100">
+
+<label>Tempo (BPM): <input type="number" id="bpmInput" value="120" min="1" max="1000"></label>
+<select  id="MetronomeMode" >
+	<option value="0">Hear Metronome After Pattern</option>
+	<option value="1">Hear Metronome After 1 Bar</option>
+</select> 
+<button onclick="calculateMetronome()">Calculate Metronome Time</button>
+
+  <br><br>
+  Keyboard Buffer 
+  <form id="waveInputsContainer">
+  	<input type="number" class="wave-input" onkeydown="handleWaveInput(event)"></form>
+<div class="keyboard" id="keyboardContainer">
+</div>
+ 
+  </div>
+<script>
+let metronomeInterval = null;
+function calculateMetronome() {
+  const bpm = parseFloat(document.getElementById("bpmInput").value);
+  const beatsPerBar = 8;
+  if (isNaN(bpm) || bpm <= 0 || isNaN(beatsPerBar) || beatsPerBar <= 0) {
+    alert("Please enter valid BPM and beats per bar.");
+    return;
+  }
+  let beatDuration = 60000 / bpm*beatsPerBar;
+  if(document.getElementById("MetronomeMode").value==1){
+  	beatDuration = 60000 / bpm;
+  }
+  document.getElementById("metronomeTime").value = Math.round(beatDuration);
+}
+
+function playMetronomeClick() {
+  const osc = audioCTX2.createOscillator();
+  const gain = audioCTX2.createGain();
+  osc.frequency.value = 1000;
+  gain.gain.value = 0.1;
+
+  osc.connect(gain);
+  gain.connect(audioCTX2.destination);
+
+  osc.start();
+  osc.stop(audioCTX2.currentTime + 0.05);
+}
+
+function startMetronome() {
+  const time = parseInt(document.getElementById("metronomeTime").value);
+  if (isNaN(time) || time < 50) return;
+
+  metronomeInterval = setInterval(() => {
+    playMetronomeClick();
+  }, time);
+}
+
+function stopMetronome() {
+  if (metronomeInterval) {
+    clearInterval(metronomeInterval);
+    metronomeInterval = null;
+  }
+}
+
+ 
+
+function blobToBase642(blob) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			const base64data = reader.result.split(',')[1];
+			resolve(base64data);
+		};
+		reader.onerror = reject;
+		reader.readAsDataURL(blob);
+	});
+}
+
+let isPlaying=false;
+let playingSources=[];
+let activeTimeouts=[]
+function setupKeyEvents() {
+  const keys = document.querySelectorAll('.key');
+  keys.forEach(key => {
+    key.onmousedown = () => {
+      key.classList.add('active');
+      const id = key.id;
+      const frequency = frequencies[id];
+      if (frequency) {
+        playSound(frequency);
+        if (isRecording) {
+          recordedNotes.push([frequency, performance.now() - startTime, parseFloat(document.getElementById('durationL').value), 0.5, 1]);
+        }
+      }
+    };
+    key.onmouseup = key.onmouseleave = () => {
+      key.classList.remove('active');
+    };
+  });
+}
+function generateKeyboard() {
+  const container = document.getElementById("keyboardContainer");
+  container.innerHTML = '';
+  const whiteNotes = ['c', 'd', 'e', 'f', 'g', 'a', 'h'];
+  const blackNotes = ['c#', 'd#', null, 'f#', 'g#', 'a#', null];
+  const baseFrequencies = {
+    'c': 261.63,
+    'c#': 277.18,
+    'd': 293.66,
+    'd#': 311.13,
+    'e': 329.63,
+    'f': 349.23,
+    'f#': 369.99,
+    'g': 392.00,
+    'g#': 415.30,
+    'a': 440.00,
+    'a#': 466.16,
+    'h': 493.88,
+  };
+  const octaves = parseInt(document.getElementById("octaves").value);
+  const startOctave = parseInt(document.getElementById("startOctave").value);
+  let keyIndex = 1;
+  let posX = 0;
+  for (let octave = startOctave; octave < startOctave + octaves; octave++) {
+    for (let i = 0; i < whiteNotes.length; i++) {
+      const note = whiteNotes[i];
+      const freq = baseFrequencies[note] * Math.pow(2, octave - 4);
+      const white = document.createElement("div");
+      white.className = "key white-key";
+      white.id = `key${keyIndex}`;
+      white.innerText = note ;
+      white.style.left = `${posX}px`;
+      white.style.position = 'absolute';
+      container.appendChild(white);
+      frequencies[`key${keyIndex}`] = freq;
+      keyIndex++;
+      posX += 50;
+    }
+  }
+  keyIndex = 1;
+  posX = 0;
+  for (let octave = startOctave; octave < startOctave + octaves; octave++) {
+    for (let i = 0; i < blackNotes.length; i++) {
+      const black = blackNotes[i];
+      if (!black) {
+        posX += 50;
+        continue;
+      }
+      const freq = baseFrequencies[black] * Math.pow(2, octave - 4);
+      const blackKey = document.createElement("div");
+      blackKey.className = "key black-key";
+      blackKey.id = `key${keyIndex + 1000}`;
+      blackKey.style.left = `${posX + 35}px`;
+      blackKey.style.position = 'absolute';
+      container.appendChild(blackKey);
+      frequencies[`key${keyIndex + 1000}`] = freq;
+      keyIndex++;
+      posX += 50;
+    }
+  }
+  setupKeyEvents();
+}
+  const audioCTX2 = new (window.AudioContext || window.webkitAudioContext)();
+  const frequencies = {
+ 
+  };
+generateKeyboard()
+  let startTime = 0;  
+  let isRecording = false;
+  let recordedNotes = [];
+  function recordreset(){
+    recordedNotes = [];
+    audioCTX2.currentTime = 0;
+  }
+let audiobuff = [0,0, 0.5 , 0.5,]; 
+function handleWaveInput(event) {
+  if (event.key === "Enter") {
+  	event.preventDefault();
+    const newInput = document.createElement("input");
+    newInput.type = "number";
+    newInput.className = "wave-input";
+    newInput.onkeydown = handleWaveInput;
+    document.getElementById("waveInputsContainer").appendChild(newInput);
+    newInput.focus();
+    updateWaveArray();
+  }else if ((event.key === "Delete" || event.key === "Backspace") && event.target.value === "") {
+	const inputs = document.querySelectorAll(".wave-input");
+	if (inputs.length > 1) {
+		event.preventDefault();
+		event.target.remove();
+		updateWaveArray();
+	}
+}
+ else {
+    setTimeout(updateWaveArray, 0);
+  }
+}
+function updateWaveArray() {
+  audiobuff = Array.from(document.querySelectorAll(".wave-input"))
+    .map(inp => parseFloat(inp.value) || 0);
+}
+function loadWaveInputsFromArray() {
+  const container = document.getElementById("waveInputsContainer");
+  container.innerHTML = ''; 
+  audiobuff.forEach(value => {
+    const input = document.createElement("input");
+    input.type = "number";
+    input.className = "wave-input";
+    input.value = value;
+    input.onkeydown = handleWaveInput;
+    container.appendChild(input);
+    
+  });
+  updateWaveArray();
+}
+loadWaveInputsFromArray()
+function playSound(frequency) {
+  const sampleRate = audioCTX2.sampleRate;
+  let duration = parseFloat(document.getElementById('durationL').value);
+  let volume = 0.5;
+  let volumeEasing = 1;
+  let frameCount = sampleRate * (duration / 1000);
+  let buffer = audioCTX2.createBuffer(1, frameCount, sampleRate);
+  let data = buffer.getChannelData(0);
+  let waveformLength = audiobuff.length;
+  for (let i = 0; i < frameCount; i++) {
+    let time = i / sampleRate;
+    let amplitude = volume;
+    if (volumeEasing === 1) {
+      amplitude *= Math.exp(-5 * time / (duration / 1000));
+    } else if (volumeEasing > 1) {
+      amplitude *= 1 - Math.exp(-5 * time / ((duration / 1000) * volumeEasing));
+    }
+    let wavePosition = (i * frequency * waveformLength / sampleRate) % waveformLength;
+    let index = Math.floor(wavePosition);
+    let nextIndex = (index + 1) % waveformLength;
+    let frac = wavePosition - index;
+    let sample = audiobuff[index] * (1 - frac) + audiobuff[nextIndex] * frac;
+    data[i] = amplitude * sample;
+  }
+  let source = audioCTX2.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audioCTX2.destination);
+  source.start();
+}
+ 
+  document.getElementById('startRecordingButton').addEventListener('click', () => {
+    isRecording = true;
+    startTime = performance.now();
+    recordedNotes = [];
+if (document.getElementById("metronomeToggle").checked) {
+	startMetronome();
+} else {
+	stopMetronome();
+}
+    document.getElementById('startRecordingButton').disabled = true;
+    document.getElementById('stopRecordingButton').disabled = false;
+  });
+  document.getElementById('stopRecordingButton').addEventListener('click', () => {
+    isRecording = false;
+    
+    document.getElementById('startRecordingButton').disabled = false;
+    document.getElementById('stopRecordingButton').disabled = true;
+    music[1].notes = recordedNotes.map(note => {
+      const [frequency, startTime, duration, volume, volumeEasing] = note;
+      return [frequency, startTime, duration, volume, volumeEasing];
+    });
+    stopMetronome();
+  });
+  function saveAsBlob() {
+    const blob = new Blob([JSON.stringify(music)], { type: 'application/octet-stream' });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'music.mm3';
+    a.click();
+    URL.revokeObjectURL(url);
+    
+if (location.href.startsWith("file:///")) {
+	NativeJava.DownloadText( JSON.stringify(music) , "music.mm3");
+}
+    
+  }
+  function removefrombuttonstext() {
+    const pianoKeys = document.querySelectorAll('.key');
+    pianoKeys.forEach(key => {
+      key.innerText = "";
+    });
+  }
+  async function playTone(audioCTX2, frequency, duration, volume, customInstrument, volumeEasing) {
+  return new Promise(resolve => {
+    const sampleRate = audioCTX2.sampleRate;
+    const frameCount = sampleRate * (duration / 1000);
+    const buffer = audioCTX2.createBuffer(1, frameCount, sampleRate);
+    const data = buffer.getChannelData(0);
+    const waveformLength = audiobuff.length;
+    for (let i = 0; i < frameCount; i++) {
+      let time = i / sampleRate;
+      let amplitude = volume;
+      if (volumeEasing === 1) {
+        amplitude *= Math.exp(-5 * time / (duration / 1000));
+      } else if (volumeEasing > 1) {
+        amplitude *= 1 - Math.exp(-5 * time / ((duration / 1000) * volumeEasing));
+      }
+      let wavePosition = (i * frequency * waveformLength / sampleRate) % waveformLength;
+      let index = Math.floor(wavePosition);
+      let nextIndex = (index + 1) % waveformLength;
+      let frac = wavePosition - index;
+      let sample = audiobuff[index] * (1 - frac) + audiobuff[nextIndex] * frac;
+      data[i] = amplitude * sample;
+    }
+    const source = audioCTX2.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCTX2.destination);
+    playingSources.push(source);
+    source.start();
+    const keyId = Object.keys(frequencies).find(k => Math.abs(frequencies[k] - frequency) < 1);
+if (keyId) document.getElementById(keyId)?.classList.add('active');
+
+setTimeout(function(){
+	if (keyId) document.getElementById(keyId)?.classList.remove('active');
+},200)
+
+source.onended = () => {
+	resolve();
+};
+  });
+}
+  async function playSection(audioCTX2, sectionId) {
+  const section = music[sectionId];
+  const { notes, instrument, nextSection, runallnotes } = section;
+  const tempo = section.tempo || music.tempo;
+
+  if (runallnotes) {
+    const promises = notes.map(([hz, timeout, length, volume, volumeEasing]) => {
+      return new Promise(resolve => {
+        const t = setTimeout(() => {
+          if (!isPlaying) return resolve();
+          playTone(audioCTX2, hz, length / tempo, volume, instrument, volumeEasing).then(resolve);
+        }, timeout / tempo);
+        activeTimeouts.push(t);
+      });
+    });
+    await Promise.all(promises);
+  } else {
+    for (const note of notes) {
+      if (!isPlaying) break;
+      const [hz, timeout, length, volume, volumeEasing] = note;
+      await playTone(audioCTX2, hz, length / tempo, volume, instrument, volumeEasing);
+      if (!isPlaying) break;
+      await new Promise(resolve => {
+        const t = setTimeout(() => resolve(), timeout / tempo);
+        activeTimeouts.push(t);
+      });
+    }
+  }
+
+  if (nextSection !== null && isPlaying) {
+    await playSection(audioCTX2, nextSection);
+  }
+}
+
+async function playMusic(name) {
+  const playButton = document.querySelector('button[onclick^="playMusic"]');
+  playingSources.forEach(src => src.stop());
+  playingSources = [];
+  activeTimeouts.forEach(timeout => clearTimeout(timeout));
+  activeTimeouts = [];
+  if (isPlaying) {
+    isPlaying = false;
+    playButton.textContent = 'play recorded music';
+    return;
+  }
+  isPlaying = true;
+  playButton.textContent = 'pause recorded music';
+
+  const runSections = name.run;
+  for (let sectionId of runSections) {
+    if (!isPlaying) break;
+    await playSection(audioCTX2, sectionId);
+  }
+
+  isPlaying = false;
+  playButton.textContent = 'play recorded music';
+}
+
+
+  var music = {
+    tempo: 1,  
+    run: [1],  
+    1: {
+      notes: [],
+      instrument: 'square',
+      nextSection: null,
+      runallnotes: 1
+    }
+  };
+document.getElementById("ImportMusic").addEventListener("change", function (event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const importedMusic = JSON.parse(e.target.result);
+      if (importedMusic && typeof importedMusic === 'object') {
+        music = importedMusic;
+        alert("Loaded !");
+      } else {
+        alert("Error loading");
+      }
+    } catch (err) {
+      alert("Error:  " + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+</script>
+
+
+
+
+   <h2>MM3 TO BEEPBOX JSON</h2>
+   input mode <select id="TypeSelect">
+	<option value="200">250</option>
+	<option value="500">500</option>
+	<option value="A">defined/6</option>
+	<option value="B">defined/8</option>
+</select>
+  tempo: <input id="tempoData" type="text" value="120">
+  <input type="file" id="ConverterBox" accept=".mm3">
+  <button id="convertBtn">Convert</button>
+  <script>
+  
+  function blobToBase642(blob) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			const base64data = reader.result.split(',')[1];
+			resolve(base64data);
+		};
+		reader.onerror = reject;
+		reader.readAsDataURL(blob);
+	});
+}
+  
+  	document.getElementById("convertBtn").addEventListener("click", () => {
+  		const ConverterBox = document.getElementById("ConverterBox");
+  		if (!ConverterBox.files.length) return;
+  		
+  		const reader = new FileReader();
+  		reader.onload = function(e) {
+  			const mm3 = JSON.parse(e.target.result);
+  			const fruitybox = convertToFruityBox(mm3);
+  			let	jsonfull=JSON.stringify(fruitybox, null, 2)
+  			const blob = new Blob([jsonfull], { type: "application/json" });
+  			const url = URL.createObjectURL(blob);
+  			const a = document.createElement("a");
+  			a.href = url;
+  			a.download = "fruitybox.json";
+  			a.click();
+  			URL.revokeObjectURL(url);
+  			
+if (location.href.startsWith("file:///")) {
+	NativeJava.DownloadText( jsonfull , "fruitybox.json");
+}
+  			
+  		};
+  		reader.readAsText(ConverterBox.files[0]);
+  	});
+  	 
+  	function convertToFruityBox(mm3) {
+  		const notes = mm3["1"].notes;
+  		notes.sort((a, b) => a[1] - b[1]);
+  		const tempo = parseFloat(document.getElementById("tempoData").value)||200 ;
+  		const ticksPerBeat = 8;
+  		const beatsPerBar = 8;
+  		const ticksPerBar = ticksPerBeat * beatsPerBar;
+  		const msPerTick = 60000 / tempo / ticksPerBeat;
+  		const channels = [];
+  		function createEmptyChannel(numPatterns) {
+  const patterns = Array.from({ length: numPatterns }, () => ({ notes: [] }));
+  const sequence = [...Array(numPatterns).keys()];
+return {
+	type: "pitch",
+	name: "triangle",
+	instruments: [{
+		type: "chip",
+		volume: 0,
+		eqFilter: [],
+		eqFilterType: false,
+		eqSimpleCut: 10,
+		eqSimplePeak: 0,
+		eqSubFilters0: [],
+		effects: [],
+		fadeInSeconds: 0,
+		fadeOutTicks: 48,
+		wave: "triangle",
+		envelopes: []
+	}],
+	patterns: patterns,
+	sequence: sequence,
+	octaveScrollBar: 0
+};
+}
+function hasOverlap(existingNotes, startTick, endTick) {
+  			return existingNotes.some(note => {
+  				const nStart = note.points[0].tick;
+  				const nEnd = note.points[1].tick;
+  				return (startTick < nEnd && endTick > nStart);
+});
+}
+let maxEndTick = 0;
+for (const [freq, startMs, lenMs] of notes) {
+	let msLEg = 500;
+if (document.getElementById("TypeSelect").value == "A")  {
+	msLEg = parseInt(lenMs / 6)
+}else if (document.getElementById("TypeSelect").value == "B") {
+	msLEg = parseInt(lenMs / 8)
+}else if ( !isNaN(document.getElementById("TypeSelect").value) ) {
+	msLEg = parseInt(document.getElementById("TypeSelect").value)
+}
+const clippedLenMs = Math.max(40, msLEg);
+const absEndTick = Math.round((startMs + clippedLenMs) / msPerTick);
+  if (absEndTick > maxEndTick) maxEndTick = absEndTick;
+}
+const numPatterns = Math.ceil(maxEndTick / ticksPerBar)+1;
+  		for (const [freq, startMs, lenMs] of notes) {
+  			const absStartTick = Math.round(startMs / msPerTick);
+let msLEg=500;
+if (document.getElementById("TypeSelect").value == "A") {
+	msLEg = parseInt(lenMs / 6)
+} else if (document.getElementById("TypeSelect").value == "B") {
+	msLEg = parseInt(lenMs / 8)
+} else if (!isNaN(document.getElementById("TypeSelect").value)) {
+	msLEg = parseInt(document.getElementById("TypeSelect").value)
+}
+const clippedLenMs = Math.max(40, msLEg );
+const absEndTick = Math.round((startMs + clippedLenMs) / msPerTick);
+  			const patternIndex = Math.floor(absStartTick / ticksPerBar);
+  			const startTick = absStartTick % ticksPerBar;
+  			let endTick = absEndTick % ticksPerBar;
+if (endTick <= startTick) {
+	endTick = startTick + 1;
+	if (endTick > ticksPerBar) endTick = ticksPerBar; 
+}
+const pitch = freqToPitchIndex(freq);
+ if (pitch === null) continue;
+  			let placed = false;
+  			for (let c = 0; c <= channels.length; c++) {
+  				if (channels[c] === undefined) channels[c] = createEmptyChannel(numPatterns);
+  				const pattern = channels[c].patterns[patternIndex];
+  				if (!hasOverlap(pattern.notes, startTick, endTick)) {
+  					pattern.notes.push({
+  						pitches: [pitch],
+  						points: [
+  							{ tick: startTick, pitchBend: 0, volume: 100, forMod: false },
+  							{ tick: endTick, pitchBend: 0, volume: 100, forMod: false }
+  						],
+  						continuesLastPattern: false
+  					});
+  					placed = true;
+  					break;
+  				}
+  			}
+if (!placed) {
+	const newChan = createEmptyChannel(numPatterns);
+	channels.push(newChan);
+	const pattern = newChan.patterns[patternIndex];
+	pattern.notes.push({
+		pitches: [pitch],
+		points: [
+			{ tick: startTick, pitchBend: 0, volume: 100, forMod: false },
+			{ tick: endTick, pitchBend: 0, volume: 100, forMod: false }
+		],
+		continuesLastPattern: false
+	});
+}
+}
+  		
+
+
+
+  		return {
+  			name: "FruitySong",
+  			format: "FruityBox",
+  			version: 5,
+  			scale: "Free",
+  			key: "C",
+  			introBars: 0,
+  			loopBars: 2,
+  			beatsPerBar,
+  			ticksPerBeat,
+  			beatsPerMinute: tempo,
+  			reverb: 0,
+  			masterGain: 1,
+  			compressionThreshold: 1,
+  			limitThreshold: 1,
+  			limitDecay: 4,
+  			limitRise: 4000,
+  			limitRatio: 1,
+  			compressionRatio: 1,
+  			layeredInstruments: false,
+  			patternInstruments: false,
+  			channels
+  		};
+  	}
+  	
+  	function freqToPitchIndex(freq) {
+  		const midi = 69 + 12 * Math.log2(freq / 440);
+  		const pitch = Math.round(midi - 12);
+  		if (pitch < 0 || pitch > 95*2) return null;
+  		return pitch;
+  	}
+  </script>
+  
+
+ 
+ </details>
+
+
+ <h2>Custom Themes</h2>
+<details>
+ 
+  <div class="menu">
+    <label>Theme Name:</label>
+    <input id="varname2" type="text">
+    <label>Your Css Theme:</label>
+    <input id="cssInput" >
+    <button id="generateButton2" disabled>Create</button>
+  </div>
+  <div id="themeList"></div>
+  <div></div>
+ 
+
+<script>
+function createStorage(dbName = "myDB", storeName = "store") {
+  const dbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(dbName, 1);
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(storeName)) {
+        db.createObjectStore(storeName);
+      }
+    };
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+  async function save(slot, data) {
+    const db = await dbPromise;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([storeName], "readwrite");
+      const store = tx.objectStore(storeName);
+      const req = store.put(data, slot);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+ async function remove(slot) {
+ 	const db = await dbPromise;
+  	return new Promise((resolve, reject) => {
+  		const tx = db.transaction([storeName], "readwrite");
+	  	const store = tx.objectStore(storeName);
+  		const req = store.delete(slot);
+  		req.onsuccess = () => resolve();
+		  req.onerror = () => reject(req.error);
+  	});
+  }
+  function load(slot, callback) {
+  dbPromise.then(db => {
+    const tx = db.transaction([storeName], "readonly");
+    const store = tx.objectStore(storeName);
+    const req = store.get(slot);
+    req.onsuccess = () => callback(req.result ?? null);
+    req.onerror = () => callback(null);
+  }).catch(() => callback(null));
+}
+  return { save, load, remove , dbPromise};
+}
+THEMESDB=createStorage("Themes","themes")
+
+ 
+ 
+function renderFileList2() {
+	const list = document.getElementById('themeList');
+	list.innerHTML = '';
+	Object.keys(CustomThemes).forEach(id => {
+		const div = document.createElement('div');
+		div.className = 'file-item';
+		div.id = `file-${id}`;
+		const span = document.createElement('span');
+		span.textContent = id;
+		const btn1 = document.createElement('button');
+  btn1.textContent = 'copy';
+		const btn = document.createElement('button');
+		btn.textContent = 'X';
+		btn.onclick = () => {
+			delete CustomThemes[id];
+			  THEMESDB.remove(id);
+			document.getElementById(`file-${id}`).remove();
+		};
+		btn1.onclick = () => {
+  document.getElementById(`cssInput`).value=CustomThemes[id];
+  document.getElementById(`varname2`).value=id;
+  };
+		div.appendChild(span);
+		div.appendChild(btn1);
+		div.appendChild(btn);
+		list.appendChild(div);
+	});
+}
+document.getElementById('cssInput').addEventListener('input', (event) => {
+	if(document.getElementById('cssInput').value!=="" && document.getElementById('varname2').value!=="" ){
+	document.getElementById('generateButton2').disabled = false;
+	}else{
+	document.getElementById('generateButton2').disabled = true;
+	}
+});
+document.getElementById('varname2').addEventListener('input', (event) => {
+	if (document.getElementById('cssInput').value !== "" && document.getElementById('varname2').value !== "") {
+		document.getElementById('generateButton2').disabled = false;
+	} else {
+		document.getElementById('generateButton2').disabled = true;
+	}
+});
+
+ 
+async function audioFileToBuffer(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  const channelData = audioBuffer.getChannelData(0);
+  return Array.from(channelData);
+}
+
+function blobToBase6422(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64data = reader.result.split(',')[1];
+      resolve(base64data);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+document.getElementById('generateButton2').addEventListener('click', async () => {
+  const name = document.getElementById('varname2').value;
+  const css = document.getElementById('cssInput').value;
+  CustomThemes[name] = css;
+  await THEMESDB.save(name, css); 
+  document.getElementById('varname2').value = '';
+  document.getElementById('cssInput').value = '';
+  document.getElementById('generateButton2').disabled = true;
+  renderFileList2();
+  loadFiles2()
+});
+
+async function loadFiles2() {
+  CustomThemes = {};
+  const db = await THEMESDB.dbPromise;
+  const tx = db.transaction(["themes"], "readonly");
+  const store = tx.objectStore("themes");
+  const req = store.openCursor();
+
+  req.onsuccess = (event) => {
+    const cursor = event.target.result;
+    if (cursor) {
+      CustomThemes[cursor.key] = cursor.value;
+      cursor.continue();
+    } else {
+     	updateThemes()
+      renderFileList2(); 
+    }
+  };
+}
+
+setTimeout(loadFiles2,800)
+
+</script>
+</details>
+
+ 
 </div>
