@@ -1,8 +1,8 @@
-<html ondblclick="document.documentElement.requestFullscreen()" >
+ <html ondblclick="document.documentElement.requestFullscreen()" >
 <head>
   <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
   <title>Document</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   	<style>
 		html {
 			width: 100vw;
@@ -30,7 +30,6 @@
 </body>
  
 <script>
-let CustomThemes={};
 function createStorage(dbName = "myDB", storeName = "store") {
   const dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);
@@ -79,23 +78,7 @@ function createStorage(dbName = "myDB", storeName = "store") {
   return { save, load, remove , dbPromise};
 }
 THEMESDB=createStorage("Themes","themes")
-async function loadFiles2() {
-	CustomThemes = {};
-	const db = await THEMESDB.dbPromise;
-	const tx = db.transaction(["themes"], "readonly");
-	const store = tx.objectStore("themes");
-	const req = store.openCursor();
-	req.onsuccess = (event) => {
-		const cursor = event.target.result;
-		if (cursor) {
-			CustomThemes[cursor.key] = cursor.value;
-			cursor.continue();
-		} else {
-			 updateThemes()
-		}
-	};
-}
-setTimeout(loadFiles2,800)
+ 
 </script>
  
 
@@ -105,20 +88,14 @@ setTimeout(loadFiles2,800)
     <script src="./select2.min.js" defer></script>
 
 
-<script src="./samples2.js" defer></script>
-<script src="./calmsounds1.js" defer></script>
-<script src="./samplesofchillsounds.js" defer></script>
-<script src="./samples.js" defer></script>
-<script src="./test.js" defer></script>
-<script src="./rawsamples.js" defer></script>
-<script src="./sample1.js" defer></script>
-<script src="./fnfsamples.js" defer></script>
-<script src="./mysamples.js" defer></script>
-<script src="./standarddrumsamples.js" defer></script>
-	       
+
 	        <script src="./beepbox_player.js" defer></script>
 
 </html>
+
+
+
+ 
 
 
 
