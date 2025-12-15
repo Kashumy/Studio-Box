@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en" ondblclick="document.documentElement.requestFullscreen()">
+<head>
+
+
+    <link rel="icon" type="image/png" sizes="192x192" href="./favico.png">
+ 
+    <script   src="./lame.min.js" defer></script>
+    <script src="./jquery-3.4.1.min.js" defer></script>
+    <link href="./select2.min.css" rel="stylesheet" />
+    <script src="./select2.min.js" defer></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="./jszip.min.js" type="text/javascript" charset="utf-8"></script>
+
+ 
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FruityBox DAW</title>
+    <meta name="application-name" content="Fruity Box" />
+    <meta name="apple-mobile-web-app-title" content="Paandora's Box">
+	<meta name="description" content="FruityBox Box is an online DAW for sketching and sharing your music." />
+    <meta name="keywords" content="chiptune, instrumental, music, song, melody, composition, tool, free, square wave, NES, NSF, JummBox, jummbox, BeepBox, beepbox, Slarmoo, FruityBox " />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#444" />
+    <meta name="msapplication-TileColor" content="#603cba" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon_32.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link href="https://fonts.googleapis.com/css?family=B612" rel="stylesheet" media="none" onload="if (this.media != 'all') this.media='all';" /> <!-- this is a trick to load CSS asynchronously. -->
+    <style type="text/css">
+
+        html {
+            background: var(--editor-background, black);
+            overflow-x: hidden;
+            font-size: large;
+             
+            font-family: 'B612', sans-serif;
+            line-height: 1.3;
+        }
+ 
+
+#plugins-content {
+	margin: 0px;
+	overflow-x: hidden;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	align-content: center;
+}
+#plugins-content * {
+	color: var(--secondary-text, #999) !important;
+}
+#introduction{
+	color: var(--primary-text, #999) !important;
+}
+button{
+ background:var(--ui-widget-background, #444);
+ color:var(--primary-text, black);
+ padding:4px;
+ border:none; outline:none; border-radius: 5px;
+ margin:1px;
+}
+button:disabled{
+  background:color-mix(in srgb, var(--ui-widget-background, #444) 70%, black);
+  color:#777;
+  cursor:not-allowed;
+}
+
+input[type="number"] {
+ background: var(--editor-background, black);
+ color: var(--primary-text, black);
+ padding: 2px;
+ border: 1px solid var(--input-box-outline, black);
+ border-radius: 5px;
+ margin: 1px;
+ width: 60px;
+}
+input[type="text"] {
+ background: var(--editor-background, black);
+ color: var(--primary-text, black);
+ padding: 2px;
+ border: 1px solid var(--input-box-outline, black);
+ border-radius: 5px;
+ margin: 1px;
+ width: 60px;
+}
+input[type="file"]::file-selector-button {
+ background: var(--ui-widget-background, #222);
+ color: var(--primary-text, white);
+ border: 1px solid var(--input-box-outline, black);
+ border-radius: 6px;
+ padding: 6px 12px;
+ margin-right: 8px;
+ cursor: pointer;
+ transition: background 0.2s, transform 0.1s;
+}
+
+input[type="file"]::file-selector-button:hover {
+ background: var(--primary-hover, #444);
+}
+
+input[type="file"]::file-selector-button:active {
+ transform: scale(0.97);
+}
+ 
+
+select {
+ background: var(--editor-background, black);
+ color: var(--primary-text, black);
+ padding: 4px;
+ border: 2px solid var(--input-box-outline, black);
+ border-radius: 5px;
+ margin: 1px;
+ width: 60px;
+}
+        body {
+            margin: auto;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            align-content: center;
+        }
+
+        #beepboxEditorContainer {
+            min-height: 645px;
+            overflow: auto;
+            background: var(--editor-background, black);
+            width: 100%;
+			max-width: 710px;
+            padding-left: 30px;
+            padding-right: 30px;
+        }
+
+        #text-content {
+            overflow: auto;
+            background: var(--editor-background, black);
+            width: 100%;
+			max-width: 710px;
+            padding-left: 30px;
+            padding-right: 30px;
+        }
+
+        h1 {
+            font-size: 1.7rem;
+            text-align: center;
+            margin-top: 0.5em;
+            margin-bottom: 0.5em;
+            -webkit-text-stroke-width: 0;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            text-align: center;
+            margin-top: 0.5em;
+            margin-bottom: 0.5em;
+            -webkit-text-stroke-width: 0;
+        }
+
+        .centerDiv {
+			margin: 0px auto;
+		}
+
+        a {
+            color: var(--link-accent, #98f);
+        }
+
+        .donation form {
+            display: inline;
+        }
+
+        .donation input[type="submit"] {
+            -webkit-appearance: none;
+            background: none;
+            border: none;
+            font-family: inherit;
+            font-size: inherit;
+            color: var(--link-accent, #98f);
+            text-decoration: underline;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+        }
+		
+ 
+            .column-container {
+				width: 710px;
+                display: flex;
+				gap: 25px;
+            }
+
+            .instructions-column {
+				min-width: 0;
+            }
+
+            .twitter-column {
+                width: 300px;
+				flex-shrink: 0;
+            }
+        }
+		     @media (max-width: 710px) {
+            body {
+                width: 100%;
+            }
+
+            p, .donation {
+                margin: 1em 0.5em;
+            }
+
+            .column-container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head> 
+ 
+<script  src="./calmsounds1.js" defer></script>
+<script  src="./samplesofchillsounds.js" defer></script>
+<script  src="./test.js" defer></script>
+<script  src="./rawsamples.js" defer></script>
+<script  src="./sample1.js" defer></script>
+<script  src="./mysamples.js" defer></script> 
+ 
+ 
+ 
+ 
+<body>
+
+    <div id="beepboxEditorContainer">
+        <noscript>
+            Sorry, FruityBox requires a JavaScript-enabled browser.
+        </noscript>
+    </div>
+    <div id="text-content">
+        <section>  
+
+            <h1>
+<font class="fbox" >Fruity Box</font>
+<script> document.querySelectorAll('.fbox')[0].style.color = Math.random()<0.05 ? 'white' : 'hsl('+Math.floor(Math.random()*360)+',100%,50%)' </script>
+<span id="jummboxPlant" style=" color:#62a13b"></span>
+            </h1>
+			
+			<strong id="introduction">
+				<center><t id="randomtext">FruityBox That's because i like all of fruit's</t></font></center>
+            </strong>
+			
+			<p>
+                <center><font color="#ed908a">FruityBox is distribution  of <a href="https://slarmoo.github.io/slarmoosbox/website" target="_blank">Slarmoo's box</a> </font></center>
+			</p>
+
+			<p>
+				<font color="#edbebb">FruityBox was made to create music with more customisation !</font>
+			</p>
+			<p>
+				<font color="#edbebb">The original program beepbox made by <font color="#adeeeb">John Neski</font> </font> <br>
+				<font color="#edbebb">Mod is maded by <font color="#adeeeb">Kashumy Github/Krystian</font> </font>
+            </p>
+            <p id="introduction">
+             FruityBox is a tool for making and sharing your music. Make sure that your volume is turned up, then press the play button! <br>
+             Open Plugins in preferences i adds a bunch of things like Offline samples , Whistle to notes , Keyboard , Mini Audio Editors ETC
+            </p>
+			<p style="text-align: center;"></p>
+            <p>
+  
+            </p>
+        </section>
+
+        <div class="column-container">
+            <main class="instructions-column">
+ 
+ 
+            </main>
+ 
+        </div>
+        </div>
+<script>
+let randomarr2=["≽(◕ ᴗ ◕)≼", "≽(ᴗ _ ᴗ)≼", "≽(⌐ _ ⌐)≼", "≽(ᵕ ‿ ᵕ)≼", "♥️","💚","🌺","🌷","🌹","💐","🌿","🌾","🌵","🍀","☘️","🌲","🌳","🪨","⛰️","✨","🍉","🍑","🍊","🍒","🍓","🥭","🍍","🍌","🌽","🍋","🥑","🫐","🍇","🚴","👋","💀","`\\(`^`)/`","☕","🎤"]
+let randomarr=["Wacky Box!",
+"FruityBox That's because of the fruit's inside of it","You can 'Make A Music' ",
+"Lol I installed Ransomware :D","WHO READS DESCRIPTION",
+"Im a chiptune do you?",
+"Added Some Weird Changes But thats no matter.",
+"Did you know ol version of FruityBox is less responsible with json songs from slarmoo LOL",
+"...",
+" Is Your JavaScript Enabled ? ",
+"I just putted here random useless long text just to make you read this for no reason . Also did you know you can disable showdescription in preferences",
+"Please don't feed the synthesizer",
+"404 Melody Not Found","808 Error not found ",
+"You can use samples!",
+"I accidentally made dubstep...",
+"Forgot to save json music 😬",
+"Maded Earrape on accident ..",
+"W",
+"Please, for the love of God, do not increase the master gain and lower the second ratio.",
+"Why are you reading this?",
+"Too much bass is never enough",
+"Now featuring at least one sound",
+"The melody you made is now sent to space. Lol im joking this is not consistent with user privacy ",
+"Composed entirely in a caffeine frenzy",
+"Making music with the blender is Crazy.",
+"We don't steal your data ! Just Like in the other beepbox mods",
+ "Dont make repetitive patterns you can make better song by instant changing it."
+]
+document.getElementById("randomtext").innerText= randomarr[parseInt(Math.random()*randomarr.length)]
+
+document.getElementById("jummboxPlant").innerText= randomarr2[parseInt(Math.random()*randomarr2.length)]
+</script>
+    <script type="text/javascript">
+
+ 
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|android|ipad|playbook|silk/i.test(navigator.userAgent)) {
+             
+        }
+
+        function browserHasRequiredFeatures() {
+            "use strict";
+            if (window.AudioContext == undefined && window.webkitAudioContext == undefined) {
+                return false;
+            }
+
+            try {
+                eval("class T {}");
+                eval("const a = () => 0");
+                eval("for (const a of []);");
+            } catch (error) {
+                return false;
+            }
+
+            return true;
+        }
+
+        if (browserHasRequiredFeatures()) {
+            var fileref = document.createElement("script");
+            fileref.setAttribute("type", "text/javascript");
+            fileref.setAttribute("src", "beepbox_editor.js");
+            document.head.appendChild(fileref);
+        } else {
+            document.getElementById("beepboxEditorContainer").innerHTML = "Sorry, JummBox doesn't support your browser. Try a recent version of Chrome, Firefox, Edge, Safari, or Opera.";
+        }
+		if (/^#[1-6]/.test(location.hash)) {
+			document.getElementById("linkTo2_3").href += location.hash;
+		}
+		if (/^#[1-8]/.test(location.hash)) {
+			document.getElementById("linkTo3_0").href += location.hash;
+		}
+    </script>
+</body>
+</html>
+<script>
+ 
+function applyZoom() {
+      const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+      const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+      if (isMobile && isLandscape) {
+        document.body.style.zoom = "0.5";
+      } else {
+        document.body.style.zoom = "1";
+      }
+    }
+
+ 
+  
+</script>
+  
+ 
