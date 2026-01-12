@@ -30,7 +30,6 @@
 </body>
  
 <script>
-let CustomThemes={};
 function createStorage(dbName = "myDB", storeName = "store") {
   const dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);
@@ -79,23 +78,7 @@ function createStorage(dbName = "myDB", storeName = "store") {
   return { save, load, remove , dbPromise};
 }
 THEMESDB=createStorage("Themes","themes")
-async function loadFiles2() {
-	CustomThemes = {};
-	const db = await THEMESDB.dbPromise;
-	const tx = db.transaction(["themes"], "readonly");
-	const store = tx.objectStore("themes");
-	const req = store.openCursor();
-	req.onsuccess = (event) => {
-		const cursor = event.target.result;
-		if (cursor) {
-			CustomThemes[cursor.key] = cursor.value;
-			cursor.continue();
-		} else {
-			 updateThemes()
-		}
-	};
-}
-setTimeout(loadFiles2,800)
+ 
 </script>
  
 
@@ -104,9 +87,17 @@ setTimeout(loadFiles2,800)
     <link href="./select2.min.css" rel="stylesheet" defer/>
     <script src="./select2.min.js" defer></script>
 
+ <script src="./StudioSamples.js" defer></script>
+ <script src="./samples.js" defer></script>
+ <script src="./samples2.js" defer></script>
+ <script src="./samples3.js" defer></script>
+ <script src="./drumsamples.js" defer></script>
+ <script src="./wario_samples.js" defer></script>
+ <script src="./kirby_samples.js" defer></script>
+ <script src="./nintaribox_samples.js" defer></script>
+ <script src="./mario_paintbox_samples.js" defer></script>
 
-
-	        <script src="./beepbox_player.js" defer></script>
+	        <script src="./beepbox_player.js"></script>
 
 </html>
 

@@ -1,4 +1,7 @@
 if(typeof updateSampledWaves == "function"){ updateSampledWaves = function() {} } else { var updateSampledWaves = function() {} }
+function readSaved(inp) {
+	return inp;
+}
 let OFFLINE=1 
  const loadingScreen = document.createElement("div");
 loadingScreen.style.position = "fixed";
@@ -11,7 +14,24 @@ loadingScreen.style.justifyContent = "center";
 loadingScreen.style.alignItems = "center";
 loadingScreen.style.zIndex = "9999";
 loadingScreen.style.transition = "opacity 0.6s ease-in-out";
-
+let CustomThemes={};
+async function loadFiles2() {
+	CustomThemes = {};
+	const db = await THEMESDB.dbPromise;
+	const tx = db.transaction(["themes"], "readonly");
+	const store = tx.objectStore("themes");
+	const req = store.openCursor();
+	req.onsuccess = (event) => {
+		const cursor = event.target.result;
+		if (cursor) {
+			CustomThemes[cursor.key] = cursor.value;
+			cursor.continue();
+		} else {
+			updateThemes()
+		}
+	};
+}
+loadFiles2()
 const loadingText = document.createElement("div");
 loadingText.style.fontSize = "13px";
 loadingText.style.marginBottom = "6px";
@@ -179,12 +199,12 @@ let allfilesloaded = 0;
 
 const request = indexedDB.open("HyperBoxData", 1);
 request.onupgradeneeded = function(event) {
- db = event.target.result;
- db.createObjectStore("files", { keyPath: "id" });
+	db = event.target.result;
+	db.createObjectStore("files", { keyPath: "id" });
 };
-request.onsuccess = function(event) {
- db = event.target.result;
- loadFiles();
+request.onsuccess = function(event) { 
+	db = event.target.result;
+	loadFiles();
 };
 
 function saveBuffer(id, name, buffer, extradetune1, expression1) {
@@ -201,6 +221,37 @@ function deleteFile(id) {
 
 
 let pressPianoKey=function (){}
+
+let loadedBB = 0
+let pageloaded = 0
+
+const scripts = [
+ "./StudioSamples.js",
+ "./samples.js",
+ "./samples2.js",
+ "./samples3.js",
+ "./drumsamples.js",
+ "./wario_samples.js",
+ "./kirby_samples.js",
+ "./nintaribox_samples.js",
+ "./mario_paintbox_samples.js"
+];
+
+function loadScriptsSequentially() {
+    let promise = Promise.resolve();
+    scripts.forEach(src => {
+        promise = promise.then(() => new Promise(resolve => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = false; 
+            script.onload = () => resolve();
+            script.onerror = () => resolve();
+            document.head.appendChild(script);
+        }));
+    });
+    return promise;
+}
+
 function loadFiles() {
 	const transaction = db.transaction(["files"], "readonly");
 	const store = transaction.objectStore("files"); 
@@ -209,7 +260,8 @@ function loadFiles() {
 		const total = countRequest.result;
 		let loaded = 0;
 		const request = store.openCursor();
-		request.onsuccess = function(event) {
+		document.querySelector("body").style.display="flex"
+		request.onsuccess = async function(event) {
 			const cursor = event.target.result;
 			if (cursor) {
 				const file = cursor.value;
@@ -222,21 +274,45 @@ function loadFiles() {
 					expression: file.expression || 2.0,
 				};
 				loaded++;
-				loadingText.innerText = `Loading sample: ${file.name}`;
+				loadingText.innerText = `${file.name} `;
 				const percent = Math.round((loaded / total) * 100);
 				progressFill.style.width = percent + "%";
 				cursor.continue();
 			} else {
 				allfilesloaded = 1;
-				setTimeout(() => { loadingText.innerText = "All samples loaded successfully" }, 50);
-				RUNBEEPBOX()
-				updateSampledWaves()
-				setTimeout(() => {
+				
+				if(window.location.hash){
+				await loadScriptsSequentially();
+				}
+if (document.readyState !== "loading") {
+	setTimeout(() => {
+		loadingScreen.style.opacity = "0";
+		setTimeout(() => {
+			loadingScreen.style.display = "none";
+		}, 600);
+	}, 500);
+}
+				if(loadedBB==0){
+					if (document.readyState === "loading") {
+						setTimeout(() => { loadingText.innerText = "Loading Page" }, 50);
+     document.addEventListener('DOMContentLoaded', () => {
+      	setTimeout(() => { loadingText.innerText = "All samples loaded successfully" }, 50);
+      	setTimeout(() => {
 					loadingScreen.style.opacity = "0";
 					setTimeout(() => {
 						loadingScreen.style.display = "none";
 					}, 600);
 				}, 500);
+    	  RUNBEEPBOX()
+      });
+    }else{
+    setTimeout(() => { loadingText.innerText = "All samples loaded successfully" }, 50);
+				 RUNBEEPBOX()
+    }
+				} else if(loadedBB==1){
+				updateSampledWaves()
+				}
+				
 			}
 		};
 	};
@@ -398,19 +474,22 @@ function readBase64Int(str, index, digits) {
             });
         });
     }
-     function loadScript(url) {
-   const result = new Promise((resolve, reject) => {
-    if (!Config.willReloadForCustomSamples) {
-     const script = document.createElement("script");
-     script.src = url;
-     document.head.appendChild(script);
-     script.addEventListener("load", (event) => {
-      resolve();
-     });
-    }
-   });
-   return result;
-  } 
+ function loadScript(url) {
+ 	if (location.href.startsWith("file:///")) {
+ 		url = "file:///android_asset/WebView/" + url
+ 	}
+ 	const result = new Promise((resolve, reject) => {
+ 		if (!Config.willReloadForCustomSamples) {
+ 			const script = document.createElement("script");
+ 			script.src = url;
+ 			document.head.appendChild(script);
+ 			script.addEventListener("load", (event) => {
+ 				resolve();
+ 			});
+ 		}
+ 	});
+ 	return result;
+ }
      function loadBuiltInSamples(set) {
    const defaultIndex = 0;
    const defaultIntegratedSamples = Config.chipWaves[defaultIndex].samples;
@@ -504,13 +583,7 @@ function readBase64Int(str, index, digits) {
      sampleLoadingState.statusTable[chipWaveIndex] = 0;
      sampleLoadingState.urlTable[chipWaveIndex] = "legacySamples";
     }
-    loadScript("samples.js")
-     .then(() => loadScript("samples2.js"))
-     .then(() => loadScript("samples3.js"))
-     .then(() => loadScript("drumsamples.js"))
-     .then(() => loadScript("wario_samples.js"))
-     .then(() => loadScript("kirby_samples.js"))
-     .then(() => {
+
       const chipWaveSamples = [
        centerWave(kicksample),
        centerWave(snaresample),
@@ -594,7 +667,6 @@ function readBase64Int(str, index, digits) {
        sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
        chipWaveIndexOffset++;
       }
-     });
    }
    else if (set == 1) {
     const chipWaves = [
@@ -619,8 +691,7 @@ function readBase64Int(str, index, digits) {
      sampleLoadingState.statusTable[chipWaveIndex] = 0;
      sampleLoadingState.urlTable[chipWaveIndex] = "nintariboxSamples";
     }
-    loadScript("nintaribox_samples.js")
-     .then(() => {
+ 
       const chipWaveSamples = [
        centerWave(chronoperc1finalsample),
        centerWave(synthkickfmsample),
@@ -638,7 +709,6 @@ function readBase64Int(str, index, digits) {
        sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
        chipWaveIndexOffset++;
       }
-     });
    }
    else if (set == 2) {
     const chipWaves = [
@@ -670,8 +740,7 @@ function readBase64Int(str, index, digits) {
      sampleLoadingState.statusTable[chipWaveIndex] = 0;
      sampleLoadingState.urlTable[chipWaveIndex] = "marioPaintboxSamples";
     }
-    loadScript("mario_paintbox_samples.js")
-     .then(() => {
+    
       const chipWaveSamples = [
        centerWave(catpaintboxsample),
        centerWave(gameboypaintboxsample),
@@ -696,8 +765,110 @@ function readBase64Int(str, index, digits) {
        sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
        chipWaveIndexOffset++;
       }
-     });
+     
    }
+   else if (set == 3) { 
+
+
+  		const chipWaves = [
+  			{ name: "Realistic Piano", expression: 2, isPercussion: false, rootKey: 60 },
+  			{ name: "Acoustic Hi-Hat", expression: 2, isPercussion: false, rootKey: 60 },
+  			{ name: "Acoustic Snare", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "Acoustic Kick Shot", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "Octave Brass", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "House Drum Loop", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "Drum Kit", expression: 2,  isPercussion: false, rootKey: 60 },
+  			{ name: "Break Core Sample", expression: 2,   isPercussion: false, rootKey: 60 },
+  			{ name: "Aguda Keys", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "Jump Style Kick Drop", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "Chimer Keys", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "808 Shot", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "SQ2D", expression: 2,  isPercussion: false, rootKey: 60 },
+  			{ name: "GrittyKick", expression: 2,   isPercussion: true, rootKey: 60  },
+  		];
+  		sampleLoadingState.totalSamples += chipWaves.length;
+  		const startIndex = Config.rawRawChipWaves.length;
+
+for (const chipWave of chipWaves) {
+    const chipWaveIndex = Config.rawRawChipWaves.length;
+    const rootKey = chipWave.rootKey !== undefined ? chipWave.rootKey : 60;
+    const rawChipWave = {
+        index: chipWaveIndex,
+        name: chipWave.name,
+        expression: chipWave.expression,
+        isPercussion: chipWave.isPercussion,
+        isCustomSampled: true,
+        isCustomLoaded: true,
+        sampleRate: 44100,
+        rootKey: rootKey,
+        samples: defaultSamples
+    };
+
+    const rawRawChipWave = {
+        index: chipWaveIndex,
+        name: chipWave.name,
+        expression: chipWave.expression,
+        isPercussion: chipWave.isPercussion,
+        isCustomLoaded: true,
+        sampleRate: 44100,
+        isCustomSampled: true,
+        rootKey: rootKey,
+        samples: defaultSamples
+    };
+
+    const integratedChipWave = {
+        index: chipWaveIndex,
+        name: chipWave.name,
+        expression: chipWave.expression,
+        isPercussion: chipWave.isPercussion,
+        isCustomLoaded: true,
+        sampleRate: 44100,
+        rootKey: rootKey,
+        isCustomSampled: true,
+        samples: defaultIntegratedSamples
+    };
+
+    Config.rawRawChipWaves[chipWaveIndex] = rawRawChipWave;
+    Config.rawRawChipWaves.dictionary[chipWave.name] = rawRawChipWave;
+    Config.rawChipWaves[chipWaveIndex] = rawChipWave;
+    Config.rawChipWaves.dictionary[chipWave.name] = rawChipWave;
+    Config.chipWaves[chipWaveIndex] = integratedChipWave;
+    Config.chipWaves.dictionary[chipWave.name] = rawChipWave;
+
+    sampleLoadingState.statusTable[chipWaveIndex] = 0;
+    sampleLoadingState.urlTable[chipWaveIndex] = "studioSamples";
+}
+
+  		 
+  				const chipWaveSamples = [
+  					centerWave(RealisticPiano_mp3),
+  					centerWave(AcousticHihat_wav),
+  					centerWave(AcousticSnare1_wav),
+  					centerWave(AcousticKickShot_wav),
+  					centerWave(OctaveBrass_wav),
+  					centerWave(HouseDrumLoop_wav),
+  					centerWave(DrumKit_mp3),
+  					centerWave(BreakCore_mp3),
+  					centerWave(AgudaKey_wav),
+  					centerWave(JumpStyleKicks_wav),
+  					centerWave(ChimerKey_wav),
+  					centerWave(S808Shot_wav),
+  					centerWave(SQ2D_wav),
+  					centerWave(GrittyKick_wav),
+  				];
+  				let chipWaveIndexOffset = 0;
+  				for (const chipWaveSample of chipWaveSamples) {
+  					const chipWaveIndex = startIndex + chipWaveIndexOffset;
+  					Config.rawChipWaves[chipWaveIndex].samples = chipWaveSample;
+  					Config.rawRawChipWaves[chipWaveIndex].samples = chipWaveSample;
+  					Config.chipWaves[chipWaveIndex].samples = performIntegral(chipWaveSample);
+  					sampleLoadingState.statusTable[chipWaveIndex] = 1;
+  					sampleLoadingState.samplesLoaded++;
+  					sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
+  					chipWaveIndexOffset++;
+  				}
+  			
+  	}
    else {
     console.log("invalid set of built-in samples");
    }
@@ -814,6 +985,15 @@ function readBase64Int(str, index, digits) {
     Config.reverbRange = 32;
     Config.reverbDelayBufferSize = 16384;
     Config.reverbDelayBufferMask = _a$1.reverbDelayBufferSize - 1;
+    
+    Config.phaserMixRange = 32;
+Config.phaserFeedbackRange = 32;
+Config.phaserFreqRange = 32;
+Config.phaserMinFreq = 8.0;
+Config.phaserMaxFreq = 20000.0;
+Config.phaserMinStages = 0;
+Config.phaserMaxStages = 32;
+    
     Config.beatsPerBarMin = 1;
     Config.beatsPerBarMax = 64;
     Config.barCountMin = 1;
@@ -983,12 +1163,38 @@ Config.rawRawChipWaves = Config.rawChipWaves;
 async function updateAllSamples() {
 	updateSampledWaves()
 }
+function cleanMemoryBeforeNavigation() {
+	for (const key in filesMap) {
+		const obj = filesMap[key];
+		if (obj && obj.buffer) {
+			obj.buffer = null;
+		}
+		filesMap[key] = null;
+		delete filesMap[key];
+	}
+	filesMap = {};
+	if (Config) {
+		if (Config.rawChipWaves) {
+			for (let i = 0; i < Config.rawChipWaves.length; i++) {
+				Config.rawChipWaves[i] = null;
+			}
+		}
+		Config.rawChipWaves = [];
+		Config.chipWaves = [];
+		Config.firstIndexForSamplesInChipWaveList = 0;
+	}
+	isUpdatingSamples = false;
+	if (window.gc) window.gc();
+}
+window.addEventListener('popstate', function (event) {
+    cleanMemoryBeforeNavigation(event);
+});
 let isUpdatingSamples = false;
-updateSampledWaves = async function() {
+
+ updateSampledWaves = async function() {
 	if (!filesMap) return;
 	if (isUpdatingSamples) return;
 	isUpdatingSamples = true;
-	await Promise.resolve();
 	const existingNames = new Set(Config.rawChipWaves.map(s => s.name));
 	const newSamples = [];
 	
@@ -998,44 +1204,47 @@ updateSampledWaves = async function() {
 		if (!existingNames.has(entry.name)) {
 			const expression = entry.expression ? parseFloat(entry.expression) : 2;
 			const extraSampleDetune = entry.extradetune ? parseFloat(entry.extradetune) : 0;
-			const chipWaveIndex = Config.rawChipWaves.length + newSamples.length + 1;
-			let js = {}
-			if (!entry.rootNote) {
-				js = {
-					name: entry.name,
-					expression,
-					isSampled: true,
-					isPercussion: false,
-					extraSampleDetune,
-					samples: centerWave(entry.buffer)
-				}
-			} else {
-				js = {
-					name: entry.name,
-					expression,
-					isCustomSampled: true,
-					isCustomLoaded: true,
-					isPercussion: false,
-					sampleRate: 44100,
-					rootKey: parseFloat(entry.rootNote),
-					samples: centerWave(entry.buffer)
-				};
-			}
-			newSamples.push(js);
+			const chipWaveIndex = Config.rawChipWaves.length + newSamples.length+1;
+let js = {}
+if(!entry.rootNote){
+	
+ js = {
+ 	name: entry.name,
+ 	expression,
+ 	isSampled: true,
+ 	isPercussion: false,
+ 	extraSampleDetune,
+ 	samples: centerWave(readSaved(entry.buffer)) 
+ }
+ }else{
+ js = {
+  name: entry.name,
+  expression,
+  isCustomSampled: true ,
+  isCustomLoaded: true ,
+  isPercussion: false,
+  sampleRate: 44100,
+  rootKey:  parseFloat(entry.rootNote) , 
+  samples: centerWave(readSaved(entry.buffer))
+};
+}
+newSamples.push(js);
 		}
 	}
 	
 	if (newSamples.length > 0) {
 		Config.rawChipWaves = toNameMap([...Config.rawChipWaves, ...(newSamples)]);
-		Config.chipWaves = rawChipToIntegrated(Config.rawChipWaves)
+		Config.rawRawChipWaves = Config.rawChipWaves;
+		Config.chipWaves = rawChipToIntegrated(Config.rawChipWaves) 
 		isUpdatingSamples = false;
-	} else {
+	}else{
 		isUpdatingSamples = false;
 	}
 	Config.firstIndexForSamplesInChipWaveList = _a$1.chipWaves.length;
 }
  
-
+updateSampledWaves()
+loadedBB=1 
     Config.filterFreqStep = 1.0 / 4.0;
     Config.filterFreqRange = 34;
     Config.filterFreqReferenceSetting = 28;
@@ -1108,8 +1317,8 @@ updateSampledWaves = async function() {
         { name: "extraterrestrial", voices: 6, spread: 15.2, offset: -6, expression: 0.35, sign: 0.7 },
         { name: "bow", voices: 9, spread: 0.006, offset: 0, expression: 0.15, sign: 0.5 }
     ]);
-    Config.effectNames = ["reverb", "chorus", "panning", "distortion", "bitcrusher", "note filter", "echo", "pitch shift", "detune", "vibrato", "transition type", "chord type", "", "ring mod", "granular", "octave shift"];
-    Config.effectOrder = [2, 10, 11, 7, 8, 9, 5, 14, 3, 4, 1, 6, 0, 13, 15];
+    Config.effectNames = ["reverb", "chorus", "panning", "distortion", "bitcrusher", "note filter", "echo", "pitch shift", "detune", "vibrato", "transition type", "chord type", "", "ring mod", "granular", "octave shift", "phaser"];
+Config.effectOrder = [2, 10, 11, 7, 8, 9, 5, 14, 3, 4, 1, 6, 0, 13, 16, 15]; // every << 18 is how much bits you have to store in ser/deser effects
     Config.noteSizeMax = 6;
     Config.volumeRange = 50; 
     Config.volumeLogScale = 0.1428;
@@ -1144,7 +1353,7 @@ updateSampledWaves = async function() {
         { name: "monophonic", customInterval: false, arpeggiates: false, strumParts: 0, singleTone: true }
     ]);
     Config.maxChordSize = 9;
-    Config.operatorCount = 4;
+    Config.operatorCount = 4; 
     Config.maxPitchOrOperatorCount = Math.max(_a$1.maxChordSize, _a$1.operatorCount + 2);
     Config.algorithms = toNameMap([
         { name: "1←(2 3 4)", carrierCount: 1, associatedCarrier: [1, 1, 1, 1], modulatedBy: [[2, 3, 4], [], [], []] },
@@ -1410,16 +1619,13 @@ updateSampledWaves = async function() {
     Config.noiseInterval = 6;
     Config.pitchesPerOctave = 12;
     Config.drumCount = 12;
-    Config.pitchOctaves = 12;
+    Config.pitchOctaves = 9;
     Config.modCount = 6;
     Config.maxPitch = _a$1.pitchOctaves * _a$1.pitchesPerOctave;
 Config.maximumTonesPerChannel = _a$1.maxChordSize * 2;
-Config.justIntonationSemitones = Array.from(
-  { length: 16 - (-16) + 1 },
-  (_, i) => i - 16
-);
-Config.pitchShiftRange  = Config.justIntonationSemitones.length;   
-Config.pitchShiftCenter = Math.floor(16) 
+Config.justIntonationSemitones = [1.0 / 2.0, 8.0 / 15.0, 9.0 / 16.0, 3.0 / 5.0, 5.0 / 8.0, 2.0 / 3.0, 32.0 / 45.0, 3.0 / 4.0, 4.0 / 5.0, 5.0 / 6.0, 8.0 / 9.0, 15.0 / 16.0, 1.0, 16.0 / 15.0, 9.0 / 8.0, 6.0 / 5.0, 5.0 / 4.0, 4.0 / 3.0, 45.0 / 32.0, 3.0 / 2.0, 8.0 / 5.0, 5.0 / 3.0, 16.0 / 9.0, 15.0 / 8.0, 2.0].map(x => Math.log2(x) * Config.pitchesPerOctave);
+Config.pitchShiftRange = Config.justIntonationSemitones.length;
+Config.pitchShiftCenter = Config.pitchShiftRange >> 1;
 
 Config.detuneCenter = 200;
 Config.detuneMax = 400;
@@ -1524,44 +1730,46 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
     Config.bitcrusherQuantizationRange = 8;
     Config.maxEnvelopeCount = 16;
     Config.defaultAutomationRange = 13;
-     Config.instrumentAutomationTargets = toNameMap([
-    { name: "none", computeIndex: null, displayName: "none", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: null },
-    { name: "noteVolume", computeIndex: 0, displayName: "note volume", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: null },
-    { name: "pulseWidth", computeIndex: 2, displayName: "pulse width", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [6, 8] },
-    { name: "stringSustain", computeIndex: 3, displayName: "sustain", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [7] },
-    { name: "unison", computeIndex: 4, displayName: "unison", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [0, 5, 7, 9, 6, 2, 3, 4] },
-    { name: "operatorFrequency", computeIndex: 5, displayName: "fm# freq", perNote: true, interleave: true, isFilter: false, maxCount: _a$1.operatorCount + 2, effect: null, compatibleInstruments: [1, 11] },
-    { name: "operatorAmplitude", computeIndex: 11, displayName: "fm# volume", perNote: true, interleave: false, isFilter: false, maxCount: _a$1.operatorCount + 2, effect: null, compatibleInstruments: [1, 11] },
-    { name: "feedbackAmplitude", computeIndex: 17, displayName: "fm feedback", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [1, 11] },
-    { name: "pitchShift", computeIndex: 18, displayName: "pitch shift", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 7, compatibleInstruments: null },
-    { name: "detune", computeIndex: 19, displayName: "detune", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 8, compatibleInstruments: null },
-    { name: "vibratoDepth", computeIndex: 20, displayName: "vibrato depth", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 9, compatibleInstruments: null },
-    { name: "noteFilterAllFreqs", computeIndex: 1, displayName: "n. filter freqs", perNote: true, interleave: false, isFilter: true, maxCount: 1, effect: 5, compatibleInstruments: null },
-    { name: "noteFilterFreq", computeIndex: 21, displayName: "n. filter # freq", perNote: true, interleave: false, isFilter: true, maxCount: _a$1.filterMaxPoints, effect: 5, compatibleInstruments: null },
-    { name: "decimalOffset", computeIndex: 37, displayName: "decimal offset", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [6, 8] },
-    { name: "supersawDynamism", computeIndex: 38, displayName: "dynamism", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [8] },
-    { name: "supersawSpread", computeIndex: 39, displayName: "spread", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [8] },
-    { name: "supersawShape", computeIndex: 40, displayName: "saw↔pulse", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [8] },
-    { name: "panning", computeIndex: 41, displayName: "panning", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 2, compatibleInstruments: null },
-    { name: "distortion", computeIndex: 42, displayName: "distortion", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 3, compatibleInstruments: null },
-    { name: "bitcrusherQuantization", computeIndex: 43, displayName: "bitcrush", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 4, compatibleInstruments: null },
-    { name: "bitcrusherFrequency", computeIndex: 44, displayName: "freq crush", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 4, compatibleInstruments: null },
-    { name: "chorus", computeIndex: 45, displayName: "chorus", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 1, compatibleInstruments: null },
-    { name: "echoSustain", computeIndex: 46, displayName: "echo", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 6, compatibleInstruments: null },
-    { name: "reverb", computeIndex: 47, displayName: "reverb", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 0, compatibleInstruments: null },
-    { name: "arpeggioSpeed", computeIndex: 48, displayName: "arpeggio speed", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 11, compatibleInstruments: null },
-    { name: "ringModulation", computeIndex: 49, displayName: "ring mod", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 13, compatibleInstruments: null },
-    { name: "ringModulationHz", computeIndex: 50, displayName: "ring mod hz", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 13, compatibleInstruments: null },
-    { name: "granular", computeIndex: 51, displayName: "granular", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
-    { name: "grainFreq", computeIndex: 52, displayName: "grain freq", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
-    { name: "grainSize", computeIndex: 53, displayName: "grain size", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
-    { name: "grainRange", computeIndex: 54, displayName: "grain range", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
-    { name: "echoDelay", computeIndex: 55, displayName: "echo delay", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 6, compatibleInstruments: null },
-    
-    { name: "grainRange", computeIndex: 54, displayName: "grain range", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
-    
-    { name: "octaveShift", computeIndex: 56, displayName: "octave shift", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 15, compatibleInstruments: null },
-   ]);
+       Config.instrumentAutomationTargets = toNameMap([
+    	{ name: "none", computeIndex: null, displayName: "none", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: null },
+    	{ name: "noteVolume", computeIndex: 0, displayName: "note volume", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: null },
+    	{ name: "pulseWidth", computeIndex: 2, displayName: "pulse width", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [6, 8] },
+    	{ name: "stringSustain", computeIndex: 3, displayName: "sustain", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [7] },
+    	{ name: "unison", computeIndex: 4, displayName: "unison", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [0, 5, 7, 9, 6, 2, 3, 4] },
+    	{ name: "operatorFrequency", computeIndex: 5, displayName: "fm# freq", perNote: true, interleave: true, isFilter: false, maxCount: _a$1.operatorCount + 2, effect: null, compatibleInstruments: [1, 11] },
+    	{ name: "operatorAmplitude", computeIndex: 11, displayName: "fm# volume", perNote: true, interleave: false, isFilter: false, maxCount: _a$1.operatorCount + 2, effect: null, compatibleInstruments: [1, 11] },
+    	{ name: "feedbackAmplitude", computeIndex: 17, displayName: "fm feedback", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [1, 11] },
+    	{ name: "pitchShift", computeIndex: 18, displayName: "pitch shift", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 7, compatibleInstruments: null },
+    	{ name: "detune", computeIndex: 19, displayName: "detune", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 8, compatibleInstruments: null },
+    	{ name: "vibratoDepth", computeIndex: 20, displayName: "vibrato depth", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 9, compatibleInstruments: null },
+    	{ name: "noteFilterAllFreqs", computeIndex: 1, displayName: "n. filter freqs", perNote: true, interleave: false, isFilter: true, maxCount: 1, effect: 5, compatibleInstruments: null },
+    	{ name: "noteFilterFreq", computeIndex: 21, displayName: "n. filter # freq", perNote: true, interleave: false, isFilter: true, maxCount: _a$1.filterMaxPoints, effect: 5, compatibleInstruments: null },
+    	{ name: "decimalOffset", computeIndex: 37, displayName: "decimal offset", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [6, 8] },
+    	{ name: "supersawDynamism", computeIndex: 38, displayName: "dynamism", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [8] },
+    	{ name: "supersawSpread", computeIndex: 39, displayName: "spread", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [8] },
+    	{ name: "supersawShape", computeIndex: 40, displayName: "saw↔pulse", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [8] },
+    	{ name: "panning", computeIndex: 41, displayName: "panning", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 2, compatibleInstruments: null },
+    	{ name: "distortion", computeIndex: 42, displayName: "distortion", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 3, compatibleInstruments: null },
+    	{ name: "bitcrusherQuantization", computeIndex: 43, displayName: "bitcrush", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 4, compatibleInstruments: null },
+    	{ name: "bitcrusherFrequency", computeIndex: 44, displayName: "freq crush", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 4, compatibleInstruments: null },
+    	{ name: "chorus", computeIndex: 45, displayName: "chorus", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 1, compatibleInstruments: null },
+    	{ name: "echoSustain", computeIndex: 46, displayName: "echo", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 6, compatibleInstruments: null },
+    	{ name: "reverb", computeIndex: 47, displayName: "reverb", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 0, compatibleInstruments: null },
+    	{ name: "arpeggioSpeed", computeIndex: 48, displayName: "arpeggio speed", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 11, compatibleInstruments: null },
+    	{ name: "ringModulation", computeIndex: 49, displayName: "ring mod", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 13, compatibleInstruments: null },
+    	{ name: "ringModulationHz", computeIndex: 50, displayName: "ring mod hz", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 13, compatibleInstruments: null },
+    	{ name: "granular", computeIndex: 51, displayName: "granular", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
+    	{ name: "grainFreq", computeIndex: 52, displayName: "grain freq", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
+    	{ name: "grainSize", computeIndex: 53, displayName: "grain size", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
+    	{ name: "grainRange", computeIndex: 54, displayName: "grain range", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
+    	{ name: "echoDelay", computeIndex: 55, displayName: "echo delay", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 6, compatibleInstruments: null },
+    	{ name: "octaveShift", computeIndex: 18, displayName: "octave shift", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 15, compatibleInstruments: null }, //perNote: false, very important shit
+    	{ name: "phaserFreq", perNote: false, computeIndex: 57, displayName: "phaser freq", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
+    	{ name: "phaserMix", perNote: false, computeIndex: 58, displayName: "phaser", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
+    	{ name: "phaserFeedback", perNote: false, computeIndex: 59, displayName: "phaser feedback", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
+    	{ name: "phaserStages", perNote: false, computeIndex: 60, displayName: "phaser stages", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
+    	{ name: "function", perNote: false, computeIndex: 61, displayName: "function", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 17, compatibleInstruments: null },
+    ]);
     Config.operatorWaves = toNameMap([
         { name: "sine", samples: _a$1.sineWave },
         { name: "triangle", samples: _a$1.generateTriWave() },
@@ -1585,7 +1793,7 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
         { name: "99%", samples: _a$1.generateSquareWave(0.99) },
     ]);
     Config.barEditorHeight = 10; 
-   Config.modulators = toNameMap([
+  Config.modulators = toNameMap([
         { name: "none", pianoName: "None", maxRawVol: 6, newNoteVol: 6, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
             promptName: "No Mod Setting", promptDesc: ["No setting has been chosen yet, so this modulator will have no effect. Try choosing a setting with the dropdown, then click this '?' again for more info.", "[$LO - $HI]"] },
         { name: "song volume", pianoName: "Volume", maxRawVol: 100, newNoteVol: 100, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
@@ -1714,10 +1922,32 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
               },
         { name: "unisonSign", pianoName: "unisonSign", maxRawVol: Config.unisonSignMax*10, newNoteVol: 1, forSong: false, convertRealFactor: 0, maxIndex: 0,associatedEffect: 15, valueRealAdd: -(Config.unisonSignMax*5),   divider:5,  
         promptName: "Unison Sign", promptDesc: ["This automation is for unison sign as you can see it only work for custom unison "]
-              },
-        { name: "octave shift", pianoName: "Octave Shift", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
-            promptName: "Octave Shift", promptDesc: ["This setting controls the pitch offset of your instrument controls i by octaves, just like the octave shift slider.", "At $MID your instrument will have no octave shift'ed. This increases as you decrease toward $LO pitches (half-steps) at the low end, or increases towards +$HI pitches at the high end.", "[OVERWRITING] [$LO - $HI] [pitch]"] },
-    ]);
+              }, 
+         { name: "octave shift", pianoName: "Octave Shift", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+            promptName: "Octave Shift", promptDesc: ["This setting controls the pitch offset of your instrument controls i by octaves, just like the pitch shift slider but in octaves.", "At $MID your instrument will have no octave shift'ed. This increases as you decrease toward $LO pitches (half-steps) at the low end, or increases towards +$HI pitches at the high end.", "[OVERWRITING] [$LO - $HI] [pitch]"] },
+                { name: "phaser",
+            pianoName: "Phaser",
+            maxRawVol: Config.phaserMixRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Instrument Phaser",
+            promptDesc: ["This setting controls the Phaser Mix of your insturment, just like the Phaser slider.", "At $LO, your instrument will have no phaser. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "phaser frequency",
+            pianoName: "Phaser Frequency",
+            maxRawVol: Config.phaserFreqRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Phaser Frequency",
+            promptDesc: ["This setting controls the phaser frequency of your insturment, just like the phaser freq slider.", "At $LO, your instrument will have no phaser freq. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "phaser feedback",
+            pianoName: "Phaser Feedback",
+            maxRawVol: Config.phaserFeedbackRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Phaser Feedback",
+            promptDesc: ["This setting controls the phaser feedback of your insturment, just like the phaser feedback slider.", "At $LO, your instrument will have no phaser feedback. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "phaser stages",
+            pianoName: "Phaser Stages",
+            maxRawVol: Config.phaserMaxStages, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Phaser Stages",
+            promptDesc: ["This setting controls the number of phaser stages in your insturment, just like the phaser stages slider.", "At $LO, your instrument will have no phaser stages. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+         { name: "function", pianoName: "Function", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 17, maxIndex: 0,
+            promptName: "Function", promptDesc: ["This setting controls the buffer with custom algorithm you made. p is point it has p.v value and p.i index b[] is arraybuffer of realtime audio . safe() is safe function if buffer for example doesn't exist just returns 0", "[CURRENT BUFFER VALUE]  -> [§ALGORITHM]"] },
+    ]); 
     function centerWave(wave) {
         let sum = 0.0;
         for (let i = 0; i < wave.length; i++)
@@ -1956,6 +2186,7 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
         result.dictionary = dictionary;
         return result;
     }
+    
     function effectsIncludeTransition(effects) {
         return (effects & (1 << 10)) != 0;
     }
@@ -1998,9 +2229,15 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
     function effectsIncludeGranular(effects) {
         return (effects & (1 << 14)) != 0;
     }
-    function effectsIncludeOctaveShift(effects) {
-	return (effects & (1 << 15)) != 0;
-}
+    function effectsIncludeOctaveShift(effects) { 
+       	return (effects & (1 << 15)) != 0;
+    }
+    function effectsIncludePhaser(effects) { 
+      	return (effects & (1 << 16)) != 0;
+    }
+    function effectsIncludeFunction(effects) {
+        return (effects & (1 << 17)) != 0;
+    } 
     function calculateRingModHertz(sliderHz, sliderHzOffset = 0) {
         if (sliderHz == 0)
             return 0;
@@ -2740,7 +2977,7 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
     ColorConfig.colorLookup = new Map();
     ColorConfig.usesColorFormula = false;
     ColorConfig.defaultTheme = "slarmoosbox";
-   ColorConfig.themes = {
+     ColorConfig.themes = {
         "dark classic": ``,
         "dark competition": `
 				:root {
@@ -3330,6 +3567,4683 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
 			--disabled-note-secondary:  #447;
 		}
 	`,
+	        "Skeuomorphic": `
+		:root {
+			--page-margin: #020202;
+			--editor-background: #1e1e1e;
+			--hover-preview: white;
+			--playhead: rgba(255, 255, 255, 0.9);
+			--primary-text: white;
+			--secondary-text: #848484;
+			--inverted-text: black;
+			--text-selection: rgba(119,68,255,0.99);
+			--box-selection-fill: #044b94;
+			--loop-accent: #74f;
+			--link-accent: #98f;
+			--ui-widget-background: #444;
+			--ui-widget-focus: #555;
+			--pitch-background: #393e4f;
+			--tonic: #725491;
+			--fifth-note: #54547a;
+			--third-note: #3b4b71;
+			--white-piano-key: #eee;
+			--black-piano-key: #666;
+			--white-piano-key-text: #131200;
+			--black-piano-key-text: #fff;
+			--use-color-formula: false;
+			--pitch-channel-limit: 10;
+			--track-editor-bg-pitch: linear-gradient(#4b5164, #3e3f48);
+			--track-editor-bg-pitch-dim: linear-gradient(#3e3f48, #212530);
+			--track-editor-bg-noise: linear-gradient(#3d3535,#161313);
+			--track-editor-bg-noise-dim: linear-gradient(#161313,#0e0c0c);
+			--track-editor-bg-mod: linear-gradient(#283560,#0a101f);
+			--track-editor-bg-mod-dim: linear-gradient(#05080f,#0a101f);
+			--multiplicative-mod-slider: #606c9f;
+			--overwriting-mod-slider: #6850b5;
+			--indicator-primary: #9c64f7;
+			--indicator-secondary: #393e4f;
+			--select2-opt-group: #333;
+			--input-box-outline: #222;
+			--mute-button-normal: #dda85d;
+			--mute-button-mod: #886eae;
+			--mod-label-primary: #282840;
+			--mod-label-secondary-text: rgb(87, 86, 120);
+			--mod-label-primary-text: white;
+
+			--pitch1-secondary-channel: #bb1111;
+			--pitch1-primary-channel:   #ff5959;
+			--pitch1-secondary-note:    #7c0404;
+			--pitch1-primary-note:      #ffb6b6;
+		
+			--pitch2-secondary-channel: #bb5b11;
+			--pitch2-primary-channel:   #ffa159;
+			--pitch2-secondary-note:    #7c3804;
+			--pitch2-primary-note:      #ffd5b6;
+		
+			--pitch3-secondary-channel: #bba411;
+			--pitch3-primary-channel:   #ffe959;
+			--pitch3-secondary-note:    #7c6c04;
+			--pitch3-primary-note:      #fff5b6;
+		
+			--pitch4-secondary-channel: #88bb11;
+			--pitch4-primary-channel:   #cdff59;
+			--pitch4-secondary-note:    #587c04;
+			--pitch4-primary-note:      #e9ffb6;
+		
+			--pitch5-secondary-channel: #3ebb11;
+			--pitch5-primary-channel:   #85ff59;
+			--pitch5-secondary-note:    #247c04;
+			--pitch5-primary-note:      #c9ffb6;
+		
+			--pitch6-secondary-channel: #11bb2e;
+			--pitch6-primary-channel:   #59ff75;
+			--pitch6-secondary-note:    #047c18;
+			--pitch6-primary-note:      #b6ffc2;
+		
+			--pitch7-secondary-channel: #11bb77;
+			--pitch7-primary-channel:   #59ffbd;
+			--pitch7-secondary-note:    #047c4c;
+			--pitch7-primary-note:      #b6ffe2;
+		
+			--pitch8-secondary-channel: #11b5bb;
+			--pitch8-primary-channel:   #59f9ff;
+			--pitch8-secondary-note:    #04777c;
+			--pitch8-primary-note:      #b6fcff;
+		
+			--pitch9-secondary-channel: #116bbb;
+			--pitch9-primary-channel:   #59b1ff;
+			--pitch9-secondary-note:    #04437c;
+			--pitch9-primary-note:      #b6dcff;
+		
+			--pitch10-secondary-channel:#1826aa;
+			--pitch10-primary-channel:  #5161f6;
+			--pitch10-secondary-note:   #091370;
+			--pitch10-primary-note:     #adb4fd;
+		
+			--pitch11-secondary-channel:#4918aa;
+			--pitch11-primary-channel:  #8951f6;
+			--pitch11-secondary-note:   #2c0970;
+			--pitch11-primary-note:     #c8adfd;
+		
+			--pitch12-secondary-channel:#8818aa;
+			--pitch12-primary-channel:  #d051f6;
+			--pitch12-secondary-note:   #580970;
+			--pitch12-primary-note:     #ebadfd;
+		
+			--pitch13-secondary-channel:#aa188c;
+			--pitch13-primary-channel:  #f651d4;
+			--pitch13-secondary-note:   #70095b;
+			--pitch13-primary-note:     #fdadec;
+		
+			--pitch14-secondary-channel:#aa184d;
+			--pitch14-primary-channel:  #f6518d;
+			--pitch14-secondary-note:   #70092e;
+			--pitch14-primary-note:     #fdadca; 
+		
+			--noise1-secondary-channel: #6F6F6F;
+			--noise1-primary-channel:   #AAAAAA;
+			--noise1-secondary-note:    #A7A7A7;
+			--noise1-primary-note:      #E0E0E0;
+			--noise2-secondary-channel: #996633;
+			--noise2-primary-channel:   #DDAA77;
+			--noise2-secondary-note:    #CC9966;
+			--noise2-primary-note:      #F0D0BB;
+			--noise3-secondary-channel: #4A6D8F;
+			--noise3-primary-channel:   #77AADD;
+			--noise3-secondary-note:    #6F9FCF;
+			--noise3-primary-note:      #BBD7FF;
+			--noise4-secondary-channel: #7A4F9A;
+			--noise4-primary-channel:   #AF82D2;
+			--noise4-secondary-note:    #9E71C1;
+			--noise4-primary-note:      #D4C1EA;
+			--noise5-secondary-channel: #607837;
+			--noise5-primary-channel:   #A2BB77;
+			--noise5-secondary-note:    #91AA66;
+			--noise5-primary-note:      #C5E2B2;
+		--mod1-secondary-channel:   #339955;
+				--mod1-primary-channel:     #77fc55;
+				--mod1-secondary-note:      #77ff8a;
+				--mod1-primary-note:        #cdffee;
+				--mod2-secondary-channel:   #993355;
+				--mod2-primary-channel:     #f04960;
+				--mod2-secondary-note:      #f057a0;
+				--mod2-primary-note:        #ffb8de;
+				--mod3-secondary-channel:   #553399;
+				--mod3-primary-channel:     #8855fc;
+				--mod3-secondary-note:      #aa64ff;
+				--mod3-primary-note:	    #f8ddff;
+				--mod4-secondary-channel:   #a86436;
+				--mod4-primary-channel:     #c8a825;
+				--mod4-secondary-note:      #e8ba46;
+				--mod4-primary-note:        #fff6d3;
+			--disabled-note-primary:    #91879f;
+			--disabled-note-secondary:  #6a677a;
+		}
+		 
+		.channelBox {
+			--pitch1-primary-channel:  linear-gradient(#ff7777, #ff5959);
+			--pitch2-primary-channel:  linear-gradient(#ffaf71, #ffa159);
+			--pitch3-primary-channel:  linear-gradient(#ffee7c, #ffe959);
+			--pitch4-primary-channel:  linear-gradient(#d3fa7a, #cdff59);
+			--pitch5-primary-channel:  linear-gradient(#a4ff83, #85ff59);
+			--pitch6-primary-channel:  linear-gradient(#8aff9e, #59ff75);
+			--pitch7-primary-channel:  linear-gradient(#81ffcc, #59ffbd);
+			--pitch8-primary-channel:  linear-gradient(#59f9ff, #59f9ff);
+			--pitch9-primary-channel:  linear-gradient(#87c7ff, #59b1ff);
+			--pitch10-primary-channel: linear-gradient(#7a87ff, #5161f6);
+			--pitch11-primary-channel: linear-gradient(#a476ff, #8951f6);
+			--pitch12-primary-channel: linear-gradient(#df75ff, #d051f6);
+			--pitch13-primary-channel: linear-gradient(#ff75e3, #f651d4);
+			--pitch14-primary-channel: linear-gradient(#ff71a5, #f6518d);
+		
+			border-radius: 5px;
+			box-shadow: 0px 2px 2px 1px rgba(0, 0, 0, 0.2), 0px 0px 1px 1px rgba(0, 0, 0, 0.7), inset 0px -10px 20px 1px rgba(0, 0, 0, 0.1), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.1);
+		}
+		.channelBox {
+			border-radius: 5px;
+			box-shadow: 0px 2px 2px 1px rgba(0, 0, 0, 0.2), 0px 0px 1px 1px rgba(0, 0, 0, 0.7), inset 0px -10px 20px 1px rgba(0, 0, 0, 0.1), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.1);
+		}
+		
+		.channelBoxLabel {
+			--pitch1-primary-channel:   #ff5959;
+			--pitch2-primary-channel:   #ffa159;
+			--pitch3-primary-channel:   #ffe959;
+			--pitch4-primary-channel:   #cdff59;
+			--pitch5-primary-channel:   #85ff59;
+			--pitch6-primary-channel:   #59ff75;
+			--pitch7-primary-channel:   #59ffbd;
+			--pitch8-primary-channel:   #59f9ff;
+			--pitch9-primary-channel:   #59b1ff;
+			--pitch10-primary-channel:  #5161f6;
+			--pitch11-primary-channel:  #8951f6;
+			--pitch12-primary-channel:  #d051f6;
+			--pitch13-primary-channel:  #f651d4;
+			--pitch14-primary-channel:  #f6518d;
+		}
+		
+		body {
+			background-image: url('./skeuobg.png') !important;
+			background-repeat: no-repeat !important;
+			background-size: contain;
+			font-family: Arial, Helvetica, sans-serif;
+		}
+		
+		#beepboxEditorContainer, .track-area, .beepboxEditor, #text-content, div.noSelection {
+			background-color: #fff0 !important;
+		} 
+		
+		#pitchEditorBackground {
+			opacity: 0.5 !important;
+			filter: brightness(150%);
+		}
+		
+		svg#firstImage {
+			background-image: url('./skeuobg2.png') !important;
+		}
+		
+		#oscilascopeAll {
+			margin-left: auto;
+			margin-right: auto;
+			position: static;
+		}
+		 
+		.beepboxEditor,
+		.beepboxEditor select
+		{
+			text-shadow: 0px -1px 0px rgba(0, 0, 0, 0.5);
+		}
+		 
+		.beepboxEditor .piano-button {
+			text-shadow: none;
+		}
+		 
+		.beepboxEditor .prompt
+		{
+			background: radial-gradient(farthest-corner at 50% 0px, #2a2a2a, #1a1a1a) !important;
+		}
+		 
+		#beepboxEditorContainer {
+			background-color: rgba(0, 0, 0, 0) !important;
+		}
+		 
+		.beepboxEditor .trackAndMuteContainer {
+			text-shadow: none;
+		}
+		 
+		.beepboxEditor .loopEditor
+		{
+			--editor-background: rgba(0, 0, 0, 0.0) !important;
+		}
+		 
+		.beepboxEditor .muteEditor
+		{
+			--editor-background: #1e1e1e !important;
+		}
+		 
+		.beepboxEditor .pattern-area
+		{
+			--editor-background: rgba(0, 0, 0, 1) !important;
+		}
+		 
+		.beepboxEditor .trackContainer svg
+		{
+			--editor-background: #111 !important;
+		}
+		 
+		.beepboxEditor .muteEditor > :last-child {
+			--editor-background: rgba(0, 0, 0, 0) !important;
+		}
+		 
+		.beepboxEditor #octaveScrollBarContainer {
+			background-color: rgba(0, 0, 0, 0.3);
+		}
+		 
+		.beepboxEditor {
+			--track-editor-bg-pitch-dim: #1e1f28;
+		}
+		 
+		.beepboxEditor .muteButtonText {
+			transform: translate(0px, 1px) !important;
+			color: #777 !important;
+		}
+		 
+		.beepboxEditor .instrument-bar {
+			--text-color-lit: #eee;
+			--text-color-dim: #777;
+		}
+		 
+		.beepboxEditor .instrument-bar .selected-instrument {
+			color: rgba(255, 255, 255, 1) !important;
+			text-shadow: 0px 0px 4px var(--text-color-lit);
+		}
+		 
+		.beepboxEditor .instrument-bar .deactivated {
+			color: rgba(0, 0, 0, 1) !important;
+			text-shadow: 0px 1px 0px rgba(255, 255, 255, 0.2);
+		}
+		 
+		.beepboxEditor .instrument-bar > :not(.last-button) {
+			border-color: var(--background-color-lit) !important;
+		}
+		 
+		.beepboxEditor .instrument-bar .selected-instrument {
+			border-color: rgba(255, 255, 255, 1) !important;
+		}
+		 
+		.beepboxEditor select
+		{
+			background: #444 !important;
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px -10px 20px 1px rgba(0, 0, 0, 0.4),
+				inset 0px 1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor select:focus
+		{
+			background: #333 !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px 10px 20px 1px rgba(0, 0, 0, 0.4),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor .select2-selection__rendered,
+		.beepboxEditor button,
+		.beepboxEditor .instrument-bar button,
+		.beepboxEditor .eq-filter-type-bar button .deactivated,
+		.beepboxEditor .note-filter-type-bar button .deactivated
+		{
+			background: linear-gradient(#444, #333) !important;
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor .select2-container--open .select2-selection__rendered,
+		.beepboxEditor button:focus,
+		.beepboxEditor .instrument-bar .selected-instrument,
+		.beepboxEditor .eq-filter-type-bar button:not(.deactivated),
+		.beepboxEditor .note-filter-type-bar button:not(.deactivated)
+		{
+			background: linear-gradient(#333, #444) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor .filterEditor svg,
+		.beepboxEditor .fadeInOut svg,
+		.beepboxEditor .harmonics svg,
+		.beepboxEditor .spectrum svg
+		{
+			background: rgba(0, 0, 0, 0.3) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-webkit-slider-thumb
+		{
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+				inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-webkit-slider-runnable-track
+		{
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+			border-radius: 4px;
+		}
+		 
+		.beepboxEditor input[type="range"]:focus::-webkit-slider-runnable-track
+		{
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-ms-thumb
+		{
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+				inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-ms-track
+		{
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+			border-radius: 4px;
+		}
+		 
+		.beepboxEditor input[type="range"]:focus::-ms-track
+		{
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-moz-range-thumb
+		{
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+				inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-moz-range-track
+		{
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+			border-radius: 4px;
+		}
+		 
+		.beepboxEditor input[type="range"]:focus::-moz-range-track
+		{
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="text"],
+		.beepboxEditor input[type="number"]
+		{
+			border: none !important;
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="checkbox"]
+		{
+			appearance: none;
+			background: rgba(0, 0, 0, 0.3);
+			color: currentColor;
+			border-radius: 1px;
+			width: 1em !important;
+			height: 1em !important;
+			box-shadow:
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="checkbox"]:checked
+		{
+			display: flex;
+			justify-content: center;
+		}
+		 
+		.beepboxEditor input[type="checkbox"]:checked:after
+		{
+			width: 1em;
+			height: 1em;
+			text-align: center;
+			font-size: 0.8em;
+			content: "✓";
+			color: currentColor;
+			text-shadow: 0px 0px 2px rgba(255, 255, 255, 0.5);
+		}
+		`,
+        "woodland": `
+		:root {
+			--page-margin: #1d1b16;
+			--editor-background: #1d1b16;
+			--hover-preview: white;
+			--playhead: rgba(255, 255, 255, 0.9);
+			--primary-text: #ffe6d1;
+			--secondary-text: #f0c4a1;
+			--inverted-text: black;
+			--text-selection: #c58f1cfc;
+			--box-selection-fill: #942d04;
+			--loop-accent: #a69186;
+			--link-accent: #c4b044;
+			--ui-widget-background: #3c3931;
+			--ui-widget-focus: #514240;
+			--pitch-background: #342e29;
+			--tonic: #514129;
+			--fifth-note: #735346;
+			--third-note: #593439;
+			--white-piano-key: #a69186;
+			--black-piano-key: #423a34;
+			--white-piano-key-text: #1f0d03;
+			--black-piano-key-text: #ffe6d1;
+			--use-color-formula: false;
+			--pitch-channel-limit: 10;
+			--track-editor-bg-pitch: linear-gradient(#644b4b, #483e3e);
+			--track-editor-bg-pitch-dim: linear-gradient(#483e3e, #302121);
+			--track-editor-bg-noise: linear-gradient(#3d3535,#161313);
+			--track-editor-bg-noise-dim: linear-gradient(#161313,#0e0c0c);
+			--track-editor-bg-mod: linear-gradient(#603e28,#1f100a);
+			--track-editor-bg-mod-dim: linear-gradient(#0f0705,#1f0d0a);
+			--multiplicative-mod-slider: #966d3f;
+			--overwriting-mod-slider: #b58650;
+			--indicator-primary: #b58650;
+			--indicator-secondary: #4f4139;
+			--select2-opt-group: #3b0000;
+			--input-box-outline: #200000;
+			--mute-button-normal: #dda85d;
+			--mute-button-mod: #adae6e;
+			--mod-label-primary: #422a0f;
+			--mod-label-secondary-text: rgb(87, 86, 120);
+			--mod-label-primary-text: white;
+			--octave-scrollbar: #281f1a;
+
+			--pitch1-secondary-channel: #bb1111;
+			--pitch1-primary-channel:   #ff5959;
+			--pitch1-secondary-note:    #7c0404;
+			--pitch1-primary-note:      #ffb6b6;
+		
+			--pitch2-secondary-channel: #bb5b11;
+			--pitch2-primary-channel:   #ffa159;
+			--pitch2-secondary-note:    #7c3804;
+			--pitch2-primary-note:      #ffd5b6;
+		
+			--pitch3-secondary-channel: #bba411;
+			--pitch3-primary-channel:   #ffe959;
+			--pitch3-secondary-note:    #7c6c04;
+			--pitch3-primary-note:      #fff5b6;
+		
+			--pitch4-secondary-channel: #88bb11;
+			--pitch4-primary-channel:   #cdff59;
+			--pitch4-secondary-note:    #587c04;
+			--pitch4-primary-note:      #e9ffb6;
+		
+			--pitch5-secondary-channel: #3ebb11;
+			--pitch5-primary-channel:   #85ff59;
+			--pitch5-secondary-note:    #247c04;
+			--pitch5-primary-note:      #c9ffb6;
+		
+			--pitch6-secondary-channel: #11bb2e;
+			--pitch6-primary-channel:   #59ff75;
+			--pitch6-secondary-note:    #047c18;
+			--pitch6-primary-note:      #b6ffc2;
+		
+			--pitch7-secondary-channel: #11bb77;
+			--pitch7-primary-channel:   #59ffbd;
+			--pitch7-secondary-note:    #047c4c;
+			--pitch7-primary-note:      #b6ffe2;
+		
+			--pitch8-secondary-channel: #11b5bb;
+			--pitch8-primary-channel:   #59f9ff;
+			--pitch8-secondary-note:    #04777c;
+			--pitch8-primary-note:      #b6fcff;
+		
+			--pitch9-secondary-channel: #116bbb;
+			--pitch9-primary-channel:   #59b1ff;
+			--pitch9-secondary-note:    #04437c;
+			--pitch9-primary-note:      #b6dcff;
+		
+			--pitch10-secondary-channel:#1826aa;
+			--pitch10-primary-channel:  #5161f6;
+			--pitch10-secondary-note:   #091370;
+			--pitch10-primary-note:     #adb4fd;
+		
+			--pitch11-secondary-channel:#4918aa;
+			--pitch11-primary-channel:  #8951f6;
+			--pitch11-secondary-note:   #2c0970;
+			--pitch11-primary-note:     #c8adfd;
+		
+			--pitch12-secondary-channel:#8818aa;
+			--pitch12-primary-channel:  #d051f6;
+			--pitch12-secondary-note:   #580970;
+			--pitch12-primary-note:     #ebadfd;
+		
+			--pitch13-secondary-channel:#aa188c;
+			--pitch13-primary-channel:  #f651d4;
+			--pitch13-secondary-note:   #70095b;
+			--pitch13-primary-note:     #fdadec;
+		
+			--pitch14-secondary-channel:#aa184d;
+			--pitch14-primary-channel:  #f6518d;
+			--pitch14-secondary-note:   #70092e;
+			--pitch14-primary-note:     #fdadca; 
+		
+			--noise1-secondary-channel: #6F6F6F;
+			--noise1-primary-channel:   #AAAAAA;
+			--noise1-secondary-note:    #A7A7A7;
+			--noise1-primary-note:      #E0E0E0;
+			--noise2-secondary-channel: #996633;
+			--noise2-primary-channel:   #DDAA77;
+			--noise2-secondary-note:    #CC9966;
+			--noise2-primary-note:      #F0D0BB;
+			--noise3-secondary-channel: #4A6D8F;
+			--noise3-primary-channel:   #77AADD;
+			--noise3-secondary-note:    #6F9FCF;
+			--noise3-primary-note:      #BBD7FF;
+			--noise4-secondary-channel: #7A4F9A;
+			--noise4-primary-channel:   #AF82D2;
+			--noise4-secondary-note:    #9E71C1;
+			--noise4-primary-note:      #D4C1EA;
+			--noise5-secondary-channel: #607837;
+			--noise5-primary-channel:   #A2BB77;
+			--noise5-secondary-note:    #91AA66;
+			--noise5-primary-note:      #C5E2B2;
+		--mod1-secondary-channel:   #339955;
+				--mod1-primary-channel:     #77fc55;
+				--mod1-secondary-note:      #77ff8a;
+				--mod1-primary-note:        #cdffee;
+				--mod2-secondary-channel:   #993355;
+				--mod2-primary-channel:     #f04960;
+				--mod2-secondary-note:      #f057a0;
+				--mod2-primary-note:        #ffb8de;
+				--mod3-secondary-channel:   #553399;
+				--mod3-primary-channel:     #8855fc;
+				--mod3-secondary-note:      #aa64ff;
+				--mod3-primary-note:	    #f8ddff;
+				--mod4-secondary-channel:   #a86436;
+				--mod4-primary-channel:     #c8a825;
+				--mod4-secondary-note:      #e8ba46;
+				--mod4-primary-note:        #fff6d3;
+			--disabled-note-primary:    #91879f;
+			--disabled-note-secondary:  #6a677a;
+		}
+		 
+		.channelBox {
+			--pitch1-primary-channel:  linear-gradient(#ff7777, #ff5959);
+			--pitch2-primary-channel:  linear-gradient(#ffaf71, #ffa159);
+			--pitch3-primary-channel:  linear-gradient(#ffee7c, #ffe959);
+			--pitch4-primary-channel:  linear-gradient(#d3fa7a, #cdff59);
+			--pitch5-primary-channel:  linear-gradient(#a4ff83, #85ff59);
+			--pitch6-primary-channel:  linear-gradient(#8aff9e, #59ff75);
+			--pitch7-primary-channel:  linear-gradient(#81ffcc, #59ffbd);
+			--pitch8-primary-channel:  linear-gradient(#59f9ff, #59f9ff);
+			--pitch9-primary-channel:  linear-gradient(#87c7ff, #59b1ff);
+			--pitch10-primary-channel: linear-gradient(#7a87ff, #5161f6);
+			--pitch11-primary-channel: linear-gradient(#a476ff, #8951f6);
+			--pitch12-primary-channel: linear-gradient(#df75ff, #d051f6);
+			--pitch13-primary-channel: linear-gradient(#ff75e3, #f651d4);
+			--pitch14-primary-channel: linear-gradient(#ff71a5, #f6518d);
+		
+			border-radius: 5px;
+			box-shadow: 0px 2px 2px 1px rgba(0, 0, 0, 0.2), 0px 0px 1px 1px rgba(0, 0, 0, 0.7), inset 0px -10px 20px 1px rgba(0, 0, 0, 0.1), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.1);
+		}
+		.channelBox {
+			border-radius: 5px;
+			box-shadow: 0px 2px 2px 1px rgba(0, 0, 0, 0.2), 0px 0px 1px 1px rgba(0, 0, 0, 0.7), inset 0px -10px 20px 1px rgba(0, 0, 0, 0.1), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.1);
+		}
+		
+		.channelBoxLabel {
+			--pitch1-primary-channel:   #ff5959;
+			--pitch2-primary-channel:   #ffa159;
+			--pitch3-primary-channel:   #ffe959;
+			--pitch4-primary-channel:   #cdff59;
+			--pitch5-primary-channel:   #85ff59;
+			--pitch6-primary-channel:   #59ff75;
+			--pitch7-primary-channel:   #59ffbd;
+			--pitch8-primary-channel:   #59f9ff;
+			--pitch9-primary-channel:   #59b1ff;
+			--pitch10-primary-channel:  #5161f6;
+			--pitch11-primary-channel:  #8951f6;
+			--pitch12-primary-channel:  #d051f6;
+			--pitch13-primary-channel:  #f651d4;
+			--pitch14-primary-channel:  #f6518d;
+		}
+		
+		body {
+			font-family: Arial, Helvetica, sans-serif;
+		}
+		
+		#beepboxEditorContainer, .track-area, .beepboxEditor, #text-content, div.noSelection {
+			background-color: #fff0 !important;
+		} 
+		
+		#pitchEditorBackground {
+			opacity: 0.5 !important;
+			filter: brightness(150%);
+		}
+		
+		#oscilascopeAll {
+			margin-left: auto;
+			margin-right: auto;
+			position: static;
+		}
+		 
+		.beepboxEditor,
+		.beepboxEditor select
+		{
+			text-shadow: 0px -1px 0px rgba(0, 0, 0, 0.5);
+		}
+		 
+		.beepboxEditor .piano-button {
+			text-shadow: none;
+		}
+		 
+		.beepboxEditor .prompt
+		{
+			background: radial-gradient(farthest-corner at 50% 0px, #1d0700, #110400) !important;
+		}
+		 
+		#beepboxEditorContainer {
+			background-color: rgba(0, 0, 0, 0) !important;
+		}
+		 
+		.beepboxEditor .trackAndMuteContainer {
+			text-shadow: none;
+		}
+		 
+		.beepboxEditor .loopEditor
+		{
+			--editor-background: rgba(0, 0, 0, 0.0) !important;
+		}
+		 
+		.beepboxEditor .pattern-area
+		{
+			--editor-background: rgba(0, 0, 0, 1) !important;
+		}
+		 
+		.beepboxEditor .trackContainer svg
+		{
+			--editor-background: #33190a !important;
+		}
+		 
+		.beepboxEditor .muteEditor > :last-child {
+			--editor-background: rgba(0, 0, 0, 0) !important;
+		}
+		 
+		.beepboxEditor #octaveScrollBarContainer {
+			background-color: rgba(0, 0, 0, 0.3);
+		}
+		 
+		.beepboxEditor {
+			--track-editor-bg-pitch-dim: #1e1f28;
+		}
+		 
+		.beepboxEditor .muteButtonText {
+			transform: translate(0px, 1px) !important;
+			color: #777 !important;
+		}
+		 
+		.beepboxEditor .instrument-bar {
+			--text-color-lit: #eee;
+			--text-color-dim: #777;
+		}
+		 
+		.beepboxEditor .instrument-bar .selected-instrument {
+			color: rgba(255, 255, 255, 1) !important;
+			text-shadow: 0px 0px 4px var(--text-color-lit);
+		}
+		 
+		.beepboxEditor .instrument-bar .deactivated {
+			color: rgba(0, 0, 0, 1) !important;
+			text-shadow: 0px 1px 0px rgba(255, 255, 255, 0.2);
+		}
+		 
+		.beepboxEditor .instrument-bar > :not(.last-button) {
+			border-color: var(--background-color-lit) !important;
+		}
+		 
+		.beepboxEditor .instrument-bar .selected-instrument {
+			border-color: rgba(255, 255, 255, 1) !important;
+		}
+		 
+		.beepboxEditor select
+		{
+			background: #3c3931 !important;
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px -10px 20px 1px rgba(31, 11, 2, 0.4),
+				inset 0px 1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor select:focus
+		{
+			background: #201e1b !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px 10px 20px 1px rgba(0, 0, 0, 0.4),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor .select2-selection__rendered,
+		.beepboxEditor button,
+		.beepboxEditor .instrument-bar button,
+		.beepboxEditor .eq-filter-type-bar button .deactivated,
+		.beepboxEditor .note-filter-type-bar button .deactivated
+		{
+			background: linear-gradient(#3c3931, #201e1b) !important;
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor .select2-container--open .select2-selection__rendered,
+		.beepboxEditor button:focus,
+		.beepboxEditor .instrument-bar .selected-instrument,
+		.beepboxEditor .eq-filter-type-bar button:not(.deactivated),
+		.beepboxEditor .note-filter-type-bar button:not(.deactivated)
+		{
+			background: linear-gradient(#201e1b, #3c3931) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor .filterEditor svg,
+		.beepboxEditor .fadeInOut svg,
+		.beepboxEditor .harmonics svg,
+		.beepboxEditor .spectrum svg
+		{
+			background: rgba(0, 0, 0, 0.3) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-webkit-slider-thumb
+		{
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 183, 162, 0.3),
+				inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-webkit-slider-runnable-track
+		{
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+			border-radius: 4px;
+		}
+		 
+		.beepboxEditor input[type="range"]:focus::-webkit-slider-runnable-track
+		{
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-ms-thumb
+		{
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 183, 162, 1),
+				inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-ms-track
+		{
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+			border-radius: 4px;
+		}
+		 
+		.beepboxEditor input[type="range"]:focus::-ms-track
+		{
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-moz-range-thumb
+		{
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 183, 162, 1),
+				inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-moz-range-track
+		{
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+			border-radius: 4px;
+		}
+		 
+		.beepboxEditor input[type="range"]:focus::-moz-range-track
+		{
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="text"],
+		.beepboxEditor input[type="number"]
+		{
+			border: none !important;
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="checkbox"]
+		{
+			appearance: none;
+			background: rgba(0, 0, 0, 0.3);
+			color: currentColor;
+			border-radius: 1px;
+			width: 1em !important;
+			height: 1em !important;
+			box-shadow:
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="checkbox"]:checked
+		{
+			display: flex;
+			justify-content: center;
+		}
+		 
+		.beepboxEditor input[type="checkbox"]:checked:after
+		{
+			width: 1em;
+			height: 1em;
+			text-align: center;
+			font-size: 0.8em;
+			content: "✓";
+			color: currentColor;
+			text-shadow: 0px 0px 2px rgba(255, 255, 255, 0.5);
+		}
+		`,
+				"2012 Video Tutorial": `
+			:root {
+				--page-margin: black;
+				--editor-background: black;
+				--hover-preview: white;
+				--playhead: white;
+				--primary-text: white;
+				--secondary-text: #999;
+				--inverted-text: black;
+				--text-selection: rgba(119,68,255,0.99);
+				--box-selection-fill: rgba(255,255,255,0.2);
+				--loop-accent: #74f;
+				--link-accent: #98f;
+				--ui-widget-background: #444;
+				--ui-widget-focus: #777;
+				--pitch-background: #444;
+				--tonic: #864;
+				--fifth-note: #468;
+				--third-note: #486;
+				--white-piano-key: #bbb;
+				--black-piano-key: #444;
+				--white-piano-key-text: #131200;
+				--black-piano-key-text: #fff;
+					--use-color-formula: false;
+			--pitch-channel-limit: 10;
+					--track-editor-bg-pitch: #444;
+					--track-editor-bg-pitch-dim: #333;
+					--track-editor-bg-noise: #444;
+					--track-editor-bg-noise-dim: #333;
+					--track-editor-bg-mod: #234;
+					--track-editor-bg-mod-dim: #123;
+					--multiplicative-mod-slider: #456;
+					--overwriting-mod-slider: #654;
+					--indicator-primary: #74f;
+					--indicator-secondary: #444;
+					--select2-opt-group: #585858;
+					--input-box-outline: #333;
+					--mute-button-normal: #ffa033;
+					--mute-button-mod: #9a6bff;
+				--pitch1-secondary-channel: #0099A1;
+				--pitch1-primary-channel:   #25F3FF;
+				--pitch1-secondary-note:    #00BDC7;
+				--pitch1-primary-note:      #92F9FF;
+				--pitch2-secondary-channel: #A1A100;
+				--pitch2-primary-channel:   #FFFF25;
+				--pitch2-secondary-note:    #C7C700;
+				--pitch2-primary-note:      #FFFF92;
+				--pitch3-secondary-channel: #C75000;
+				--pitch3-primary-channel:   #FF9752;
+				--pitch3-secondary-note:    #FF771C;
+				--pitch3-primary-note:      #FFCDAB;
+				--pitch4-secondary-channel: #00A100;
+				--pitch4-primary-channel:   #50FF50;
+				--pitch4-secondary-note:    #00C700;
+				--pitch4-primary-note:      #A0FFA0;
+				--pitch5-secondary-channel: #D020D0;
+				--pitch5-primary-channel:   #FF90FF;
+				--pitch5-secondary-note:    #E040E0;
+				--pitch5-primary-note:      #FFC0FF;
+				--pitch6-secondary-channel: #7777B0;
+				--pitch6-primary-channel:   #A0A0FF;
+				--pitch6-secondary-note:    #8888D0;
+				--pitch6-primary-note:      #D0D0FF;
+				--pitch7-secondary-channel: #8AA100;
+				--pitch7-primary-channel:   #DEFF25;
+				--pitch7-secondary-note:    #AAC700;
+				--pitch7-primary-note:      #E6FF92;
+				--pitch8-secondary-channel: #DF0019;
+				--pitch8-primary-channel:   #FF98A4;
+				--pitch8-secondary-note:    #FF4E63;
+				--pitch8-primary-note:      #FFB2BB;
+				--pitch9-secondary-channel: #00A170;
+				--pitch9-primary-channel:   #50FFC9;
+				--pitch9-secondary-note:    #00C78A;
+				--pitch9-primary-note:      #83FFD9;
+				--pitch10-secondary-channel:#A11FFF;
+				--pitch10-primary-channel:  #CE8BFF;
+				--pitch10-secondary-note:   #B757FF;
+				--pitch10-primary-note:     #DFACFF;
+				--noise1-secondary-channel: #6F6F6F;
+				--noise1-primary-channel:   #AAAAAA;
+				--noise1-secondary-note:    #A7A7A7;
+				--noise1-primary-note:      #E0E0E0;
+				--noise2-secondary-channel: #996633;
+				--noise2-primary-channel:   #DDAA77;
+				--noise2-secondary-note:    #CC9966;
+				--noise2-primary-note:      #F0D0BB;
+				--noise3-secondary-channel: #4A6D8F;
+				--noise3-primary-channel:   #77AADD;
+				--noise3-secondary-note:    #6F9FCF;
+				--noise3-primary-note:      #BBD7FF;
+				--noise4-secondary-channel: #7A4F9A;
+				--noise4-primary-channel:   #AF82D2;
+				--noise4-secondary-note:    #9E71C1;
+				--noise4-primary-note:      #D4C1EA;
+				--noise5-secondary-channel: #607837;
+				--noise5-primary-channel:   #A2BB77;
+				--noise5-secondary-note:    #91AA66;
+				--noise5-primary-note:      #C5E2B2;
+          --mod1-secondary-channel:   #339955;
+					--mod1-primary-channel:     #77fc55;
+					--mod1-secondary-note:      #77ff8a;
+					--mod1-primary-note:        #cdffee;
+					--mod2-secondary-channel:   #993355;
+					--mod2-primary-channel:     #f04960;
+					--mod2-secondary-note:      #f057a0;
+					--mod2-primary-note:        #ffb8de;
+					--mod3-secondary-channel:   #553399;
+					--mod3-primary-channel:     #8855fc;
+					--mod3-secondary-note:      #aa64ff;
+					--mod3-primary-note:	    #f8ddff;
+					--mod4-secondary-channel:   #a86436;
+					--mod4-primary-channel:     #c8a825;
+					--mod4-secondary-note:      #e8ba46;
+					--mod4-primary-note:        #fff6d3;
+					--mod-label-primary:        #999;
+					--mod-label-secondary-text: #333;
+					--mod-label-primary-text:   black;
+					--disabled-note-primary:    #999;
+					--disabled-note-secondary:  #666;
+				}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  border-radius: 0;
+  background-image: url("./bandicam_watermark.png");
+					background-repeat: no-repeat;
+  					background-size: contain;
+  					background-position-x: center;
+				  	backdrop-filter: blur(1px);
+					position: fixed !important;
+}
+				 html:not(.overlay) {
+					width: 75vw;
+					padding-left: 12.5%;
+					position: relative;
+					background: black;
+				} 
+
+			`,
+			"Scratch": `
+		:root {
+			--page-margin: #4d97ff40;
+			--editor-background: #f6e5fa;
+			--hover-preview: #ff9900;
+			--playhead: #4cbf56;
+			--primary-text: #fff;
+			--secondary-text: #000;
+			--inverted-text: #fff;
+			--text-selection: rgba(255, 255, 255, 0.99);
+			--box-selection-fill: #7725ff;
+			--loop-accent: #ffab19;
+			--link-accent: #ff9900;
+			--ui-widget-background: #855cd6;
+			--ui-widget-focus: #ff661a;
+			--pitch-background: #F5F1F0;
+			--tonic: #855cd6;
+			--fifth-note: #7e7e7e;
+			--third-note: #d2bddd;
+			--use-color-formula: false;
+			--pitch-channel-limit: 10;
+			--track-editor-bg-pitch: #fff;
+			--track-editor-bg-pitch-dim: #c7c7c7;
+			--track-editor-bg-noise: #4d97ff40;
+			--track-editor-bg-noise-dim: #1c54a3b0;
+			--track-editor-bg-mod: #855cd6;
+			--track-editor-bg-mod-dim: #503389;
+			--multiplicative-mod-slider: #ff6680;
+			--overwriting-mod-slider: #ff3355;
+			--indicator-primary: #855cd6;
+			--indicator-secondary: #cecece;
+			--select2-opt-group: #5a3b98;
+			--input-box-outline: #626262;
+			--mute-button-normal: #cf63cf;
+			--mute-button-mod: #cf63cf;
+			--mod-label-primary: #ff3355;
+			--white-piano-key: #fff;
+			--black-piano-key: #000;
+			--white-piano-key-text: #000;
+			--black-piano-key-text: #fff;
+			--note-flash: #4cbf56;
+			--note-flash-secondary: #b84848;
+			--oscilloscope-line-L: #d587e6;
+			--oscilloscope-line-R: #b11cc7;
+			--pitch1-secondary-channel: #3373cc;
+			--pitch1-primary-channel: #4c97ff;
+			--pitch1-secondary-note: #3373cc;
+			--pitch1-primary-note: #4c97ff;
+			--pitch2-secondary-channel: #774dcb;
+			--pitch2-primary-channel: #9966ff;
+			--pitch2-secondary-note: #774dcb;
+			--pitch2-primary-note: #9966ff;
+			--pitch3-secondary-channel: #bd42bd;
+			--pitch3-primary-channel: #cf63cf;
+			--pitch3-secondary-note: #bd42bd;
+			--pitch3-primary-note: #cf63cf;
+			--pitch4-secondary-channel: #cc9900;
+			--pitch4-primary-channel: #ffbf00;
+			--pitch4-secondary-note: #cc9900;
+			--pitch4-primary-note: #ffbf00;
+			--pitch5-secondary-channel: #cf8b17;
+			--pitch5-primary-channel: #ffab19;
+			--pitch5-secondary-note: #cf8b17;
+			--pitch5-primary-note: #ffab19;
+			--pitch6-secondary-channel: #2e8eb8;
+			--pitch6-primary-channel: #5cb1d6;
+			--pitch6-secondary-note: #2e8eb8;
+			--pitch6-primary-note: #5cb1d6;
+			--pitch7-secondary-channel: #389438;
+			--pitch7-primary-channel: #59c059;
+			--pitch7-secondary-note: #389438;
+			--pitch7-primary-note: #59c059;
+			--pitch8-secondary-channel: #db6e00;
+			--pitch8-primary-channel: #ff8c1a;
+			--pitch8-secondary-note: #db6e00;
+			--pitch8-primary-note: #ff8c1a;
+			--pitch9-secondary-channel: #ff3355;
+			--pitch9-primary-channel: #ff6680;
+			--pitch9-secondary-note: #ff3355;
+			--pitch9-primary-note: #ff6680;
+			--pitch10-secondary-channel: #0b8e69;
+			--pitch10-primary-channel: #0fbd8c;
+			--pitch10-secondary-note: #0b8e69;
+			--pitch10-primary-note: #0fbd8c;
+			--noise1-secondary-channel: #ef3d23;
+			--noise1-primary-channel: #fcf9ce;
+			--noise1-secondary-note: #ef3d23;
+			--noise1-primary-note: #fcf9ce;
+			--noise2-secondary-channel: #dd002b;
+			--noise2-primary-channel: #f73d61;
+			--noise2-secondary-note: #dd002b;
+			--noise2-primary-note: #f73d61;
+			--noise3-secondary-channel: #d0e9ea;
+			--noise3-primary-channel: #f3ffff;
+			--noise3-secondary-note: #d0e9ea;
+			--noise3-primary-note: #f3ffff;
+			--noise4-secondary-channel: #ed9b24;
+			--noise4-primary-channel: #ffc941;
+			--noise4-secondary-note: #ed9b24;
+			--noise4-primary-note: #ffc941;
+			--noise5-secondary-channel: #663b00;
+			--noise5-primary-channel: #ffe9cc;
+			--noise5-secondary-note: #663b00;
+			--noise5-primary-note: #ffe9cc;
+			--mod1-secondary-channel: #001026;
+			--mod1-primary-channel: #ffab19;
+			--mod1-secondary-note: #001026;
+			--mod1-primary-note: #ffab19;
+			--mod2-secondary-channel: #603813;
+			--mod2-primary-channel: #ffc93e;
+			--mod2-secondary-note: #603813;
+			--mod2-primary-note: #ffc93e;
+			--mod3-secondary-channel: #1b75bb;
+			--mod3-primary-channel: #e6e7e8;
+			--mod3-secondary-note: #1b75bb;
+			--mod3-primary-note: #e6e7e8;
+			--mod4-secondary-channel: #404041;
+			--mod4-primary-channel: #f05a28;
+			--mod4-secondary-note: #404041;
+			--mod4-primary-note: #f05a28;
+			--disabled-note-primary: #ff6680;
+			--disabled-note-secondary: #ff3355;
+		  }
+		  * {
+		  --play-symbol:url("./Greenflag.png"); 
+		  --pause-symbol:url("./stopsign.png");
+		  --stop-symbol:url("./stopsign.png");
+		  }
+
+		div.promptContainerBG {
+			background-color: var(--editor-background) !important;
+			backdrop-filter: unset !important;
+			opacity: 0.5 !important;
+		}
+
+		  button.playButton::before {
+
+			background-image: url("./Greenflag.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px;
+			color: #fff0;
+		}
+
+		button.pauseButton::before {
+			background-image: url("./stopsign.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px;
+			color: #fff0;
+		}
+
+		button.stopButton::before {
+ 
+			background-image: url("./stopsign.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px;
+			color: #fff0;
+		}
+
+		  #text-content > section > h1 {
+			margin: auto;
+			content: url("./AbyssBox Scratch Logo3.png");
+		  }
+		  .beepboxEditor,
+		  #beepboxEditorContainer {
+			background-color: rgb(255, 255, 255) !important;
+			border-radius: 6px;
+			box-shadow: 0px 0px 0px 4px rgba(158, 158, 158, 0.91);
+		  }
+		  .beepboxEditor .loopEditor {
+			--editor-background: #4d97ff40 !important;
+			border-radius: 3px;
+		  }
+		 .beepboxEditor .muteEditor {
+			--editor-background: #4d97ff40 !important;
+			border-radius: 0px;
+			height: 158px;
+		  }
+		  .beepboxEditor .pattern-area {
+			--editor-background: #4d97ff40 !important;
+			border-radius: 3px;
+		  }
+		 .beepboxEditor .trackContainer svg {
+		  	--editor-background: #3100FF !important;
+		  }
+		  .beepboxEditor .muteEditor > :last-child {
+			 --editor-background: #4d97ff40 !important;
+		  }
+		  .beepboxEditor #octaveScrollBarContainer {
+			background-color: #4d97ff40;
+		  }
+		  .beepboxEditor .muteButtonText {
+			transform: translate(0px, 1px) !important;
+			color: #777 !important;
+		  }
+		  .beepboxEditor .instrument-bar {
+			--text-color-lit: #fff !important;
+			--text-color-dim: #4c4c4c !important;
+		  }
+		  .beepboxEditor .instrument-bar .selected-instrument {
+			color: rgb(0, 0, 0) !important;
+			text-shadow: 0px 0px 4px var(--text-color-lit);
+		  }
+		  .beepboxEditor .instrument-bar .deactivated {
+			color: rgba(0, 0, 0, 1) !important;
+			text-shadow: 0px 1px 0px rgba(255, 255, 255, 0.2);
+		  }
+		  .beepboxEditor .instrument-bar > :not(.last-button) {
+			border-color: var(--background-color-lit) !important;
+		  }
+		  .beepboxEditor .instrument-bar .selected-instrument {
+			border-color: rgba(255, 255, 255, 1) !important;
+		  }
+		  .beepboxEditor button, button {
+			color: #fff;
+			background: #3c236f;
+		  }
+		  .beepboxEditor .instrument-bar .selected-instrument,
+		  .beepboxEditor .filterEditor svg,
+		  .beepboxEditor .fadeInOut svg,
+		  .beepboxEditor .harmonics svg,
+		  .beepboxEditor .spectrum svg {
+			background: rgb(255, 255, 255) !important;
+			box-shadow:
+			  0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+			  inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+			  inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3);
+		  }
+		  .beepboxEditor input[type="range"]::-webkit-slider-thumb {
+			background: #000000 !important;
+		  }
+		  .beepboxEditor input[type="range"]::-moz-range-thumb {
+			background: #000000 !important;
+		  }
+		  .beepboxEditor input[type="range"]::-webkit-slider-runnable-track {
+			background: rgb(127, 127, 127) !important;
+		  }
+		  .beepboxEditor input[type="range"]::-moz-range-track {
+			background: rgb(127, 127, 127) !important;
+		  }
+		  .beepboxEditor input[type="range"]::-webkit-slider-runnable-track::focus {
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+			  0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+			  inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+			  inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3);
+		  }
+		  .beepboxEditor input[type="range"]::-moz-range-track::focus {
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+			  0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+			  inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+			  inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3);
+		  }
+		  .beepboxEditor input[type="text"],
+		  .beepboxEditor input[type="number"] {
+			font-size: inherit !important;
+			font-weight: bold !important;
+			font-family: inherit !important;
+			background: #ff8c1a !important;
+			text-align: center !important;
+			border: 1px solid var(--input-box-outline);
+			color: #fff !important;
+			box-shadow: 0px 0px 0px 1px rgb(134, 134, 134) !important;
+		  }
+		  .beepboxEditor .prompt {
+			--primary-text: #fff;
+			--secondary-text: #fff;
+			--ui-widget-background: #351f5f;
+			color: #fff !important;
+			background: #855cd6 !important;
+		  }
+		  .beepboxEditor .trackContainer {
+			--editor-background: #fff;
+		  }
+		  #text-content {
+			color: #fff;
+			background: #855cd6;
+		  }
+		  body:not(#secondImage) {
+			background-image: url("./scratch-bg.png"); 
+		  }
+		  body:not(#secondImage) input {
+			--primary-text: #000;
+		  }
+		  body:not(#secondImage) h1 {
+			color: #000;
+		  }
+		  button.copyButton,
+		  button.pasteButton,
+		  button.exportInstrumentButton,
+		  button.importInstrumentButton, 
+		  button.addEnvelope,
+		  div.editor-controls div button,
+		  div.selectRow button,
+		  div.effects-menu button,
+		  div.effects-menu::before,
+		  div.selectContainer select,
+		  div.selectContainer::after,
+		  span#select2-pitchPresetSelect-container {
+			color: white !important;
+		  }
+		  div#text-content {
+			padding-top: 15px;
+		  }
+		  div#beepboxEditorContainer{
+			padding-bottom: 15px;
+		  }
+		  div.channelBox {
+			border-radius: 5px;
+		  }
+		  div.curChannelBox {
+			border-radius: 5px;
+		  }
+		   
+		  div.loopEditor {
+			border-radius: 0px !important;
+		  }
+		`,
+		        "Half-Life": `
+			:root { 		
+			--page-margin: #0c1012; 		
+			--editor-background: #0c1012; 		
+			--hover-preview: white; 		
+			--playhead: rgba(255, 255, 255, 0.9); 		
+			--primary-text: #ffee00; 		
+			--secondary-text: #ffee00; 		
+			--inverted-text:  #000000;	 		
+			--text-selection: rgba(119,68,255,0.99); 		
+			--box-selection-fill: #ff6f00; 		
+			--loop-accent: #ff6f00; 		
+			--link-accent: #ff6f00; 		
+			--ui-widget-background: #36454F;		
+			--ui-widget-focus: #36454F; 		
+			--pitch-background: #5e2103; 		
+			--tonic: #ff6f00; 		
+			--fifth-note: #963c00; 		
+			--third-note: #b76f23;
+			--white-piano-key: #ccbca5; 		
+			--black-piano-key: #40382f; 		
+			--use-color-formula: true; 		
+			--track-editor-bg-pitch: #7d5100; 		
+			--track-editor-bg-pitch-dim: #3b2c10; 		
+			--track-editor-bg-noise: #730a00; 		
+			--track-editor-bg-noise-dim: #360e0b; 		
+			--track-editor-bg-mod: #856f00; 		
+			--track-editor-bg-mod-dim: #3b3205; 		
+			--multiplicative-mod-slider: #9f8460; 		
+			--overwriting-mod-slider: #9e7534; 		
+			--indicator-primary: #b38949; 		
+			--indicator-secondary: #543d1d; 		
+			--select2-opt-group: #4f3b19; 		
+			--input-box-outline: #1a0b04; 		
+			--mute-button-normal: #ddac5d;	 		
+			--mute-button-mod: #ba3d36; 		
+			--mod-label-primary: #542f16; 		
+			--mod-label-secondary-text: rgb(120, 87, 86); 
+			--mod-label-primary-text: gray; 
+			--progress-bar: #ff6f00;
+
+			--pitch-secondary-channel-hue: 0; 		
+			--pitch-secondary-channel-hue-scale: 0; 		
+			--pitch-secondary-channel-sat: 43; 		
+			--pitch-secondary-channel-sat-scale: 0.1; 		
+			--pitch-secondary-channel-lum: 60; 		
+			--pitch-secondary-channel-lum-scale: 0.05; 
+		
+			--pitch-primary-channel-hue: 154; 		
+			--pitch-primary-channel-hue-scale: 6.1; 		
+			--pitch-primary-channel-sat: 75; 		
+			--pitch-primary-channel-sat-scale: 0.1; 		
+			--pitch-primary-channel-lum: 60; 		
+			--pitch-primary-channel-lum-scale: 0.05; 	
+	
+			--pitch-secondary-note-hue: 154; 		
+			--pitch-secondary-note-hue-scale: 6.1; 		
+			--pitch-secondary-note-sat: 93.9; 		
+			--pitch-secondary-note-sat-scale: 0.1; 		
+			--pitch-secondary-note-lum: 20; 		
+			--pitch-secondary-note-lum-scale: 0.05; 
+		
+			--pitch-primary-note-hue: 154; 		
+			--pitch-primary-note-hue-scale: 6.1; 		
+			--pitch-primary-note-sat: 65; 		
+			--pitch-primary-note-sat-scale: 0.05; 		
+			--pitch-primary-note-lum: 60; 		
+			--pitch-primary-note-lum-scale: 0.05; 
+		
+			--noise-secondary-channel-hue: 0; 		
+			--noise-secondary-channel-hue-scale: 2; 		
+			--noise-secondary-channel-sat: 65; 		
+			--noise-secondary-channel-sat-scale: 0; 		
+			--noise-secondary-channel-lum: 60; 		
+			--noise-secondary-channel-lum-scale: 0; 
+		
+			--noise-primary-channel-hue: 0; 		
+			--noise-primary-channel-hue-scale: 1; 		
+			--noise-primary-channel-sat: 100; 		
+			--noise-primary-channel-sat-scale: 1; 		
+			--noise-primary-channel-lum: 63.5; 		
+			--noise-primary-channel-lum-scale: 0; 
+		
+			--noise-secondary-note-hue: 24; 		
+			--noise-secondary-note-hue-scale: 2; 		
+			--noise-secondary-note-sat: 100; 		
+			--noise-secondary-note-sat-scale: 0; 		
+			--noise-secondary-note-lum: 25; 		
+			--noise-secondary-note-lum-scale: 0; 	
+	
+			--noise-primary-note-hue: 24; 		
+			--noise-primary-note-hue-scale: 2; 		
+			--noise-primary-note-sat: 75; 		
+			--noise-primary-note-sat-scale: 1; 		
+			--noise-primary-note-lum: 60; 		
+			--noise-primary-note-lum-scale: 1; 	
+	
+			--mod-secondary-channel-hue: 55; 		
+			--mod-secondary-channel-hue-scale: 1.5; 		
+			--mod-secondary-channel-sat: 100; 		
+			--mod-secondary-channel-sat-scale: 0; 		
+			--mod-secondary-channel-lum: 20; 		
+			--mod-secondary-channel-lum-scale: 0; 
+		
+			--mod-primary-channel-hue: 55; 		
+			--mod-primary-channel-hue-scale: 1.5; 		
+			--mod-primary-channel-sat: 96; 		
+			--mod-primary-channel-sat-scale: 0; 		
+			--mod-primary-channel-lum: 50; 		
+			--mod-primary-channel-lum-scale: 0; 
+		
+			--mod-secondary-note-hue: 55; 		
+			--mod-secondary-note-hue-scale: 1.5; 		
+			--mod-secondary-note-sat: 92; 		
+			--mod-secondary-note-sat-scale: 0; 		
+			--mod-secondary-note-lum: 45; 		
+			--mod-secondary-note-lum-scale: 0; 
+		
+			--mod-primary-note-hue: 55; 		
+			--mod-primary-note-hue-scale: 1.5; 		
+			--mod-primary-note-sat: 96; 		
+			--mod-primary-note-sat-scale: 0; 		
+			--mod-primary-note-lum: 85; 		
+			--mod-primary-note-lum-scale: 0; 
+			--note-flash: #ffffff;
+			--note-flash-secondary: #ffffff77;	
+				}
+		/* replaces hotdog (in a hacky way) with an image of gordon freeman but really wide*/
+		#Hotdog {
+		display: none;
+		}
+		.instructions-column > section:first-of-type > p:first-of-type:after {
+		display: block;
+		content: url("./wide-gordon.png");
+		width: inherit;
+		height: contain;
+		text-align: center;
+		margin-top: 25px;
+		}
+		/* sets background image */
+		body {
+		background-image: url("./lambda.png") !important;
+		background-size: cover !important;
+		background-position: center !important;
+		background-repeat: no-repeat !important;
+			}
+			/* make editor background transparent */
+		#beepboxEditorContainer, .beepboxEditor, #text-content {
+		}
+
+			@font-face {
+		   font-family: "trebuc";
+		   src:
+ 		   url("./trebuc.otf") format("opentype") tech(color-COLRv1),
+			}
+
+			html {
+ 		   font-family: 'trebuc';
+			}
+			div.channelBoxLabel {
+				font-family: 'trebuc' !important;
+			}
+
+			#modTitle::before {
+				content: "λbyssBox" !important;
+			}
+
+			`,
+			        "Frutiger Aero": `
+			:root {		
+			--page-margin: #fff; 		
+			--editor-background: #2e538c;		
+			--hover-preview: white; 		
+			--playhead: rgba(255, 255, 255, 0.9); 		
+			--primary-text: white; 		
+			--secondary-text: #ceddff;		
+			--inverted-text: white;	 		
+			--text-selection: rgba(119,68,255,0.99); 		
+			--box-selection-fill: #0a091e; 		
+			--loop-accent: #6fafe8; 		
+			--link-accent: #a2b0ff; 		
+			--ui-widget-background: #84aef0; 		
+			--ui-widget-focus: #2b5376; 		
+			--pitch-background: #4671b5; 		
+			--tonic: #fff; 		
+			--fifth-note: #620297; 
+			--third-note: #bf2c78;		
+			--white-piano-key: #dbe5ec;		
+			--black-piano-key: #2f3a40;
+			--white-piano-key-text: #131200;		
+			--black-piano-key-text: #fff;					
+			--use-color-formula: true; 		
+			--track-editor-bg-pitch: linear-gradient(rgba(39, 130, 176, 1),rgba(12, 43, 62, 1)); 		
+			--track-editor-bg-pitch-dim: linear-gradient(rgba(12, 43, 62, 0.43),rgba(5, 21, 31, 0.76)); 		
+			--track-editor-bg-noise: linear-gradient(rgba(45, 74, 161, 1),rgba(8, 32, 79, 1)); 		
+			--track-editor-bg-noise-dim: linear-gradient(rgba(8, 32, 79, 0.43), rgba(3, 16, 41, 0.78)); 		
+			--track-editor-bg-mod: linear-gradient(rgba(70, 41, 158, 1), rgba(38, 20, 94, 1)); 		
+			--track-editor-bg-mod-dim: linear-gradient(rgba(38, 20, 94, 0.43),rgba(17, 6, 48, 0.76)); 		
+			--multiplicative-mod-slider: #60769f; 		
+			--overwriting-mod-slider: #343b9e; 		
+			--indicator-primary: #499ab3; 		
+			--indicator-secondary: #9db9c4; 		
+			--select2-opt-group: #185f8a; 		
+			--input-box-outline: #18041a; 		
+			--mute-button-normal: #97d4f9; 		
+			--mute-button-mod: #8a5fff;		
+			--mod-label-primary: #341a7b; 		
+			--mod-label-secondary-text: rgb(86, 93, 120);
+			--mod-label-primary-text: gray; 
+			--progress-bar: #84aef0;
+			--empty-sample-bar: #26477a;
+
+			--pitch-secondary-channel-hue: 110; 		
+			--pitch-secondary-channel-hue-scale: 0; 		
+			--pitch-secondary-channel-sat: 63; 		
+			--pitch-secondary-channel-sat-scale: 0.1; 		
+			--pitch-secondary-channel-lum: 50; 		
+			--pitch-secondary-channel-lum-scale: 0.05; 
+		
+			--pitch-primary-channel-hue: 120; 		
+			--pitch-primary-channel-hue-scale: 6.1; 		
+			--pitch-primary-channel-sat: 75; 		
+			--pitch-primary-channel-sat-scale: 0.1; 		
+			--pitch-primary-channel-lum: 67.5; 		
+			--pitch-primary-channel-lum-scale: 0.05; 	
+	
+			--pitch-secondary-note-hue: 110; 		
+			--pitch-secondary-note-hue-scale: 6.1; 		
+			--pitch-secondary-note-sat: 63.9; 		
+			--pitch-secondary-note-sat-scale: 0.1; 		
+			--pitch-secondary-note-lum: 55; 		
+			--pitch-secondary-note-lum-scale: 0.05; 
+		
+			--pitch-primary-note-hue: 120; 		
+			--pitch-primary-note-hue-scale: 6.1; 		
+			--pitch-primary-note-sat: 100; 		
+			--pitch-primary-note-sat-scale: 0.05; 		
+			--pitch-primary-note-lum: 85.6; 		
+			--pitch-primary-note-lum-scale: 0.025; 
+		
+			--noise-secondary-channel-hue: 90; 		
+			--noise-secondary-channel-hue-scale: 2; 		
+			--noise-secondary-channel-sat: 65; 		
+			--noise-secondary-channel-sat-scale: 0; 		
+			--noise-secondary-channel-lum: 42; 		
+			--noise-secondary-channel-lum-scale: 0; 
+		
+			--noise-primary-channel-hue: 80; 		
+			--noise-primary-channel-hue-scale: 1; 		
+			--noise-primary-channel-sat: 100; 		
+			--noise-primary-channel-sat-scale: 1; 		
+			--noise-primary-channel-lum: 63.5; 		
+			--noise-primary-channel-lum-scale: 0; 
+		
+			--noise-secondary-note-hue: 90; 		
+			--noise-secondary-note-hue-scale: 2; 		
+			--noise-secondary-note-sat: 60; 		
+			--noise-secondary-note-sat-scale: 0; 		
+			--noise-secondary-note-lum: 35; 		
+			--noise-secondary-note-lum-scale: 0; 	
+	
+			--noise-primary-note-hue: 80; 		
+			--noise-primary-note-hue-scale: 2; 		
+			--noise-primary-note-sat: 100; 		
+			--noise-primary-note-sat-scale: 1; 		
+			--noise-primary-note-lum: 60; 		
+			--noise-primary-note-lum-scale: 1; 	
+	
+			--mod-secondary-channel-hue: 55; 		
+			--mod-secondary-channel-hue-scale: 1.5; 		
+			--mod-secondary-channel-sat: 100; 		
+			--mod-secondary-channel-sat-scale: 0; 		
+			--mod-secondary-channel-lum: 20; 		
+			--mod-secondary-channel-lum-scale: 0; 
+		
+			--mod-primary-channel-hue: 55; 		
+			--mod-primary-channel-hue-scale: 1.5; 		
+			--mod-primary-channel-sat: 96; 		
+			--mod-primary-channel-sat-scale: 0; 		
+			--mod-primary-channel-lum: 50; 		
+			--mod-primary-channel-lum-scale: 0; 
+		
+			--mod-secondary-note-hue: 55; 		
+			--mod-secondary-note-hue-scale: 1.5; 		
+			--mod-secondary-note-sat: 62; 		
+			--mod-secondary-note-sat-scale: 0; 		
+			--mod-secondary-note-lum: 45; 		
+			--mod-secondary-note-lum-scale: 0; 
+		
+			--mod-primary-note-hue: 55; 		
+			--mod-primary-note-hue-scale: 1.5; 		
+			--mod-primary-note-sat: 96; 		
+			--mod-primary-note-sat-scale: 0; 		
+			--mod-primary-note-lum: 85; 		
+			--mod-primary-note-lum-scale: 0; 	
+
+			--note-flash: #ffffff;
+			--note-flash-secondary: #ffffff77;
+			--sample-failed: #bf2c78;
+
+		}
+		div.promptContainerBG {
+			background-color: var(--editor-background) !important;
+			backdrop-filter: unset !important;
+			opacity: 0 !important;
+		} 
+
+		div.mute-button::before {
+			background: #fff0 !important;
+			background-image: url("./vistaSpeakerIcon.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px !important;
+			color: #fff0;
+
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		div.mute-button.muted::before {
+			background: #fff0 !important;
+			background-image: url("./vistaSpeakerIconMuted.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px !important;
+			color: #fff0;
+
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		#text-content > section > h1 > font {
+			display: none;
+			}
+			#text-content > section > h1 {
+			margin: auto;
+			content: url("./AbyssBoxFrutigerAeroThemeLogo.png");
+			}
+
+		button.mobileEffectsButton.deactivated {
+		box-shadow: none !important;
+		}
+
+		button.mobileInstButton.deactivated {
+		box-shadow: none !important;
+		}
+
+		button.mobileEnvelopesButton.deactivated {
+		box-shadow: none !important;
+		}
+
+		select.trackSelectBox {
+			border-image: none !important;
+		}
+
+			@font-face {
+		   font-family: "Frutiger";
+		   src:
+ 		   url("./FrutigerLight.ttf") format("truetype") tech(color-COLRv1),
+			}
+
+			canvas#oscilascopeAll {
+				background: #2e538c !important; 
+				border: 2px solid rgba(132, 174, 240, 0) !important;
+			}
+
+			.beepboxEditor .play-pause-area div:last-child {
+				position: relative;
+				width: 144px;
+				height: 32px;
+			  }
+			  .beepboxEditor .play-pause-area div:last-child::before {
+				content: "";
+				display: block;
+				width: calc(144px + 4px);
+				height: calc(32px + 4px);
+				box-shadow: 0px -1px 1px 0px rgba(0, 0, 0, 0.5), inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5), inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3);
+				position: absolute;
+				z-index: 1;
+			  }
+
+			div.prompt.noSelection{
+				background: linear-gradient(rgba(132, 174, 240, 0.5), rgba(42, 61, 106, 0.5)) !important; 
+				opacity: 55;
+				backdrop-filter: blur(14px);
+			}  
+
+			svg#firstImage {
+				opacity: 50%;
+				--editor-background: #84aef0;
+			}
+
+			body {
+			background-image: url("./frutigerbg3.jpg") !important;
+			background-position: top;
+			background-attachment: fixed;
+			background-repeat: no-repeat;
+			background-size: cover;
+			image-rendering: optimizeQuality !important;
+			}
+
+			#beepboxEditorContainer {
+				background: linear-gradient(rgba(238, 243, 255, 0.5), rgba(57, 94, 179, 0.5)) !important;
+				border-style: solid;
+  				border-color: lightblue;
+				padding-bottom: 5px;
+				backdrop-filter: blur(8px);
+				box-shadow: inset 0 0 2000px rgba(255, 255, 255, .5);
+				--inverted-text: black;
+			}
+			#text-content {
+				background: linear-gradient(#395eb380, #03112f80);
+				border-style: solid;
+  				border-color: lightblue;
+				  backdrop-filter: blur(14px);
+				  box-shadow: inset 0 0 2000px rgba(255, 255, 255, .5);
+			}
+
+				div.playback-bar-controls button.playButton, 
+				div.playback-bar-controls button.pauseButton, 
+				div.playback-bar-controls button.recordButton, 
+				div.playback-bar-controls button.stopButton, 
+				div.playback-bar-controls button.prevBarButton, 
+				div.playback-bar-controls button.nextBarButton, 
+				div.selectRow button.copyButton, 
+				div.selectRow button.pasteButton, 
+				div.editor-controls button.exportInstrumentButton, 
+				div.editor-controls button.importInstrumentButton,
+				div.editor-controls div button.add-envelope,
+				div.editor-controls div button.delete-envelope, 
+				.beepboxEditor .select2-selection__rendered,
+				.beepboxEditor .instrument-bar button,
+				.beepboxEditor .eq-filter-type-bar button .deactivated,
+				.beepboxEditor .note-filter-type-bar button .deactivated,
+				.beepboxEditor select  { 
+					box-shadow: 0px 1px 3px 0px rgb(0, 0, 0), inset 0px -12px 14px 0px rgba(0, 0, 0, 0.3), inset 0px -7px 4px 0px rgba(79, 99, 204, 0.71), inset 0px -15px 0px 0px rgba(0, 0, 0, 0.2), inset 0px 1px 2px 1px #ffffff54;
+					--ui-widget-background: linear-gradient(rgba(182, 207, 255, 0.8), rgba(98, 142, 242, 0.8)) !important;
+				}
+
+				.beepboxEditor select:focus
+				{
+					border-image-source: none;
+					--ui-widget-background: linear-gradient(#2a3d6a, #2a3d6a) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px 10px 20px 1px rgba(0, 0, 0, 0.4),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+
+				.beepboxEditor button, button
+				{
+					--ui-widget-background: linear-gradient(#84aef0, #2a3d6a) !important;
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				.beepboxEditor .select2-container--open .select2-selection__rendered,
+				.beepboxEditor button:focus,
+				button:focus,
+				.beepboxEditor .instrument-bar .selected-instrument,
+				.beepboxEditor .eq-filter-type-bar button:not(.deactivated),
+				.beepboxEditor .note-filter-type-bar button:not(.deactivated)
+				{
+					--ui-widget-background: linear-gradient(#333, #444) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor .filterEditor svg,
+				.beepboxEditor .fadeInOut svg,
+				.beepboxEditor .harmonics svg,
+				.beepboxEditor .spectrum svg
+				{
+					background: rgba(0, 0, 0, 0.3) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-webkit-slider-thumb
+				{
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+						inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-webkit-slider-runnable-track
+				{
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+					border-radius: 4px;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-webkit-slider-runnable-track
+				{
+					background: rgba(255, 255, 255, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-ms-thumb
+				{
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+						inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-ms-track
+				{
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+					border-radius: 4px;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-ms-track
+				{
+					background: rgba(255, 255, 255, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-moz-range-thumb
+				{
+					height: 16px !important;
+					width: 16px !important;
+					border-radius: 40px !important;
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+						inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-moz-range-track
+				{
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+					border-radius: 4px;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-moz-range-track
+				{
+					background: rgba(255, 255, 255, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="text"],
+				.beepboxEditor input[type="number"]
+				{
+					border: none !important;
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]
+				{
+					appearance: none;
+					background: rgba(0, 0, 0, 0.3);
+					color: currentColor;
+					border-radius: 1px;
+					width: 1em !important;
+					height: 1em !important;
+					box-shadow:
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked
+				{
+					display: flex;
+					justify-content: center;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked:after
+				{
+					width: 1em;
+					height: 1em;
+					text-align: center;
+					font-size: 0.8em;
+					content: "✓";
+					color: currentColor;
+					text-shadow: 0px 0px 2px rgba(255, 255, 255, 0.5);
+				}
+
+			html {
+ 		   	font-family: 'Frutiger';
+			}
+
+			div.channelBoxLabel {
+				font-family: 'Frutiger' !important;
+			}
+
+		   div.beepboxEditor.load {
+			background: none !important;
+		   }
+
+		   div.noSelection {
+			background: none !important;
+		   }
+
+		   .beepboxEditor .loopEditor {
+			background: none !important;
+		   }
+
+		   .beepboxEditor .muteEditor {
+			background: linear-gradient(#c4f0d1, #83c139) !important;
+			border-radius: 5px;
+			box-shadow: 0px 1px 1px 0px rgb(0, 0, 0), inset 0px 3px 14px 0px rgba(0, 0, 0, 0.1), inset 0px -4px 0px 0px rgba(0, 0, 0, 0.1);
+			opacity: 65%;
+		   }
+
+		   div.muteEditor div {
+			background: none !important;
+			--track-editor-bg-pitch: #1b4079;
+			--track-editor-bg-noise: #213779;
+			--track-editor-bg-mod: #46299e;
+	
+			--track-editor-bg-pitch-dim: #0c2b3e; 		
+			--track-editor-bg-noise-dim: #08204f; 			
+			--track-editor-bg-mod-dim: #26145e; 
+
+		   }
+
+		   div.channelBox {
+			border-radius: 5px;
+		  }
+		  div.curChannelBox {
+			border-radius: 5px;
+		  }
+
+			`,
+        "Frutiger Aero Night": `
+			:root {		
+			--page-margin: #26032b; 		
+			--editor-background: #290f37;		
+			--hover-preview: white; 		
+			--playhead: rgba(255, 255, 255, 0.9); 		
+			--primary-text: white; 		
+			--secondary-text: #d7ceff;		
+			--inverted-text: #140111;	 		
+			--text-selection: rgba(119,68,255,0.99); 		
+			--box-selection-fill: #0a091e; 		
+			--loop-accent: #ab6fe8; 		
+			--link-accent: #eba2ff; 		
+			--ui-widget-background: #c03ed2; 		
+			--ui-widget-focus: #582b76; 		
+			--pitch-background: #26032b; 		
+			--tonic: #8d46b5; 		
+			--fifth-note: #0e0297; 
+			--third-note: #bf2c78;		
+			--white-piano-key: #dbe5ec;		
+			--black-piano-key: #2f3a40;
+			--white-piano-key-text: #131200;		
+			--black-piano-key-text: #fff;					
+			--use-color-formula: true; 		
+			--track-editor-bg-pitch: linear-gradient(rgba(114, 39, 176, 1),rgba(44, 12, 62, 1)); 		
+			--track-editor-bg-pitch-dim: linear-gradient(rgba(38, 12, 62, 0.4392156862745098),rgba(22, 5, 31, 0.7686274509803922)); 		
+			--track-editor-bg-noise: linear-gradient(rgba(147, 45, 161, 1),rgba(71, 8, 79, 1)); 		
+			--track-editor-bg-noise-dim: linear-gradient(rgba(67, 8, 79, 0.4392156862745098), rgba(38, 3, 41, 0.7686274509803922)); 		
+			--track-editor-bg-mod: linear-gradient(rgba(158, 41, 80, 1), rgba(94, 20, 61, 1)); 		
+			--track-editor-bg-mod-dim: linear-gradient(rgba(94, 20, 63, 0.4392156862745098),rgba(48, 6, 22, 0.7686274509803922)); 			
+			--multiplicative-mod-slider: #60769f; 		
+			--overwriting-mod-slider: #7d349e; 		
+			--indicator-primary: #9149b3; 		
+			--indicator-secondary: #b39dc4; 		
+			--select2-opt-group: #185f8a; 		
+			--input-box-outline: #18041a; 		
+			--mute-button-normal: #c597f9; 		
+			--mute-button-mod: #da5fff;		
+			--mod-label-primary: #6b1a7b; 		
+			--mod-label-secondary-text: rgb(86, 93, 120);
+			--mod-label-primary-text: gray; 
+			--progress-bar: #ec84f0;
+			--empty-sample-bar: #1d092f;
+
+			--pitch-secondary-channel-hue: 110; 		
+			--pitch-secondary-channel-hue-scale: 0; 		
+			--pitch-secondary-channel-sat: 63; 		
+			--pitch-secondary-channel-sat-scale: 0.1; 		
+			--pitch-secondary-channel-lum: 50; 		
+			--pitch-secondary-channel-lum-scale: 0.05; 
+		
+			--pitch-primary-channel-hue: 120; 		
+			--pitch-primary-channel-hue-scale: 6.1; 		
+			--pitch-primary-channel-sat: 75; 		
+			--pitch-primary-channel-sat-scale: 0.1; 		
+			--pitch-primary-channel-lum: 67.5; 		
+			--pitch-primary-channel-lum-scale: 0.05; 	
+	
+			--pitch-secondary-note-hue: 110; 		
+			--pitch-secondary-note-hue-scale: 6.1; 		
+			--pitch-secondary-note-sat: 63.9; 		
+			--pitch-secondary-note-sat-scale: 0.1; 		
+			--pitch-secondary-note-lum: 55; 		
+			--pitch-secondary-note-lum-scale: 0.05; 
+		
+			--pitch-primary-note-hue: 120; 		
+			--pitch-primary-note-hue-scale: 6.1; 		
+			--pitch-primary-note-sat: 100; 		
+			--pitch-primary-note-sat-scale: 0.05; 		
+			--pitch-primary-note-lum: 85.6; 		
+			--pitch-primary-note-lum-scale: 0.025; 
+		
+			--noise-secondary-channel-hue: 90; 		
+			--noise-secondary-channel-hue-scale: 2; 		
+			--noise-secondary-channel-sat: 65; 		
+			--noise-secondary-channel-sat-scale: 0; 		
+			--noise-secondary-channel-lum: 42; 		
+			--noise-secondary-channel-lum-scale: 0; 
+		
+			--noise-primary-channel-hue: 80; 		
+			--noise-primary-channel-hue-scale: 1; 		
+			--noise-primary-channel-sat: 100; 		
+			--noise-primary-channel-sat-scale: 1; 		
+			--noise-primary-channel-lum: 63.5; 		
+			--noise-primary-channel-lum-scale: 0; 
+		
+			--noise-secondary-note-hue: 90; 		
+			--noise-secondary-note-hue-scale: 2; 		
+			--noise-secondary-note-sat: 60; 		
+			--noise-secondary-note-sat-scale: 0; 		
+			--noise-secondary-note-lum: 35; 		
+			--noise-secondary-note-lum-scale: 0; 	
+	
+			--noise-primary-note-hue: 80; 		
+			--noise-primary-note-hue-scale: 2; 		
+			--noise-primary-note-sat: 100; 		
+			--noise-primary-note-sat-scale: 1; 		
+			--noise-primary-note-lum: 60; 		
+			--noise-primary-note-lum-scale: 1; 	
+	
+			--mod-secondary-channel-hue: 55; 		
+			--mod-secondary-channel-hue-scale: 1.5; 		
+			--mod-secondary-channel-sat: 100; 		
+			--mod-secondary-channel-sat-scale: 0; 		
+			--mod-secondary-channel-lum: 20; 		
+			--mod-secondary-channel-lum-scale: 0; 
+		
+			--mod-primary-channel-hue: 55; 		
+			--mod-primary-channel-hue-scale: 1.5; 		
+			--mod-primary-channel-sat: 96; 		
+			--mod-primary-channel-sat-scale: 0; 		
+			--mod-primary-channel-lum: 50; 		
+			--mod-primary-channel-lum-scale: 0; 
+		
+			--mod-secondary-note-hue: 55; 		
+			--mod-secondary-note-hue-scale: 1.5; 		
+			--mod-secondary-note-sat: 62; 		
+			--mod-secondary-note-sat-scale: 0; 		
+			--mod-secondary-note-lum: 45; 		
+			--mod-secondary-note-lum-scale: 0; 
+		
+			--mod-primary-note-hue: 55; 		
+			--mod-primary-note-hue-scale: 1.5; 		
+			--mod-primary-note-sat: 96; 		
+			--mod-primary-note-sat-scale: 0; 		
+			--mod-primary-note-lum: 85; 		
+			--mod-primary-note-lum-scale: 0; 	
+
+			--note-flash: #ffffff;
+			--note-flash-secondary: #ffffff77;
+			--sample-failed: #bf2c78;
+
+		}
+
+		* {
+		/*cursor: url("abyssbox_cursor.png"), auto !important;*/
+		--muted-symbol: url("./vistaSpeakerIconMuted.png");
+		--unmuted-symbol: url("./vistaSpeakerIcon.png");
+		}
+	
+
+		/* Frutiger Aero Icons */
+
+		div.promptContainerBG {
+			background-color: var(--editor-background) !important;
+			backdrop-filter: unset !important;
+			opacity: 0 !important;
+		}
+
+		div.mute-button::before {
+			background: #fff0 !important;
+			background-image: url("./vistaSpeakerIcon.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px !important;
+			color: #fff0;
+
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important; 
+		}
+
+		div.mute-button.muted::before {
+			background: #fff0 !important;
+			background-image: url("./vistaSpeakerIconMuted.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px !important;
+			color: #fff0;
+
+			image-rendering: -moz-crisp-edges !important;         /* Firefox */
+			image-rendering: -webkit-optimize-contrast !important; /* Webkit (Chrome/Safari) */
+			image-rendering: -o-crisp-edges !important;            /* Opera */
+			image-rendering: pixelated !important;                 /* Future browsers */
+			image-rendering: optimizeSpeed !important;             /* IE */
+		}
+
+		#text-content > section > h1 > font {
+			display: none;
+			}
+			#text-content > section > h1 {
+			margin: auto;
+			content: url("./AbyssBoxFrutigerAeroThemeLogo.png");
+			}
+
+		button.mobileEffectsButton.deactivated {
+		box-shadow: none !important;
+		}
+
+		button.mobileInstButton.deactivated {
+		box-shadow: none !important;
+		}
+
+		button.mobileEnvelopesButton.deactivated {
+		box-shadow: none !important;
+		}
+
+		select.trackSelectBox {
+			border-image: none !important;
+		}
+
+			@font-face {
+		   font-family: "Frutiger";
+		   src:
+ 		   url("./FrutigerLight.ttf") format("truetype") tech(color-COLRv1),
+			}
+
+			canvas#oscilascopeAll {
+				background: #2e538c !important; 
+				border: 2px solid #84aef000 !important;
+			}
+
+			.beepboxEditor .play-pause-area div:last-child {
+				position: relative;
+				width: 144px;
+				height: 32px;
+			  }
+			  .beepboxEditor .play-pause-area div:last-child::before {
+				content: "";
+				display: block;
+				width: calc(144px + 4px);
+				height: calc(32px + 4px);
+				box-shadow: 0px -1px 1px 0px rgba(0, 0, 0, 0.5), inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5), inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3);
+				position: absolute;
+				z-index: 1;
+			  }
+
+			div.prompt.noSelection{
+				background: linear-gradient(#84aef080, #2a3d6a80) !important; 
+				opacity: 77;
+				backdrop-filter: blur(14px);
+			}  
+
+			svg#firstImage {
+				opacity: 50%;
+				--editor-background: #000000;
+			}
+
+
+			body {
+			background-image: url("./frutigerbg3.png") !important;
+			background-position: top;
+			background-attachment: fixed;
+			background-repeat: no-repeat;
+			background-size: 145%;
+			image-rendering: optimizeQuality !important;
+				}
+
+			#beepboxEditorContainer {
+				background: linear-gradient(rgba(245, 171, 251, 0.5019607843137255), rgba(72, 57, 179, 0.5019607843137255)) !important;
+				border-style: solid;
+  				border-color: #050428;
+				padding-bottom: 5px;
+				--inverted-text: black;
+				backdrop-filter: blur(14px);
+				box-shadow: inset 0 0 2000px rgba(0, 0, 0, 0.5)
+			}
+			#text-content {
+				background: linear-gradient(rgba(72, 57, 179, 0.5019607843137255), rgba(34, 3, 47, 0.5019607843137255));
+				border-style: solid;
+  				border-color: #050428;
+				  backdrop-filter: blur(14px);
+				  box-shadow: inset 0 0 2000px rgba(0, 0, 0, 0.5)
+			}
+
+				div.playback-bar-controls button.playButton, 
+				div.playback-bar-controls button.pauseButton, 
+				div.playback-bar-controls button.recordButton, 
+				div.playback-bar-controls button.stopButton, 
+				div.playback-bar-controls button.prevBarButton, 
+				div.playback-bar-controls button.nextBarButton, 
+				div.selectRow button.copyButton, 
+				div.selectRow button.pasteButton, 
+				div.editor-controls button.exportInstrumentButton, 
+				div.editor-controls button.importInstrumentButton,
+				div.editor-controls div button.add-envelope,
+				div.editor-controls div button.delete-envelope, 
+				.beepboxEditor .select2-selection__rendered,
+				.beepboxEditor .instrument-bar button,
+				.beepboxEditor .eq-filter-type-bar button .deactivated,
+				.beepboxEditor .note-filter-type-bar button .deactivated,
+				.beepboxEditor select  { 
+					box-shadow: 0px 1px 3px 0px rgb(0, 0, 0), inset 0px -12px 14px 0px rgba(0, 0, 0, 0.3), inset 0px -7px 4px 0px rgba(140, 47, 202, 0.71), inset 0px -15px 0px 0px rgba(0, 0, 0, 0.2), inset 0px 1px 2px 1px #ffffff54;
+					--ui-widget-background: linear-gradient(rgba(219, 122, 238, 0.8), rgba(143, 98, 242, 0.8)) !important;
+				}
+
+				.beepboxEditor select:focus
+				{
+					border-image-source: none;
+					--ui-widget-background: linear-gradient(#db7aeecc, #8f62f2cc) !important;
+					box-shadow: 0px 1px 3px 0px rgb(0, 0, 0), inset 0px -12px 14px 0px rgba(0, 0, 0, 0.3), inset 0px -7px 4px 0px rgba(140, 47, 202, 0.71), inset 0px -15px 0px 0px rgba(0, 0, 0, 0.2), inset 0px 1px 2px 1px rgba(255, 255, 255, 0.32941176470588235)
+				}
+
+				.beepboxEditor button, button
+				{
+					--ui-widget-background: linear-gradient(#db7aeecc, #8f62f2cc) !important;
+					box-shadow: 0px 1px 3px 0px rgb(0, 0, 0), inset 0px -12px 14px 0px rgba(0, 0, 0, 0.3), inset 0px -7px 4px 0px rgba(140, 47, 202, 0.71), inset 0px -15px 0px 0px rgba(0, 0, 0, 0.2), inset 0px 1px 2px 1px rgba(255, 255, 255, 0.32941176470588235)
+				}
+				.beepboxEditor .select2-container--open .select2-selection__rendered,
+				.beepboxEditor button:focus,
+				button:focus,
+				.beepboxEditor .instrument-bar .selected-instrument,
+				.beepboxEditor .eq-filter-type-bar button:not(.deactivated),
+				.beepboxEditor .note-filter-type-bar button:not(.deactivated)
+				{
+					--ui-widget-background: linear-gradient(#333, #444) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor .filterEditor svg,
+				.beepboxEditor .fadeInOut svg,
+				.beepboxEditor .harmonics svg,
+				.beepboxEditor .spectrum svg
+				{
+					background: rgba(0, 0, 0, 0.3) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-webkit-slider-thumb
+				{
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+						inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-webkit-slider-runnable-track
+				{
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+					border-radius: 4px;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-webkit-slider-runnable-track
+				{
+					background: rgba(255, 255, 255, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-ms-thumb
+				{
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+						inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-ms-track
+				{
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+					border-radius: 4px;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-ms-track
+				{
+					background: rgba(255, 255, 255, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-moz-range-thumb
+				{
+					height: 16px !important;
+					width: 16px !important;
+					border-radius: 40px !important;
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+						inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-moz-range-track
+				{
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+					border-radius: 4px;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-moz-range-track
+				{
+					background: rgba(255, 255, 255, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="text"],
+				.beepboxEditor input[type="number"]
+				{
+					border: none !important;
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]
+				{
+					appearance: none;
+					background: rgba(0, 0, 0, 0.3);
+					color: currentColor;
+					border-radius: 1px;
+					width: 1em !important;
+					height: 1em !important;
+					box-shadow:
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked
+				{
+					display: flex;
+					justify-content: center;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked:after
+				{
+					width: 1em;
+					height: 1em;
+					text-align: center;
+					font-size: 0.8em;
+					content: "✓";
+					color: currentColor;
+					text-shadow: 0px 0px 2px rgba(255, 255, 255, 0.5);
+				}
+
+			html {
+ 		   	font-family: 'Frutiger';
+			}
+
+			div.channelBoxLabel {
+				font-family: 'Frutiger' !important;
+			}
+
+
+		   div.beepboxEditor.load {
+			background: none !important;
+		   }
+
+		   div.noSelection {
+			background: none !important;
+		   }
+
+		   .beepboxEditor .loopEditor {
+			background: none !important;
+		   }
+
+		   .beepboxEditor .muteEditor {
+			background: linear-gradient(rgba(154, 118, 170, 1), rgba(61, 36, 72, 1)) !important;
+			border-radius: 5px;
+			box-shadow: 0px 1px 1px 0px rgb(0, 0, 0), inset 0px 3px 14px 0px rgba(0, 0, 0, 0.1), inset 0px -4px 0px 0px rgba(0, 0, 0, 0.1);
+			opacity: 65%;
+		   }
+
+		   div.muteEditor div {
+			background: none !important;
+			--track-editor-bg-pitch: #5f8fd6;
+			--track-editor-bg-noise: #5f8fd6;
+			--track-editor-bg-mod: #8a76c5;
+	
+			--track-editor-bg-pitch-dim: #2472a1; 		
+			--track-editor-bg-noise-dim: #2472a1; 			
+			--track-editor-bg-mod-dim: #4222a0; 
+
+		   }
+
+		   div.channelBox {
+			border-radius: 5px;
+		  }
+		  div.curChannelBox {
+			border-radius: 5px;
+		  }
+
+			`,
+			        "Doom 1993": `
+			:root { 		
+			--page-margin: #470000; 		
+			--editor-background: #470000; 		
+			--hover-preview: white; 		
+			--playhead: rgba(255, 255, 255, 0.9); 		
+			--primary-text: #ffffff; 		
+			--secondary-text: #ffffff; 		
+			--inverted-text:  #000000;	 		
+			--text-selection: rgba(119,68,255,0.99); 		
+			--box-selection-fill: #ff6f00; 		
+			--loop-accent: #ff0000; 		
+			--link-accent: #962727; 		
+			--ui-widget-background: #4f3b36;		
+			--ui-widget-focus: #4f3b36; 		
+			--pitch-background: #7d0000; 		
+			--tonic: #ff0000; 		
+			--fifth-note: #962727; 	
+			--third-note: #d2192a;	
+			--white-piano-key: #ccbca5; 		
+			--black-piano-key: #40382f; 		
+			--use-color-formula: true; 		
+			--track-editor-bg-pitch: #7d1f00; 		
+			--track-editor-bg-pitch-dim: #401000; 		
+			--track-editor-bg-noise: #7d0000; 		
+			--track-editor-bg-noise-dim: #400000; 		
+			--track-editor-bg-mod: #7d0028; 		
+			--track-editor-bg-mod-dim: #470017; 		
+			--multiplicative-mod-slider: #9f8460; 		
+			--overwriting-mod-slider: #9f6460; 		
+			--indicator-primary: #b38949; 		
+			--indicator-secondary: #543d1d; 		
+			--select2-opt-group: #4f3b19; 		
+			--input-box-outline: #1a0404; 		
+			--mute-button-normal: #dd5d5d;	 		
+			--mute-button-mod: #ba3d36; 		
+			--mod-label-primary: #541616; 		
+			--mod-label-secondary-text: rgb(120, 87, 86); 
+			--mod-label-primary-text: gray; 
+			--progress-bar: #ff0000;
+
+			--pitch-secondary-channel-hue: 0; 		
+			--pitch-secondary-channel-hue-scale: 0; 		
+			--pitch-secondary-channel-sat: 43; 		
+			--pitch-secondary-channel-sat-scale: 0.1; 		
+			--pitch-secondary-channel-lum: 60; 		
+			--pitch-secondary-channel-lum-scale: 0.05; 
+		
+			--pitch-primary-channel-hue: -4; 		
+			--pitch-primary-channel-hue-scale: 6.1; 		
+			--pitch-primary-channel-sat: 75; 		
+			--pitch-primary-channel-sat-scale: 0.1; 		
+			--pitch-primary-channel-lum: 60; 		
+			--pitch-primary-channel-lum-scale: 0.05; 	
+	
+			--pitch-secondary-note-hue: -4; 		
+			--pitch-secondary-note-hue-scale: 6.1; 		
+			--pitch-secondary-note-sat: 93.9; 		
+			--pitch-secondary-note-sat-scale: 0.1; 		
+			--pitch-secondary-note-lum: 20; 		
+			--pitch-secondary-note-lum-scale: 0.05; 
+		
+			--pitch-primary-note-hue: -4; 		
+			--pitch-primary-note-hue-scale: 6.1; 		
+			--pitch-primary-note-sat: 65; 		
+			--pitch-primary-note-sat-scale: 0.05; 		
+			--pitch-primary-note-lum: 60; 		
+			--pitch-primary-note-lum-scale: 0.05; 
+		
+			--noise-secondary-channel-hue: 0; 		
+			--noise-secondary-channel-hue-scale: 2; 		
+			--noise-secondary-channel-sat: 65; 		
+			--noise-secondary-channel-sat-scale: 0; 		
+			--noise-secondary-channel-lum: 60; 		
+			--noise-secondary-channel-lum-scale: 0; 
+		
+			--noise-primary-channel-hue: 0; 		
+			--noise-primary-channel-hue-scale: 1; 		
+			--noise-primary-channel-sat: 100; 		
+			--noise-primary-channel-sat-scale: 1; 		
+			--noise-primary-channel-lum: 63.5; 		
+			--noise-primary-channel-lum-scale: 0; 
+		
+			--noise-secondary-note-hue: 24; 		
+			--noise-secondary-note-hue-scale: 2; 		
+			--noise-secondary-note-sat: 100; 		
+			--noise-secondary-note-sat-scale: 0; 		
+			--noise-secondary-note-lum: 25; 		
+			--noise-secondary-note-lum-scale: 0; 	
+	
+			--noise-primary-note-hue: 24; 		
+			--noise-primary-note-hue-scale: 2; 		
+			--noise-primary-note-sat: 75; 		
+			--noise-primary-note-sat-scale: 1; 		
+			--noise-primary-note-lum: 60; 		
+			--noise-primary-note-lum-scale: 1; 	
+	
+			--mod-secondary-channel-hue: 55; 		
+			--mod-secondary-channel-hue-scale: 1.5; 		
+			--mod-secondary-channel-sat: 100; 		
+			--mod-secondary-channel-sat-scale: 0; 		
+			--mod-secondary-channel-lum: 20; 		
+			--mod-secondary-channel-lum-scale: 0; 
+		
+			--mod-primary-channel-hue: 55; 		
+			--mod-primary-channel-hue-scale: 1.5; 		
+			--mod-primary-channel-sat: 96; 		
+			--mod-primary-channel-sat-scale: 0; 		
+			--mod-primary-channel-lum: 50; 		
+			--mod-primary-channel-lum-scale: 0; 
+		
+			--mod-secondary-note-hue: 55; 		
+			--mod-secondary-note-hue-scale: 1.5; 		
+			--mod-secondary-note-sat: 92; 		
+			--mod-secondary-note-sat-scale: 0; 		
+			--mod-secondary-note-lum: 45; 		
+			--mod-secondary-note-lum-scale: 0; 
+		
+			--mod-primary-note-hue: 55; 		
+			--mod-primary-note-hue-scale: 1.5; 		
+			--mod-primary-note-sat: 96; 		
+			--mod-primary-note-sat-scale: 0; 		
+			--mod-primary-note-lum: 85; 		
+			--mod-primary-note-lum-scale: 0; 
+			
+			--note-flash: #ffffff;
+			--note-flash-secondary: #ffffff77;
+				}
+		
+		#text-content > section > h1 > font {
+		display: none;
+		}
+		#text-content > section > h1 {
+		margin: auto;
+		content: url("./AbyssBox_DOOM.png");
+		}
+		body {
+		background-image: url("./doomsky.png") !important;
+		background-size: cover;
+		background-position: center;
+		background-repeat: no-repeat;
+			}
+			/* make editor background transparent */
+		#beepboxEditorContainer, .beepboxEditor, #text-content {
+		}
+
+
+			@font-face {
+		   font-family: "doomfont";
+		   src:
+ 		   url("./doomfont.otf") format("opentype") tech(color-COLRv1),
+			}
+
+			html {
+ 		   font-family: 'doomfont';
+			}
+			div.channelBoxLabel {
+				font-family: 'doomfont' !important;
+			}
+
+			`,
+        "Undertale": `
+			:root {
+				--page-margin: #000;
+				--editor-background: #000;
+				--hover-preview: #fff;
+				--playhead: rgba(255, 255, 255, 0.9);
+				--primary-text: #fff;
+				--secondary-text: #979797;
+				--inverted-text: #000;
+				--text-selection: rgba(255, 255, 255, .99);
+				--box-selection-fill: #fff;
+				--loop-accent: #f00;
+				--link-accent: #0f0;
+				--ui-widget-background: #4d4d4d;
+				--ui-widget-focus: #000;
+				--pitch-background: #2d2d2d73;
+				--tonic: #c9c9c9;
+				--fifth-note: #400000;
+				--third-note: #073037;
+				--white-piano-key: #fff;
+				--black-piano-key: #000;
+				--white-piano-key-text: #000;
+				--black-piano-key-text: #fff;
+				--use-color-formula: false;
+			--pitch-channel-limit: 10;
+				--track-editor-bg-pitch: #8b8b8b;
+				--track-editor-bg-pitch-dim: #000;
+				--track-editor-bg-noise: #5c5c5c;
+				--track-editor-bg-noise-dim: #000;
+				--track-editor-bg-mod: #585858;
+				--track-editor-bg-mod-dim: #000;
+				--multiplicative-mod-slider: #f00;
+				--overwriting-mod-slider: #00f;
+				--indicator-primary: #f00;
+				--indicator-secondary: #919191;
+				--select2-opt-group: #5d576f;
+				--input-box-outline: #626262;
+				--mute-button-normal: #ffffff;
+				--mute-button-mod: #4f4f4f;
+				--mod-label-primary: #f00;
+				--progress-bar: #00ff00;
+
+				--pitch1-secondary-channel: #590000;
+			  --pitch1-primary-channel: #f00;
+			  --pitch1-secondary-note: #590000;
+			  --pitch1-primary-note: #f00;
+			
+			  --pitch2-secondary-channel: #00678a;
+			  --pitch2-primary-channel: #00ffef;
+			  --pitch2-secondary-note: #00678a;
+			  --pitch2-primary-note: #00ffef;
+			
+			  --pitch3-secondary-channel: #b35600;
+			  --pitch3-primary-channel: #ff7a00;
+			  --pitch3-secondary-note: #b35600;
+			  --pitch3-primary-note: #ff7a00;
+			
+			  --pitch4-secondary-channel: #002866;
+			  --pitch4-primary-channel: #001aff;
+			  --pitch4-secondary-note: #002866;
+			  --pitch4-primary-note: #001aff;
+			
+			  --pitch5-secondary-channel: #005e0b;
+			  --pitch5-primary-channel: #00ff1d;
+			  --pitch5-secondary-note: #005e0b;
+			  --pitch5-primary-note: #00ff1d;
+			
+			  --pitch6-secondary-channel: #b55d00;
+			  --pitch6-primary-channel: #fe0;
+			  --pitch6-secondary-note: #b55d00;
+			  --pitch6-primary-note: #fe0;
+			
+			  --pitch7-secondary-channel: #6a00b3;
+			  --pitch7-primary-channel: #a429f7;
+			  --pitch7-secondary-note: #6a00b3;
+			  --pitch7-primary-note: #a429f7;
+			
+			  --pitch8-secondary-channel: #02009f;
+			  --pitch8-primary-channel: #0058ff;
+			  --pitch8-secondary-note: #02009f;
+			  --pitch8-primary-note: #0058ff;
+			
+			  --pitch9-secondary-channel: #5c5c5c;
+			  --pitch9-primary-channel: #fff;
+			  --pitch9-secondary-note: #5c5c5c;
+			  --pitch9-primary-note: #fff;
+			
+			  --pitch10-secondary-channel: #5e2700;
+			  --pitch10-primary-channel: #ffb300;
+			  --pitch10-secondary-note: #5e2700;
+			  --pitch10-primary-note: #ffb300;
+			
+			  --noise1-secondary-channel: #750000;
+			  --noise1-primary-channel: #f00;
+			  --noise1-secondary-note: #750000;
+			  --noise1-primary-note: #f00;
+			
+			  --noise2-secondary-channel: #8567ff;
+			  --noise2-primary-channel: #f00;
+			  --noise2-secondary-note: #8567ff;
+			  --noise2-primary-note: #f00;
+			
+			  --noise3-secondary-channel: #8567ff;
+			  --noise3-primary-channel: #cec2ff;
+			  --noise3-secondary-note: #8567ff;
+			  --noise3-primary-note: #cec2ff;
+			
+			  --noise4-secondary-channel: #00266a;
+			  --noise4-primary-channel: #ffe100;
+			  --noise4-secondary-note: #00266a;
+			  --noise4-primary-note: #ffe100;
+			
+			  --noise5-secondary-channel: #976a00;
+			  --noise5-primary-channel: #ffe100;
+			  --noise5-secondary-note: #976a00;
+			  --noise5-primary-note: #ffe100;
+			
+			  --mod1-secondary-channel: #aaa;
+			  --mod1-primary-channel: #fff;
+			  --mod1-secondary-note: #aaa;
+			  --mod1-primary-note: #fff;
+			
+			  --mod2-secondary-channel: #950000;
+			  --mod2-primary-channel: #ff6000;
+			  --mod2-secondary-note: #950000;
+			  --mod2-primary-note: #ff6000;
+			
+			  --mod3-secondary-channel: #021300;
+			  --mod3-primary-channel: #1db917;
+			  --mod3-secondary-note: #021300;
+			  --mod3-primary-note: #1db917;
+			
+			  --mod4-secondary-channel: #a00000;
+			  --mod4-primary-channel: #ff252f;
+			  --mod4-secondary-note: #a00000;
+			  --mod4-primary-note: #ff252f;
+			
+			  --disabled-note-primary: #999;
+			  --disabled-note-secondary: #696969;
+
+			  --arrow-color: #f67c33;
+			  --icon-color: #f67c33;
+				}
+				* {
+					cursor: url("./icon-soul"), auto !important;
+					--file-page-symbol: url("./icon-file.png");
+					--edit-pencil-symbol: url("./icon-edit.png");
+					--preferences-gear-symbol: url("./icon-preferences.png");
+					--text-enabled-icon:❤️ ;
+					}
+		
+			
+					div.promptContainerBG {
+						background-color: var(--editor-background) !important;
+						backdrop-filter: unset !important;
+						opacity: 0.5 !important;
+					}
+			body {
+			background-image: url("./battlebg.png") !important;
+			background-position: center;
+			background-size: contain;
+			background-attachment: fixed;
+			background-repeat: no-repeat;
+			}
+			#text-content > section > h1 > font {
+			display: none;
+			}
+			#jummboxPlant{
+				opacity:0;
+			}
+			#text-content > section > h1 {
+			 
+			background-image: url("./AbyssBoxUtThemeLogo.png");
+ 			background-size: contain;
+ 			background-position: center;
+  			background-repeat: no-repeat;
+			}
+
+			div.selectContainer.menu.file select,
+			div.selectContainer.menu.edit select,
+			div.selectContainer.menu.preferences select {
+				border-style: solid;
+				border-color: #f67c33;
+				border-radius: 0px;
+			}
+			div.selectContainer.menu.file,
+			div.selectContainer.menu.edit,
+			div.selectContainer.menu.preferences {
+				--ui-widget-background: black;
+				--icon-color: #f67c33;
+				--arrow-color: #f67c33;
+				color: #f67c33;
+			}
+			.beepboxEditor select:focus,
+			.beepboxEditor .selectContainer:focus-within
+			{
+				border-color: #fbff4b !important;
+				--ui-widget-background: black !important;
+				--icon-color: #f00 !important;
+				--arrow-color: #fbff4b !important;
+				color: #fbff4b !important;
+
+				--file-page-symbol: url("./icon-soul.png");
+				--edit-pencil-symbol: url("./icon-soul.png");
+				--preferences-gear-symbol: url("./icon-soul.png");
+			}
+			.beepboxEditor .menu.edit::before,
+			.beepboxEditor .menu.file::before,
+			.beepboxEditor .menu.preferences::before {
+				background: var(--icon-color) !important;
+			}
+			.beepboxEditor .menu.edit::after,
+			.beepboxEditor .menu.file::after,
+			.beepboxEditor .menu.preferences::after {
+				background: var(--arrow-color) !important;
+			}
+
+			#text-content {
+				border-style: solid;
+				border-radius: 0px;
+				padding-left: 20px;
+				padding-right: 20px;
+				padding-top: 15px;
+			}
+		#beepboxEditorContainer {
+			border-style: solid;
+			border-radius: 0px;
+			padding-left: 20px;
+			padding-right: 20px;
+			padding-bottom: 15px;
+			}
+			`,
+		        "Windows Xp": `
+			:root {		
+			--page-margin: #edead9; 		
+			--editor-background: #faf9f2; 		
+			--hover-preview: black; 		
+			--playhead: #000; 		
+			--primary-text: #231f20; 		
+			--secondary-text: #231f20; 		
+			--inverted-text: black;	 		
+			--text-selection: rgba(119,68,255,0.99); 		
+			--box-selection-fill: #1e0915; 		
+			--loop-accent: #003399; 		
+			--link-accent: #003399; 		
+			--ui-widget-background: #DBD9CD; 		
+			--ui-widget-focus: #DBD9CD; 		
+			--pitch-background: #ffffff; 		
+			--tonic: #d5dbf5; 		
+			--fifth-note: #e8e8e8; 	
+			--third-note: #b6ceac;	
+			--white-piano-key: #ebe2ca; 		
+			--black-piano-key: #403a2f; 		
+			--use-color-formula: true; 		
+			--track-editor-bg-pitch: #cfcab2; 		
+			--track-editor-bg-pitch-dim: #9c9781; 		
+			--track-editor-bg-noise: #cfcab2; 		
+			--track-editor-bg-noise-dim: #9c9781; 		
+			--track-editor-bg-mod: #cfcab2; 		
+			--track-editor-bg-mod-dim: #9c9781; 		
+			--multiplicative-mod-slider: #9f6082; 		
+			--overwriting-mod-slider: #9e3470; 		
+			--indicator-primary: #b3498f; 		
+			--indicator-secondary: #541d40; 		
+			--select2-opt-group: #4f191e; 		
+			--input-box-outline: #18041a; 		
+			--mute-button-normal: #dd5d94;	 		
+			--mute-button-mod: #ba364c; 		
+			--mod-label-primary: #541625; 		
+			--mod-label-secondary-text: rgb(120, 87, 86); 
+			--mod-label-primary-text: gray;
+			--progress-bar: #00ff00;
+			--octave-scrollbar: #cfcab2;
+
+--pitch-secondary-channel-hue: 0;		
+--pitch-secondary-channel-hue-scale: 6.1;		
+--pitch-secondary-channel-sat: 43.3;		
+--pitch-secondary-channel-sat-scale: 0.1;		
+--pitch-secondary-channel-lum: 30;		
+--pitch-secondary-channel-lum-scale: 0.05;
+		
+--pitch-primary-channel-hue: 0;		
+--pitch-primary-channel-hue-scale: 6.1;		
+--pitch-primary-channel-sat: 60;		
+--pitch-primary-channel-sat-scale: 0.1;		
+--pitch-primary-channel-lum: 57.5;		
+--pitch-primary-channel-lum-scale: 0.05;
+		
+--pitch-secondary-note-hue: 0;		
+--pitch-secondary-note-hue-scale: 6.1;		
+--pitch-secondary-note-sat: 43.9;		
+--pitch-secondary-note-sat-scale: 0.1;		
+--pitch-secondary-note-lum: 35;		
+--pitch-secondary-note-lum-scale: 0.05;
+		
+--pitch-primary-note-hue: 0;		
+--pitch-primary-note-hue-scale: 6.1;		
+--pitch-primary-note-sat: 60;		
+--pitch-primary-note-sat-scale: 0.05;		
+--pitch-primary-note-lum: 65.6;		
+--pitch-primary-note-lum-scale: 0.025;
+		
+--noise-secondary-channel-hue: 0;		
+--noise-secondary-channel-hue-scale: 2;		
+--noise-secondary-channel-sat: 25;		
+--noise-secondary-channel-sat-scale: 0;		
+--noise-secondary-channel-lum: 32;		
+--noise-secondary-channel-lum-scale: 0;
+		
+--noise-primary-channel-hue: 0;		
+--noise-primary-channel-hue-scale: 2;		
+--noise-primary-channel-sat: 33;		
+--noise-primary-channel-sat-scale: 0;		
+--noise-primary-channel-lum: 53.5;		
+--noise-primary-channel-lum-scale: 0;
+		
+--noise-secondary-note-hue: 0;		
+--noise-secondary-note-hue-scale: 2;		
+--noise-secondary-note-sat: 33.5;		
+--noise-secondary-note-sat-scale: 0;		
+--noise-secondary-note-lum: 35;		
+--noise-secondary-note-lum-scale: 0;	
+--noise-primary-note-hue: 0;		
+--noise-primary-note-hue-scale: 2;		
+--noise-primary-note-sat: 46.5;		
+--noise-primary-note-sat-scale: 0;		
+--noise-primary-note-lum: 54;		
+--noise-primary-note-lum-scale: 0;	
+--mod-secondary-channel-hue: 192;		
+--mod-secondary-channel-hue-scale: 1.5;		
+--mod-secondary-channel-sat: 88;		
+--mod-secondary-channel-sat-scale: 0;		
+--mod-secondary-channel-lum: 30;		
+--mod-secondary-channel-lum-scale: 0;	
+--mod-primary-channel-hue: 192;		
+--mod-primary-channel-hue-scale: 1.5;		
+--mod-primary-channel-sat: 56;		
+--mod-primary-channel-sat-scale: 0;		
+--mod-primary-channel-lum: 60;		
+--mod-primary-channel-lum-scale: 0;	
+--mod-secondary-note-hue: 192;		
+--mod-secondary-note-hue-scale: 1.5;		
+--mod-secondary-note-sat: 42;		
+--mod-secondary-note-sat-scale: 0;		
+--mod-secondary-note-lum: 35;		
+--mod-secondary-note-lum-scale: 0;	
+--mod-primary-note-hue: 192;		
+--mod-primary-note-hue-scale: 1.5;		
+--mod-primary-note-sat: 56;		
+--mod-primary-note-sat-scale: 0;		
+--mod-primary-note-lum: 65;		
+--mod-primary-note-lum-scale: 0;	
+
+			--note-flash: #ffffff77;
+			--note-flash-secondary: #ffffff66;
+				}
+				
+				@font-face {
+					font-family: "tahoma";
+					src:
+					 url("./tahoma.otf") format("opentype") tech(color-COLRv1),
+					 image-rendering: -moz-crisp-edges !important;
+					 image-rendering: -webkit-optimize-contrast !important; 
+					 image-rendering: -o-crisp-edges !important;
+					 image-rendering: pixelated !important;
+					 image-rendering: optimizeSpeed !important;
+				}
+		
+				div.promptContainerBG {
+					display: none !important;
+				}
+
+				html {
+				font-family: 'tahoma';
+			 font-size: 150% !important;
+				}
+				div.channelBoxLabel {
+					font-family: 'tahoma' !important;
+				}
+
+				.beepboxEditor .promptContainer {
+				}
+
+				div.prompt.noSelection {
+					margin: auto;
+					text-align: center;
+					background: var(--editor-background);
+					border-radius: 15px;
+					border: 0px solid var(--ui-widget-background) !important;
+					padding-left: 20px !important;
+					box-shadow: 6px 6px 27px 4px rgba(0, 0, 0, 0.5) !important;
+					padding-top: 6px !important;
+					padding-right: 20px !important;
+					padding-bottom: 20px !important;
+					border-image-source: url("./xpborder.png") !important;
+					border-image-slice: 34 !important;
+					border-image-width: 50px !important;
+					border-width: unset !important;
+					image-rendering: -moz-crisp-edges !important;     
+					image-rendering: -webkit-optimize-contrast !important; 
+					image-rendering: -o-crisp-edges !important;
+					image-rendering: pixelated !important;
+					image-rendering: optimizeSpeed !important; 
+				}
+
+				div.prompt.noSelection button.cancelButton {
+					opacity: 0;
+				}
+
+				div.promptTitle {
+					text-align: left !important;
+					color: white !important;
+				}
+				.layoutExt::before {
+					content: "layout.exe";
+				}
+				.layoutTitle {
+					display: none;
+				}
+				.channelExt::after {
+					content: "channelSettings.exe";
+				}
+				.channelTitle {
+					display: none;
+				}
+				.limiterExt::after {
+					content: "limiter.exe";
+				}
+				.limiterTitle {
+					display: none;
+				}
+
+				.bpmTitle {
+					display: none;
+				}
+				.bpmExt::after {
+					content: "bpb.exe";
+				}
+
+				.gerTitle {
+					display: none;
+				}
+				.gerExt::after {
+					content: "euclidianRhythm.exe";
+				}
+
+				.samplesTitle {
+					display: none;
+				}
+				.samplesExt::after {
+					content: "sampler.exe";
+					margin-bottom: 0.5em;
+
+				}
+				.samplesExt {
+					padding-bottom: 8px;
+				}
+
+				.importTitle {
+					display: none;
+				}
+				.importExt::after {
+					content: "import.exe";
+				}
+
+				.exportTitle {
+					display: none;
+				}
+				.exportExt::after {
+					content: "export.exe";
+				}
+
+				.import-instrumentTitle {
+					display: none;
+				}
+				.import-instrumentExt::after {
+					content: "importInstrument.exe";
+				}
+
+				.export-instrumentTitle {
+					display: none;
+				}
+				.export-instrumentExt::after {
+					content: "exportInstrument.exe";
+				}
+
+				.song-lengthTitle {
+					display: none;
+				}
+				.song-lengthExt::after {
+					content: "songExtender.exe";
+				}
+
+				.mnsTitle {
+					display: none;
+				}
+				.mnsExt::after {
+					content: "moveNotesSideways.exe";
+				}
+
+				.themeExt::after {
+					content: "setTheme.exe";
+				}
+				.themeTitle {
+					display: none;
+				}
+
+				.customThemeExt::after {
+					content: "customThemeEditor.exe";
+				}
+				.customThemeTitle {
+					display: none;
+				}
+
+				.nrsTitle {
+					display: none;
+				}
+				.nrsExt::after {
+					content: "setupMidiKeyboard.exe";
+				}
+
+				.beepboxEditor .promptContainer::before {
+					background: #fff0;
+				}
+
+		* {
+		cursor: url("./xpcursor.png"), auto !important;
+		--play-symbol:url("./xpPlay.png");
+		--pause-symbol:url("./xpPause.png");
+		--record-symbol:url("./xpRecord.png");
+		--stop-symbol:url("./xpStop.png");
+		--prev-bar-symbol:url("./xpBackward.png");
+		--next-bar-symbol:url("./xpForward.png");
+		--file-page-symbol: url("./xpFile.png");
+		--edit-pencil-symbol: url("./xpEdit.png");
+		--preferences-gear-symbol: url("./xpPreferences.png");
+		--muted-symbol: url("./xpSpeakerMute.png");
+		--unmuted-symbol: url("./xpSpeaker.png");
+		--volume-symbol: url("./xpSpeaker.png");
+		--zoom-in-symbol: url("./xpZoomIn.png");
+		--zoom-out-symbol: url("./xpZoomOut.png");
+		}
+
+		.beepboxEditor button,
+		button.mobilePatternButton,
+		button.mobileTrackButton,
+		button.mobileSettingsButton,
+		button.mobilePlayButton,
+		button.mobilePauseButton,
+		button.mobileNextBarButton,
+		button.mobilePrevBarButton,
+		button.playButton,
+		button.pauseButton, 
+		button.recordButton, 
+		button.stopButton,
+		button.nextBarButton, 
+		button.prevBarButton, 
+		button.copyButton, 
+		button.pasteButton, 
+		button.exportInstrumentButton, 
+		button.importInstrumentButton, 
+		.beepboxEditor select, 
+		.beepboxEditor .select2-selection__rendered {
+				cursor: url("./xphandcursor.png"), pointer !important;
+			}
+
+		div.mute-button::before {
+			background-image: url("./xpSpeaker.png") !important;
+			background-size: 120% !important;
+			background-position-x: center !important;
+			background-position-y: center !important;
+			background-repeat: no-repeat !important;
+			image-rendering: -moz-crisp-edges !important;   
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important; 
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		div.mute-button.muted::before {
+			background-image: url("./xpSpeakerMute.png") !important;
+			background-size: 120% !important;
+			background-position-x: center !important;
+			background-position-y: center !important;
+			background-repeat: no-repeat !important;
+			image-rendering: -moz-crisp-edges !important; 
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important; 
+			image-rendering: pixelated !important; 
+			image-rendering: optimizeSpeed !important; 
+		}
+
+		button.recordButton::Before {
+			background-image: url("./xpRecord.png") !important;
+			background-size: 64% !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+
+			image-rendering: -moz-crisp-edges !important;        
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+
+		}
+
+		button.stopButton::Before {
+			background-image: url("./xpStop.png") !important;
+			background-size: 64% !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		button.pauseButton::Before {
+			background-image: url("./xpPause.png") !important;
+			background-size: 64% !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		.beepboxEditor span.volume-speaker {
+			background-image: url("./xpSpeaker.png");
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+			}
+
+		div.selectContainer.menu.file::before {
+
+			background-image: url("./xpFile.png");
+			background-size: 64%;
+			background-position-x: center;
+			background-position-y: center;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important;
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		div.selectContainer.menu.edit::before {
+			background-image: url("./xpEdit.png");
+			background-size: 64%;
+			background-position-x: center;
+			background-position-y: center;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+		div.selectContainer.menu.preferences::before {
+			background-image: url("./xpPreferences.png");
+			background-size: 64%;
+			background-position-x: center;
+			background-position-y: center;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+		button.playButton::before {
+			background-image: url("./xpPlay.png") !important;
+			background-size: 64% !important;
+			background-position: center !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+		.beepboxEditor button.prevBarButton::before {
+			background-image: url("./xpBackward.png") !important;
+			background-size: 64% !important;
+			background-position: center !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		.beepboxEditor button.nextBarButton::before {
+			background-image: url("./xpForward.png") !important;
+			background-size: 64% !important;
+			background-position: center !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		.beepboxEditor .zoomInButton::before {
+			background-image: url("./xpZoomIn.png") !important;
+			background-position: center !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		.beepboxEditor .zoomOutButton::before {
+			background-image: url("./xpZoomOut.png") !important;
+			background-position: center !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		.beepboxEditor input[type="range"]::-moz-range-thumb {
+			background-image: url("./scrollbar.png") !important;
+			background-position: center !important;
+			background-size: inherit !important;
+			border-radius: 0px !important;
+			width: 13px !important;
+			height: 23px !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+			#text-content > section > h1 > font {
+		display: none;
+		}
+		#text-content > section > h1 {
+		margin: auto;
+		content: url("./AbyssBox_XP.png");
+		}
+		body {
+		background-image: url("./xphills.png") !important;
+		background-size: cover;
+		background-position: center;
+		background-repeat: no-repeat;
+			}
+			#text-content {
+    			margin: auto;
+				margin-top: auto;
+				text-align: center;
+				background: var(--editor-background);
+				border-radius: 15px;
+				border: 0px solid var(--ui-widget-background) !important;
+				padding-left: 20px !important;
+				box-shadow: 6px 6px 27px 4px rgba(0, 0, 0, 0.5) !important;
+				padding-top: 58px !important;
+				padding-right: 20px !important;
+				padding-bottom: 20px !important;
+				border-image-source: url("./xpborder.png") !important;
+				border-image-slice: 34 !important;
+				border-image-width: 50px !important;
+				border-width: unset !important;
+				image-rendering: -moz-crisp-edges !important;
+				image-rendering: -webkit-optimize-contrast !important;
+				image-rendering: -o-crisp-edges !important;
+				image-rendering: pixelated !important;
+				image-rendering: optimizeSpeed !important;
+				margin-top: 15px;
+				}
+			#beepboxEditorContainer {
+    				border-image-source: url("./xptextbg.png");
+    				border-image-slice: 11 fill; 
+   				border-image-width: 11px; 
+				border-image-repeat: stretch;
+    				background-color: transparent; 
+    				padding: 13px; 
+				}
+
+			.pattern-area {
+			border: #fff 1px solid;
+			border-right-color: rgb(255, 255, 255);
+			border-bottom-color: rgb(255, 255, 255);
+			padding: 2px;
+			background: #f9f8f3;
+			border-right-color: #c7c7bd;
+			border-bottom-color: #c7c7bd;
+			}
+
+			.track-area {
+			--editor-background: #edead9;
+			--ui-widget-background: #edead9;
+			}
+
+			.beepboxEditor .muteEditor {
+			background: #edead9;
+			}
+
+			.settings-area {
+			border: #fff 1px solid;
+			border-right-color: rgb(255, 255, 255);
+			border-bottom-color: rgb(255, 255, 255);
+			padding: 2px;
+			background: #f9f8f3;
+			border-right-color: #c7c7bd;
+			border-bottom-color: #c7c7bd;
+			}
+
+			.beepboxEditor {
+			background: #edead9 !important;
+			}
+
+			#octaveScrollBarContainer {
+			--tonic: #9c9781;
+			}
+
+			.barScrollBar {
+			--ui-widget-background: #9c9781;
+			--editor-background: #edead9;
+			}
+
+			.songLoopButton {
+			background: #edead9;
+			}
+
+			#firstImage {
+				background-image: url("./xpsongeditorbg.png") !important;
+				background-repeat: no-repeat !important;
+				background-size: 100% 100% !important;
+			}
+
+			select {
+				cursor: url("./xphandcursor.png"), pointer !important;
+			}
+
+			.beepboxEditor input[type="range"]::-moz-range-track
+			{
+				background: rgba(222, 217, 189, 0.2) !important;
+				box-shadow:
+					0px 0px 1px 1px rgba(0, 0, 0, 0.0), 
+					inset 0px 1px 2px 0px rgb(125, 120, 95), 
+					inset 0px -1px 0px 0px rgb(255, 255, 255)
+				;
+				border-radius: 4px;
+			} /* Thanks to LeoV's Skeumorphic theme on this one */
+			
+			.beepboxEditor input[type="range"]::-moz-range-track {
+				height: 3px !important;
+			}
+			
+			.beepboxEditor select:focus {
+					border-image-source: url("./xpbuttonpressedbg.png");
+					border-image-slice: 4 fill; 
+					border-image-width: 4px; 
+					border-image-repeat: repeat;
+					background-color: transparent; 
+					padding: 6px; 
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+
+				.beepboxEditor input[type="checkbox"]
+				{
+					appearance: none;
+					background: rgba(255, 255, 255, 1);
+					color: currentColor;
+					border-radius: 0px;
+					width: 13px !important;
+					height: 13px !important;
+					background-image:url("./xpCheckmarkBlank.png");
+					background-repeat:no-repeat;
+
+					image-rendering: -moz-crisp-edges !important;
+					image-rendering: -webkit-optimize-contrast !important; 
+					image-rendering: -o-crisp-edges !important;
+					image-rendering: pixelated !important;
+					image-rendering: optimizeSpeed !important;
+					transform: scale(2) !important;
+					}
+
+				.beepboxEditor input[type="checkbox"]:checked
+				{
+					display: flex;
+					justify-content: center;
+					transform: scale(2) !important;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked:after
+				{
+					width: 13px;
+					height: 13px;
+					text-align: center;
+					content: "";
+					background-repeat:no-repeat;
+					background-image:url("./xpCheckmark.png");
+					image-rendering: -moz-crisp-edges !important;
+					image-rendering: -webkit-optimize-contrast !important; 
+					image-rendering: -o-crisp-edges !important;
+					image-rendering: pixelated !important;
+					image-rendering: optimizeSpeed !important;
+				}
+				button.envelopeDropdown, div.selectRow button:not(.copyButton,.pasteButton,.exportInstrumentButton,.importInstrumentButton) {
+					--ui-widget-background: var(--editor-background) !important;
+					border-image-source: none !important;
+				}
+
+				.beepboxEditor input[type="range"]::-webkit-slider-thumb
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]::-webkit-slider-runnable-track
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-webkit-slider-runnable-track
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]::-ms-thumb
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]::-ms-track
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-ms-track
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]::-moz-range-thumb
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]::-moz-range-track
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-moz-range-track
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="text"],
+				.beepboxEditor input[type="number"]
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked:after
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+	
+				div.selectRow span 
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+
+
+			`,
+        "corporate dark": `
+			:root {
+			--page-margin: #1f1f1f;
+			--editor-background: #1f1f1f;
+			--hover-preview: white;
+			--playhead: white;
+			--primary-text: #e8e8e8;
+			--secondary-text: #8c8c8c;
+			--inverted-text: #1D1C1D;
+			--text-selection: #C249DD;
+			--box-selection-fill: rgba(0,0,0,0.2);
+			--loop-accent: #C249DD;
+			--link-accent: #0E9DD3;
+			--ui-widget-background: #303134;
+			--ui-widget-focus: #5B5957;
+			--pitch-background: #3e3f42;
+			--tonic: #303134;
+			--fifth-note: #98809D;
+			--third-note: #62738b;
+			--white-piano-key: white;
+			--black-piano-key: #1D1C1D;
+			--white-piano-key-text: #1D1C1D;
+			--black-piano-key-text: white;
+			--use-color-formula: false;
+			--track-editor-bg-pitch: #303134;
+			--track-editor-bg-pitch-dim: #1d1e20;
+			--track-editor-bg-noise: #303134;
+			--track-editor-bg-noise-dim: #1d1e20;
+			--track-editor-bg-mod: #46524a;
+			--track-editor-bg-mod-dim: #2c352f;
+			--multiplicative-mod-slider: #456;
+			--overwriting-mod-slider: #654;
+			--indicator-primary: #C249DD;
+			--indicator-secondary: #602670;
+			--select2-opt-group: #474747;
+			--input-box-outline: #F4EDE4;
+			--mute-button-normal: #DE8969;
+			--mute-button-mod: #C05B8C;
+			--pitch-channel-limit: 4;
+			--noise-channel-limit: 3;
+			--pitch1-secondary-channel: #17616B;
+			--pitch1-primary-channel:   #36C5F0;
+			--pitch1-secondary-note:    #17616B;
+			--pitch1-primary-note:      #36C5F0;
+			--pitch2-secondary-channel: #185F34;
+			--pitch2-primary-channel:   #2EB67D;
+			--pitch2-secondary-note:    #185F34;
+			--pitch2-primary-note:      #2EB67D;
+			--pitch3-secondary-channel: #755617;
+			--pitch3-primary-channel:   #ECB22E;
+			--pitch3-secondary-note:    #755617;
+			--pitch3-primary-note:      #ECB22E;
+			--pitch4-secondary-channel: #821237;
+			--pitch4-primary-channel:   #E01E5A;
+			--pitch4-secondary-note:    #821237;
+			--pitch4-primary-note:      #E01E5A;
+			--pitch5-secondary-channel: #D020D0;
+			--pitch5-primary-channel:   #FF90FF;
+			--pitch5-secondary-note:    #E040E0;
+			--pitch5-primary-note:      #FFC0FF;
+			--pitch6-secondary-channel: #7777B0;
+			--pitch6-primary-channel:   #A0A0FF;
+			--pitch6-secondary-note:    #8888D0;
+			--pitch6-primary-note:      #D0D0FF;
+			--pitch7-secondary-channel: #8AA100;
+			--pitch7-primary-channel:   #DEFF25;
+			--pitch7-secondary-note:    #AAC700;
+			--pitch7-primary-note:      #E6FF92;
+			--pitch8-secondary-channel: #DF0019;
+			--pitch8-primary-channel:   #FF98A4;
+			--pitch8-secondary-note:    #FF4E63;
+			--pitch8-primary-note:      #FFB2BB;
+			--pitch9-secondary-channel: #00A170;
+			--pitch9-primary-channel:   #50FFC9;
+			--pitch9-secondary-note:    #00C78A;
+			--pitch9-primary-note:      #83FFD9;
+			--pitch10-secondary-channel:#A11FFF;
+			--pitch10-primary-channel:  #CE8BFF;
+			--pitch10-secondary-note:   #B757FF;
+			--pitch10-primary-note:     #DFACFF;
+			--noise1-secondary-channel: #424242;
+			--noise1-primary-channel:   #AAAAAA;
+			--noise1-secondary-note:    #424242;
+			--noise1-primary-note:      #AAAAAA;
+			--noise2-secondary-channel: #5E3A2D;
+			--noise2-primary-channel:   #DE8969;
+			--noise2-secondary-note:    #5E3A2D;
+			--noise2-primary-note:      #DE8969;
+			--noise3-secondary-channel: #32595B;
+			--noise3-primary-channel:   #78D7DD;
+			--noise3-secondary-note:    #32595B;
+			--noise3-primary-note:      #78D7DD;
+			--noise4-secondary-channel: #7A4F9A;
+			--noise4-primary-channel:   #AF82D2;
+			--noise4-secondary-note:    #9E71C1;
+			--noise4-primary-note:      #D4C1EA;
+			--noise5-secondary-channel: #607837;
+			--noise5-primary-channel:   #A2BB77;
+			--noise5-secondary-note:    #91AA66;
+			--noise5-primary-note:      #C5E2B2;
+			--mod1-secondary-channel:   #339955;
+			--mod1-primary-channel:     #77fc55;
+			--mod1-secondary-note:      #77ff8a;
+			--mod1-primary-note:        #cdffee;
+			--mod2-secondary-channel:   #993355;
+			--mod2-primary-channel:     #f04960;
+			--mod2-secondary-note:      #f057a0;
+			--mod2-primary-note:        #ffb8de;
+			--mod3-secondary-channel:   #553399;
+			--mod3-primary-channel:     #8855fc;
+			--mod3-secondary-note:      #aa64ff;
+			--mod3-primary-note:	    #f8ddff;
+			--mod4-secondary-channel:   #a86436;
+			--mod4-primary-channel:     #c8a825;
+			--mod4-secondary-note:      #e8ba46;
+			--mod4-primary-note:        #fff6d3;
+			--mod-label-primary:        #999;
+			--mod-label-secondary-text: #333;
+			--mod-label-primary-text:   black;
+			--disabled-note-primary:    #999;
+			--disabled-note-secondary:  #666;
+			--mod-title: #1D1C1D;
+			}
+
+			.channelBox {
+			border-radius: 25px;
+			}
+
+			button:hover {
+			border-radius: 4px;
+			background-color: #1d1e20 !important;
+			}
+
+			select:hover {
+			border-radius: 4px !important;
+			background-color: #1d1e20 !important;
+			}
+
+			#select2-pitchPresetSelect-container:hover {
+			border-radius: 4px !important;
+			background-color: #1d1e20 !important;
+			}`,
+        "corporate light": `
+			:root {
+			--page-margin: white;
+			--editor-background: white;
+			--hover-preview: white;
+			--playhead: white;
+			--primary-text: #1D1C1D;
+			--secondary-text: #A5A19B;
+			--inverted-text: #1D1C1D;
+			--text-selection: #C249DD;
+			--box-selection-fill: rgba(0,0,0,0.2);
+			--loop-accent: #C249DD;
+			--link-accent: #0E9DD3;
+			--ui-widget-background: #F4EDE4;
+			--ui-widget-focus: white;
+			--pitch-background: #E8DED1;
+			--tonic: #E6B8A8;
+			--fifth-note: #DB99EA;
+			--third-note: #99c3ff;
+			--white-piano-key: white;
+			--black-piano-key: #1D1C1D;
+			--white-piano-key-text: #1D1C1D;
+			--black-piano-key-text: white;
+			--use-color-formula: false;
+			--track-editor-bg-pitch: #E8DED1;
+			--track-editor-bg-pitch-dim: #ecc6ba;
+			--track-editor-bg-noise: #E8DED1;
+			--track-editor-bg-noise-dim: #ecc6ba;
+			--track-editor-bg-mod: #87BB9B;
+			--track-editor-bg-mod-dim: #6baa83;
+			--multiplicative-mod-slider: #456;
+			--overwriting-mod-slider: #654;
+			--indicator-primary: #C249DD;
+			--indicator-secondary: #602670;
+			--select2-opt-group: #474747;
+			--input-box-outline: #F4EDE4;
+			--mute-button-normal: #DE8969;
+			--mute-button-mod: #C05B8C;
+			--pitch-channel-limit: 4;
+			--noise-channel-limit: 3;
+			--pitch1-secondary-channel: #17616B;
+			--pitch1-primary-channel:   #36C5F0;
+			--pitch1-secondary-note:    #17616B;
+			--pitch1-primary-note:      #36C5F0;
+			--pitch2-secondary-channel: #185F34;
+			--pitch2-primary-channel:   #2EB67D;
+			--pitch2-secondary-note:    #185F34;
+			--pitch2-primary-note:      #2EB67D;
+			--pitch3-secondary-channel: #755617;
+			--pitch3-primary-channel:   #ECB22E;
+			--pitch3-secondary-note:    #755617;
+			--pitch3-primary-note:      #ECB22E;
+			--pitch4-secondary-channel: #821237;
+			--pitch4-primary-channel:   #E01E5A;
+			--pitch4-secondary-note:    #821237;
+			--pitch4-primary-note:      #E01E5A;
+			--pitch5-secondary-channel: #D020D0;
+			--pitch5-primary-channel:   #FF90FF;
+			--pitch5-secondary-note:    #E040E0;
+			--pitch5-primary-note:      #FFC0FF;
+			--pitch6-secondary-channel: #7777B0;
+			--pitch6-primary-channel:   #A0A0FF;
+			--pitch6-secondary-note:    #8888D0;
+			--pitch6-primary-note:      #D0D0FF;
+			--pitch7-secondary-channel: #8AA100;
+			--pitch7-primary-channel:   #DEFF25;
+			--pitch7-secondary-note:    #AAC700;
+			--pitch7-primary-note:      #E6FF92;
+			--pitch8-secondary-channel: #DF0019;
+			--pitch8-primary-channel:   #FF98A4;
+			--pitch8-secondary-note:    #FF4E63;
+			--pitch8-primary-note:      #FFB2BB;
+			--pitch9-secondary-channel: #00A170;
+			--pitch9-primary-channel:   #50FFC9;
+			--pitch9-secondary-note:    #00C78A;
+			--pitch9-primary-note:      #83FFD9;
+			--pitch10-secondary-channel:#A11FFF;
+			--pitch10-primary-channel:  #CE8BFF;
+			--pitch10-secondary-note:   #B757FF;
+			--pitch10-primary-note:     #DFACFF;
+			--noise1-secondary-channel: #424242;
+			--noise1-primary-channel:   #AAAAAA;
+			--noise1-secondary-note:    #424242;
+			--noise1-primary-note:      #AAAAAA;
+			--noise2-secondary-channel: #5E3A2D;
+			--noise2-primary-channel:   #DE8969;
+			--noise2-secondary-note:    #5E3A2D;
+			--noise2-primary-note:      #DE8969;
+			--noise3-secondary-channel: #32595B;
+			--noise3-primary-channel:   #78D7DD;
+			--noise3-secondary-note:    #32595B;
+			--noise3-primary-note:      #78D7DD;
+			--noise4-secondary-channel: #7A4F9A;
+			--noise4-primary-channel:   #AF82D2;
+			--noise4-secondary-note:    #9E71C1;
+			--noise4-primary-note:      #D4C1EA;
+			--noise5-secondary-channel: #607837;
+			--noise5-primary-channel:   #A2BB77;
+			--noise5-secondary-note:    #91AA66;
+			--noise5-primary-note:      #C5E2B2;
+			--mod1-secondary-channel:   #339955;
+			--mod1-primary-channel:     #77fc55;
+			--mod1-secondary-note:      #77ff8a;
+			--mod1-primary-note:        #cdffee;
+			--mod2-secondary-channel:   #993355;
+			--mod2-primary-channel:     #f04960;
+			--mod2-secondary-note:      #f057a0;
+			--mod2-primary-note:        #ffb8de;
+			--mod3-secondary-channel:   #553399;
+			--mod3-primary-channel:     #8855fc;
+			--mod3-secondary-note:      #aa64ff;
+			--mod3-primary-note:	    #f8ddff;
+			--mod4-secondary-channel:   #a86436;
+			--mod4-primary-channel:     #c8a825;
+			--mod4-secondary-note:      #e8ba46;
+			--mod4-primary-note:        #fff6d3;
+			--mod-label-primary:        #999;
+			--mod-label-secondary-text: #333;
+			--mod-label-primary-text:   black;
+			--disabled-note-primary:    #999;
+			--disabled-note-secondary:  #666;
+			--mod-title: #1D1C1D;
+			}
+
+			.channelBox {
+			border-radius: 25px;
+			}
+
+			button:hover {
+			border-radius: 4px;
+			background-color: #dbd2c5 !important;
+			}
+
+			select:hover {
+			border-radius: 4px !important;
+			background-color: #dbd2c5 !important;
+			}
+
+			#select2-pitchPresetSelect-container:hover {
+			border-radius: 4px !important;
+			background-color: #dbd2c5 !important;
+			}`,
+        "Terminal 2.0 (AB)": `
+			:root { 
+			--page-margin: black; 
+			--editor-background: black; 
+			--hover-preview: white; 
+			--playhead: white; 
+			--primary-text: #26ff00; 
+			--secondary-text: #0d6d00; 
+			--inverted-text: #000000; 
+			--text-selection: rgba(119,68,255,0.99); 
+			--box-selection-fill: rgba(255,255,255,0.2); 
+			--loop-accent: #1eff00; 
+			--link-accent: #8dff7e; 
+			--ui-widget-background: #000000; 
+			--ui-widget-focus: #242424; 
+			--pitch-background: #0d0d0d50; 
+			--tonic: #06350090; 
+			--fifth-note: #20202090; 
+			--third-note: #2f571f8f;
+			--white-piano-key: #ffffff; 
+			--black-piano-key: #000000; 
+			--white-piano-key-text: #131200; 
+			--black-piano-key-text: #fff; 
+			--use-color-formula: false;
+			--pitch-channel-limit: 10; 
+			--track-editor-bg-pitch: #152912; 
+			--track-editor-bg-pitch-dim: #091307; 
+			--track-editor-bg-noise: #1a1a1a; 
+			--track-editor-bg-noise-dim: #333; 
+			--track-editor-bg-mod: #000000; 
+			--track-editor-bg-mod-dim: #000000; 
+			--multiplicative-mod-slider: #073c00; 
+			--overwriting-mod-slider: #0c6700; 
+			--indicator-primary: #139f00; 
+			--indicator-secondary: #1eff00; 
+			--select2-opt-group: #171717; 
+			--input-box-outline: #00ff00; 
+			--mute-button-normal: #00ff44; 
+			--mute-button-mod: #44ff00; 
+			--progress-bar: #00ff00;
+			--pitch1-secondary-channel: #0099A1; 
+			--pitch1-primary-channel: #25F3FF; 
+			--pitch1-secondary-note: #00BDC7; 
+			--pitch1-primary-note: #92F9FF; 
+			--pitch2-secondary-channel: #A1A100; 
+			--pitch2-primary-channel: #FFFF25; 
+			--pitch2-secondary-note: #C7C700; 
+			--pitch2-primary-note: #FFFF92; 
+			--pitch3-secondary-channel: #C75000; 
+			--pitch3-primary-channel: #FF9752; 
+			--pitch3-secondary-note: #FF771C; 
+			--pitch3-primary-note: #FFCDAB; 
+			--pitch4-secondary-channel: #00A100; 
+			--pitch4-primary-channel: #50FF50; 
+			--pitch4-secondary-note: #00C700; 
+			--pitch4-primary-note: #A0FFA0; 
+			--pitch5-secondary-channel: #D020D0; 
+			--pitch5-primary-channel: #FF90FF; 
+			--pitch5-secondary-note: #E040E0; 
+			--pitch5-primary-note: #FFC0FF; 
+			--pitch6-secondary-channel: #7777B0; 
+			--pitch6-primary-channel: #A0A0FF; 
+			--pitch6-secondary-note: #8888D0; 
+			--pitch6-primary-note: #D0D0FF; 
+			--pitch7-secondary-channel: #8AA100; 
+			--pitch7-primary-channel: #DEFF25; 
+			--pitch7-secondary-note: #AAC700; 
+			--pitch7-primary-note: #E6FF92; 
+			--pitch8-secondary-channel: #DF0019; 
+			--pitch8-primary-channel: #FF98A4; 
+			--pitch8-secondary-note: #FF4E63; 
+			--pitch8-primary-note: #FFB2BB; 
+			--pitch9-secondary-channel: #00A170; 
+			--pitch9-primary-channel: #50FFC9; 
+			--pitch9-secondary-note: #00C78A; 
+			--pitch9-primary-note: #83FFD9; 
+			--pitch10-secondary-channel: #A11FFF; 
+			--pitch10-primary-channel: #CE8BFF; 
+			--pitch10-secondary-note: #B757FF; 
+			--pitch10-primary-note: #DFACFF; 
+			--noise1-secondary-channel: #6F6F6F; 
+			--noise1-primary-channel: #AAAAAA; 
+			--noise1-secondary-note: #A7A7A7; 
+			--noise1-primary-note: #E0E0E0; 
+			--noise2-secondary-channel: #996633; 
+			--noise2-primary-channel: #DDAA77; 
+			--noise2-secondary-note: #CC9966; 
+			--noise2-primary-note: #F0D0BB; 
+			--noise3-secondary-channel: #4A6D8F; 
+			--noise3-primary-channel: #77AADD; 
+			--noise3-secondary-note: #6F9FCF; 
+			--noise3-primary-note: #BBD7FF; 
+			--noise4-secondary-channel: #7A4F9A; 
+			--noise4-primary-channel: #AF82D2; 
+			--noise4-secondary-note: #9E71C1; 
+			--noise4-primary-note: #D4C1EA; 
+			--noise5-secondary-channel: #607837; 
+			--noise5-primary-channel: #A2BB77; 
+			--noise5-secondary-note: #91AA66; 
+			--noise5-primary-note: #C5E2B2; 
+			--mod1-secondary-channel: #339955; 
+			--mod1-primary-channel: #77fc55; 
+			--mod1-secondary-note: #77ff8a; 
+			--mod1-primary-note: #cdffee; 
+			--mod2-secondary-channel: #993355; 
+			--mod2-primary-channel: #f04960; 
+			--mod2-secondary-note: #f057a0; 
+			--mod2-primary-note: #ffb8de; 
+			--mod3-secondary-channel: #553399; 
+			--mod3-primary-channel: #8855fc; 
+			--mod3-secondary-note: #aa64ff; 
+			--mod3-primary-note: #f8ddff; 
+			--mod4-secondary-channel: #a86436; 
+			--mod4-primary-channel: #c8a825; 
+			--mod4-secondary-note: #e8ba46; 
+			--mod4-primary-note: #fff6d3; 
+			--mod-label-primary: #164705; 
+			--mod-label-secondary-text: #333; 
+			--mod-label-primary-text: #44ff00; 
+			--disabled-note-primary: #999; 
+			--disabled-note-secondary: #666; 
+			--note-flash: #a4ff82; 
+			--note-flash-secondary: #dffbd57a; }
+			
+			 body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  border-radius: 0;
+				background-image: url("./lines2.png") !important;
+				background-size: 10%;
+			}
+
+						@font-face {
+					   font-family: "Workbench";
+					   src:
+						url("./Workbench.ttf") format("truetype") tech(color-COLRv1),
+						}
+			
+						html {
+							font-family: 'Workbench';
+						}
+			
+						div.channelBoxLabel {
+							font-family: 'Workbench' !important;
+						}
+			
+			
+						#modTitle::before {
+							content: "> AbyssBox Terminal 2.0" !important;
+						}
+			`,
+        "Protanopia": `
+:root { 
+--page-margin: #000000; 
+--editor-background: #000000; 
+--hover-preview: white; 
+--playhead: rgba(255, 255, 255, 0.9); 
+--primary-text: #ffffff; 
+--secondary-text: #e5e5e5; 
+--inverted-text: #000000; 
+--text-selection: rgba(119,68,255,0.99); 
+--box-selection-fill: #044b94; 
+--loop-accent: #ffffff; 
+--link-accent: #8915c8; 
+--ui-widget-background: #676767; 
+--ui-widget-focus: #696969; 
+--pitch-background: #302f36; 
+--tonic: #19181c; 
+--fifth-note: #1b1924; 
+--third-note: #192415;
+--white-piano-key: #a6a6a6; 
+--black-piano-key: #484848; 
+--use-color-formula: false;
+			--pitch-channel-limit: 10; 
+--track-editor-bg-pitch: #666666; 
+--track-editor-bg-pitch-dim: #383838; 
+--track-editor-bg-noise: #438240; 
+--track-editor-bg-noise-dim: #1e361d; 
+--track-editor-bg-mod: #5f419c; 
+--track-editor-bg-mod-dim: #3e2b66; 
+--multiplicative-mod-slider: #b62326; 
+--overwriting-mod-slider: #5f1214; 
+--indicator-primary: #ccffdb; 
+--indicator-secondary: #55dee6; 
+--select2-opt-group: #595959; 
+--input-box-outline: #ffffff; 
+--mute-button-normal: #f11d22; 
+--mute-button-mod: #4b57c2; 
+--mod-label-primary: #0909ff; 
+--mod-label-secondary-text: #ffffff; 
+--mod-label-primary-text: #c8ecfd; 
+				--pitch1-secondary-channel: #160740;
+				--pitch1-primary-channel:   #482d8a;
+
+				--pitch1-secondary-note:    #160740;
+				--pitch1-primary-note:      #482d8a;
+
+				--pitch2-secondary-channel: #0b555e;
+				--pitch2-primary-channel:   #126e7a;
+
+				--pitch2-secondary-note:    #0b555e;
+				--pitch2-primary-note:      #126e7a;
+
+				--pitch3-secondary-channel: #1d898c;
+				--pitch3-primary-channel:   #2fa9ad;
+
+				--pitch3-secondary-note:    #1d898c;
+				--pitch3-primary-note:      #2fa9ad;
+
+				--pitch4-secondary-channel: #3f9160;
+				--pitch4-primary-channel:   #55ad78;
+
+				--pitch4-secondary-note:    #3f9160;
+				--pitch4-primary-note:      #55ad78;
+
+				--pitch5-secondary-channel: #69b051;
+				--pitch5-primary-channel:   #97e07e;
+
+				--pitch5-secondary-note:    #69b051;
+				--pitch5-primary-note:      #97e07e;
+
+				--pitch6-secondary-channel: #bbcc8f;
+				--pitch6-primary-channel:   #d4e3ac;
+
+				--pitch6-secondary-note:    #bbcc8f;
+				--pitch6-primary-note:      #d4e3ac;
+
+				--pitch7-secondary-channel: #8f7657;
+				--pitch7-primary-channel:   #b5a28a;
+
+				--pitch7-secondary-note:    #8f7657;
+				--pitch7-primary-note:      #b5a28a;
+
+				--pitch8-secondary-channel: #804d3c;
+				--pitch8-primary-channel:   #a16a58;
+
+				--pitch8-secondary-note:    #804d3c;
+				--pitch8-primary-note:      #a16a58;
+
+				--pitch9-secondary-channel: #a62b2b;
+				--pitch9-primary-channel:   #ba3c3c;
+
+				--pitch9-secondary-note:    #a62b2b;
+				--pitch9-primary-note:      #ba3c3c;
+
+				--pitch10-secondary-channel:#ba497c;
+				--pitch10-primary-channel:  #d46195;
+
+				--pitch10-secondary-note:   #ba497c;
+				--pitch10-primary-note:     #d46195;
+
+				--noise1-secondary-channel: #6F6F6F;
+				--noise1-primary-channel:   #AAAAAA;
+
+				--noise1-secondary-note:    #A7A7A7;
+				--noise1-primary-note:      #E0E0E0;
+
+				--noise2-secondary-channel: #996633;
+				--noise2-primary-channel:   #DDAA77;
+				--noise2-secondary-note:    #CC9966;
+				--noise2-primary-note:      #F0D0BB;
+				--noise3-secondary-channel: #4A6D8F;
+				--noise3-primary-channel:   #77AADD;
+				--noise3-secondary-note:    #6F9FCF;
+				--noise3-primary-note:      #BBD7FF;
+				--noise4-secondary-channel: #7A4F9A;
+				--noise4-primary-channel:   #AF82D2;
+				--noise4-secondary-note:    #9E71C1;
+				--noise4-primary-note:      #D4C1EA;
+				--noise5-secondary-channel: #607837;
+				--noise5-primary-channel:   #A2BB77;
+				--noise5-secondary-note:    #91AA66;
+				--noise5-primary-note:      #C5E2B2;
+          				--mod1-secondary-channel:   #339955;
+					--mod1-primary-channel:     #77fc55;
+					--mod1-secondary-note:      #77ff8a;
+					--mod1-primary-note:        #cdffee;
+					--mod2-secondary-channel:   #993355;
+					--mod2-primary-channel:     #f04960;
+					--mod2-secondary-note:      #f057a0;
+					--mod2-primary-note:        #ffb8de;
+					--mod3-secondary-channel:   #553399;
+					--mod3-primary-channel:     #8855fc;
+					--mod3-secondary-note:      #aa64ff;
+					--mod3-primary-note:	    #f8ddff;
+					--mod4-secondary-channel:   #a86436;
+					--mod4-primary-channel:     #c8a825;
+					--mod4-secondary-note:      #e8ba46;
+					--mod4-primary-note:        #fff6d3;
+					--mod-label-primary:        #999;
+					--mod-label-secondary-text: #333;
+					--mod-label-primary-text:   black;
+					--disabled-note-primary:    #999;
+					--disabled-note-secondary:  #666;
+
+					
+					
+}
+
+			`,
+        "Tritanopia": `
+:root { 
+--page-margin: #000000; 
+--editor-background: #000000; 
+--hover-preview: white; 
+--playhead: rgba(255, 255, 255, 0.9); 
+--primary-text: #ffffff; 
+--secondary-text: #e5e5e5; 
+--inverted-text: #000000; 
+--text-selection: rgba(119,68,255,0.99); 
+--box-selection-fill: #044b94; 
+--loop-accent: #ffffff; 
+--link-accent: #8915c8; 
+--ui-widget-background: #676767; 
+--ui-widget-focus: #696969; 
+--pitch-background: #302f36; 
+--tonic: #19181c; 
+--fifth-note: #1b1924; 
+--third-note: #192415;
+--white-piano-key: #a6a6a6; 
+--black-piano-key: #484848; 
+--use-color-formula: false;
+			--pitch-channel-limit: 10; 
+--track-editor-bg-pitch: #666666; 
+--track-editor-bg-pitch-dim: #383838; 
+--track-editor-bg-noise: #438240; 
+--track-editor-bg-noise-dim: #1e361d; 
+--track-editor-bg-mod: #5f419c; 
+--track-editor-bg-mod-dim: #3e2b66; 
+--multiplicative-mod-slider: #b62326; 
+--overwriting-mod-slider: #5f1214; 
+--indicator-primary: #ccffdb; 
+--indicator-secondary: #55dee6; 
+--select2-opt-group: #595959; 
+--input-box-outline: #ffffff; 
+--mute-button-normal: #f11d22; 
+--mute-button-mod: #4b57c2; 
+--mod-label-primary: #0909ff; 
+--mod-label-secondary-text: #ffffff; 
+--mod-label-primary-text: #c8ecfd; 
+				--pitch1-secondary-channel: #9C0000;
+				--pitch1-primary-channel:   #FF0000;
+
+				--pitch1-secondary-note:    #9C0000;
+				--pitch1-primary-note:      #FF0000;
+
+				--pitch2-secondary-channel: #8E009C;
+				--pitch2-primary-channel:   #EB25FF;
+
+				--pitch2-secondary-note:    #8E009C;
+				--pitch2-primary-note:      #EB25FF;
+
+				--pitch3-secondary-channel: #00069C;
+				--pitch3-primary-channel:   #3D45FF;
+
+				--pitch3-secondary-note:    #00069C;
+				--pitch3-primary-note:      #3D45FF;
+
+				--pitch4-secondary-channel: #00829C;
+				--pitch4-primary-channel:   #24DBFF;
+
+				--pitch4-secondary-note:    #00829C;
+				--pitch4-primary-note:      #24DBFF;
+
+				--pitch5-secondary-channel: #009C18;
+				--pitch5-primary-channel:   #70FF86;
+
+				--pitch5-secondary-note:    #009C18;
+				--pitch5-primary-note:      #70FF86;
+
+				--pitch6-secondary-channel: #8E9C00;
+				--pitch6-primary-channel:   #DBEF16;
+
+				--pitch6-secondary-note:    #8E9C00;
+				--pitch6-primary-note:      #DBEF16;
+
+				--pitch7-secondary-channel: #9C6A00;
+				--pitch7-primary-channel:   #F7AC0E;
+
+				--pitch7-secondary-note:    #9C6A00;
+				--pitch7-primary-note:      #F7AC0E;
+
+				--pitch8-secondary-channel: #9C2300;
+				--pitch8-primary-channel:   #F53700;
+
+				--pitch8-secondary-note:    #9C2300;
+				--pitch8-primary-note:      #F53700;
+
+				--pitch9-secondary-channel: #441A0D;
+				--pitch9-primary-channel:   #9E3F22;
+
+				--pitch9-secondary-note:    #441A0D;
+				--pitch9-primary-note:      #9E3F22;
+
+				--pitch10-secondary-channel:#2C0D44;
+				--pitch10-primary-channel:  #7436A4;
+
+				--pitch10-secondary-note:   #2C0D44;
+				--pitch10-primary-note:     #7436A4;
+
+				--noise1-secondary-channel: #6F6F6F;
+				--noise1-primary-channel:   #AAAAAA;
+
+				--noise1-secondary-note:    #A7A7A7;
+				--noise1-primary-note:      #E0E0E0;
+
+				--noise2-secondary-channel: #996633;
+				--noise2-primary-channel:   #DDAA77;
+				--noise2-secondary-note:    #CC9966;
+				--noise2-primary-note:      #F0D0BB;
+				--noise3-secondary-channel: #4A6D8F;
+				--noise3-primary-channel:   #77AADD;
+				--noise3-secondary-note:    #6F9FCF;
+				--noise3-primary-note:      #BBD7FF;
+				--noise4-secondary-channel: #7A4F9A;
+				--noise4-primary-channel:   #AF82D2;
+				--noise4-secondary-note:    #9E71C1;
+				--noise4-primary-note:      #D4C1EA;
+				--noise5-secondary-channel: #607837;
+				--noise5-primary-channel:   #A2BB77;
+				--noise5-secondary-note:    #91AA66;
+				--noise5-primary-note:      #C5E2B2;
+          				--mod1-secondary-channel:   #339955;
+					--mod1-primary-channel:     #77fc55;
+					--mod1-secondary-note:      #77ff8a;
+					--mod1-primary-note:        #cdffee;
+					--mod2-secondary-channel:   #993355;
+					--mod2-primary-channel:     #f04960;
+					--mod2-secondary-note:      #f057a0;
+					--mod2-primary-note:        #ffb8de;
+					--mod3-secondary-channel:   #553399;
+					--mod3-primary-channel:     #8855fc;
+					--mod3-secondary-note:      #aa64ff;
+					--mod3-primary-note:	    #f8ddff;
+					--mod4-secondary-channel:   #a86436;
+					--mod4-primary-channel:     #c8a825;
+					--mod4-secondary-note:      #e8ba46;
+					--mod4-primary-note:        #fff6d3;
+					--mod-label-primary:        #999;
+					--mod-label-secondary-text: #333;
+					--mod-label-primary-text:   black;
+					--disabled-note-primary:    #999;
+					--disabled-note-secondary:  #666;
+					
+					
+}
+
+			`,
+        "Deuteranopia": `
+    :root {
+    --page-margin: #000;
+    --editor-background: #060606;
+    --hover-preview: #fff;
+    --playhead: rgb(255, 255, 255);
+    --primary-text: #fff;
+    --secondary-text: #fff;
+    --inverted-text: #000;
+    --text-selection: rgba(126, 126, 126, .99);
+    --box-selection-fill: #b74a4a;
+    --loop-accent: #7744FF;
+    --link-accent: #7744FF;
+    --ui-widget-background: #484848;
+    --ui-widget-focus: #3e3e3e;
+    --pitch-background: #3e3e3e;
+    --tonic: #861057;
+    --fifth-note: #7e7e7e;
+	--third-note: #486;
+    --use-color-formula: false;
+			--pitch-channel-limit: 10;
+    --track-editor-bg-pitch: #666161;
+    --track-editor-bg-pitch-dim: #3e3e3e;
+    --track-editor-bg-noise: #474747;
+    --track-editor-bg-noise-dim: #1a1a1a;
+    --track-editor-bg-mod: #474747;
+    --track-editor-bg-mod-dim: #1a1a1a;
+    --multiplicative-mod-slider: #868686;
+    --overwriting-mod-slider: #fff;
+    --indicator-primary: #fff;
+    --indicator-secondary: #535353;
+    --select2-opt-group: #5d576f;
+    --input-box-outline: #626262;
+    --mute-button-normal: #ffdc00;
+    --mute-button-mod: #0027ff;
+    --mod-label-primary: #2b2b2b;
+
+    --pitch1-secondary-channel: #0082BB;
+  --pitch1-primary-channel: #B1E8FF;
+  --pitch1-secondary-note: #0082BB;
+  --pitch1-primary-note: #B1E8FF;
+  --pitch2-secondary-channel: #005F88;
+  --pitch2-primary-channel: #00B2FF;
+  --pitch2-secondary-note: #005F88;
+  --pitch2-primary-note: #00B2FF;
+  --pitch3-secondary-channel: #0E0090;
+  --pitch3-primary-channel: #5196ff;
+  --pitch3-secondary-note: #0E0090;
+  --pitch3-primary-note: #5196ff;
+  --pitch4-secondary-channel: #001540;
+  --pitch4-primary-channel: #0041CA;
+  --pitch4-secondary-note: #001b55;
+  --pitch4-primary-note: #0041CA;
+  --pitch5-secondary-channel: #936e21;
+  --pitch5-primary-channel: #ffb300;
+  --pitch5-secondary-note: #936e21;
+  --pitch5-primary-note: #ffbe23;
+  --pitch6-secondary-channel: #ca5b00;
+  --pitch6-primary-channel: #faff52;
+  --pitch6-secondary-note: #ca5b00;
+  --pitch6-primary-note: #faff52;
+  --pitch7-secondary-channel: #75714a;
+  --pitch7-primary-channel: #fff3b8;
+  --pitch7-secondary-note: #75714a;
+  --pitch7-primary-note: #fff3b8;
+  --pitch8-secondary-channel: #9c4100;
+  --pitch8-primary-channel: #fc0;
+  --pitch8-secondary-note: #9c4100;
+  --pitch8-primary-note: #fc0;
+  --pitch9-secondary-channel: #8d4d00;
+  --pitch9-primary-channel: #ff9b20;
+  --pitch9-secondary-note: #8d4d00;
+  --pitch9-primary-note: #ff9b20;
+  --pitch10-secondary-channel: #a28f00;
+  --pitch10-primary-channel: #ffac55;
+  --pitch10-secondary-note: #a28f00;
+  --pitch10-primary-note: #ffac55;
+  --noise1-secondary-channel: #868686;
+  --noise1-primary-channel: #fff;
+  --noise1-secondary-note: #868686;
+  --noise1-primary-note: #fff;
+  --noise2-secondary-channel: #ad5600;
+  --noise2-primary-channel: #ffd300;
+  --noise2-secondary-note: #ad5600;
+  --noise2-primary-note: #ffd300;
+  --noise3-secondary-channel: #4f2f00;
+  --noise3-primary-channel: #fff3bc;
+  --noise3-secondary-note: #4f2f00;
+  --noise3-primary-note: #fff3bc;
+  --noise4-secondary-channel: #0070ff;
+  --noise4-primary-channel: #84f1ff;
+  --noise4-secondary-note: #0070ff;
+  --noise4-primary-note: #84f1ff;
+  --noise5-secondary-channel: #00c4b2;
+  --noise5-primary-channel: #4198ff;
+  --noise5-secondary-note: #00c4b2;
+  --noise5-primary-note: #4198ff;
+  --mod1-secondary-channel: #00046c;
+  --mod1-primary-channel: #00faff;
+  --mod1-secondary-note: #00046c;
+  --mod1-primary-note: #00faff;
+  --mod2-secondary-channel: #d25a00;
+  --mod2-primary-channel: #fdff00;
+  --mod2-secondary-note: #d25a00;
+  --mod2-primary-note: #fdff00;
+  --mod3-secondary-channel: #5a5a5a;
+  --mod3-primary-channel: #fff;
+  --mod3-secondary-note: #5a5a5a;
+  --mod3-primary-note: #fff;
+  --mod4-secondary-channel: #006dfb;
+  --mod4-primary-channel: #0ce7ff;
+  --mod4-secondary-note: #006dfb;
+  --mod4-primary-note: #0ce7ff;
+  --disabled-note-primary: #8d8d8d;
+  --disabled-note-secondary: #363636;
+
+  
+  
+    }
+
+			`,
+		
+		
+		
         "jummbox light": `
 				:root {
 					-webkit-text-stroke-width: 0.5px;
@@ -7360,7 +12274,7 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
 			--disabled-note-secondary:  #1c1b30;
 		}
 		`,
-        "dogebox2": `
+  "dogebox2": `
 			:root {
 				--page-margin: #000015;
 				--editor-background: #000015;
@@ -8665,26 +13579,16 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
 		  --disabled-note-primary: #3a3a3a;
 		  --disabled-note-secondary: #000;
 			}
-		/* replaces hotdog with an image of the girls using the same scratch sprites from the 404 page*/
-		#Hotdog {
-			display: inline !important;
-			content: url("theme_resources/AzurLaneThemeStarterSquad.png") !important;
-			width: 75%;
-			height: 75%;
-			text-align: center;
-			margin-top: 25px;
-		}
-		/* sets cursor */
 		* {
 		cursor: url("theme_resources/AzurLaneThemeMouse.png"), auto !important;
 		}
 		/* sets background image */
 		body {
-		background-image: url("theme_resources/AzurLaneThemeMemoryTaskBackground.png") !important;
-		background-size: cover;
-		background-position: center;
-		background-repeat: no-repeat;
-			}
+ background-image: url("./UltraBoxAzurLaneThemeMemoryTaskBackground.png") !important;
+ background-size: cover;
+ background-position: center;
+ background-repeat: no-repeat;
+}
 			/* make editor background transparent */
 		#beepboxEditorContainer, .beepboxEditor, #text-content {
 		background: #0400257d !important;
@@ -8694,7 +13598,7 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
 		}
 		#text-content > section > h1 {
 		margin: auto;
-		content: url("theme_resources/AzurLaneThemeLogo.png");
+		content: url("./UltraBoxALThemeLogo.png");
 		}
 		.promptContainerBG::before {
 			box-shadow: inset 0 0 2000px rgba(255, 255, 255, .5);
@@ -9172,8 +14076,6 @@ html{
   -webkit-text-stroke-width: 0.3px;
   --page-margin: #EAEAEA;
   --editor-background: #EAEAEA;
---pattern-background: url("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYQurAtfrC7QXo9iadsZVc6eJzdcERpn2ClA&s");
-  
   --hover-preview: #FFFFFF;
   --playhead: #EAEAEA;
   --primary-text: #000000;
@@ -11083,6 +15985,103 @@ body::before {
   --disabled-note-secondary: #1A1A1A;
 }
 `,
+"Citrus": `
+:root {
+  --page-margin: #1B1B1B;
+  --editor-background: #1B1B1B;
+  --hover-preview: #FFD966;
+  --playhead: #FF8C00;
+  --primary-text: #FFFFFF;
+  --secondary-text: #FFD966;
+  --inverted-text: #000000;
+  --text-selection: #FFB84D;
+  --box-selection-fill: #FFCC80;
+  --loop-accent: #FF9900;
+  --link-accent: #FFCC33;
+  --ui-widget-background: #333333;
+  --ui-widget-focus: #FFB84D;
+  --pitch-background: #222222;
+  --tonic: #FF3333;
+  --fifth-note: #FF6600;
+  --white-piano-key-color: #FFFFFF;
+  --black-piano-key-color: #000000;
+  --white-piano-key: #FFDDCC;
+  --black-piano-key: #333333;
+  --use-color-formula: false;
+
+  --track-editor-bg-pitch: #FF4444;
+  --track-editor-bg-pitch-dim: #CC2222;
+  --track-editor-bg-noise: #FFAA33;
+  --track-editor-bg-noise-dim: #CC7733;
+  --track-editor-bg-mod: #33CCFF;
+  --track-editor-bg-mod-dim: #3399CC;
+  --multiplicative-mod-slider: #33FFCC;
+  --overwriting-mod-slider: #33CC99;
+  --indicator-primary: #FFCC00;
+  --indicator-secondary: #FF9933;
+  --select2-opt-group: #FF8800;
+  --input-box-outline: #FFAA33;
+  --mute-button-normal: #CCCCCC;
+  --mute-button-mod: #999999;
+
+  --pitch1-primary-channel: #FF5555;
+  --pitch1-secondary-channel: #FF8888;
+  --pitch1-primary-note: #FFAAAA;
+  --pitch1-secondary-note: #FF6666;
+
+  --pitch2-primary-channel: #FFAA33;
+  --pitch2-secondary-channel: #FFCC66;
+  --pitch2-primary-note: #FFE0AA;
+  --pitch2-secondary-note: #FFBB66;
+
+  --pitch3-primary-channel: #33CC33;
+  --pitch3-secondary-channel: #66FF66;
+  --pitch3-primary-note: #AAFFAA;
+  --pitch3-secondary-note: #55BB55;
+
+  --pitch4-primary-channel: #33CCCC;
+  --pitch4-secondary-channel: #66FFFF;
+  --pitch4-primary-note: #AAFFFF;
+  --pitch4-secondary-note: #55BBBB;
+
+  --pitch5-primary-channel: #5555FF;
+  --pitch5-secondary-channel: #8888FF;
+  --pitch5-primary-note: #AAAAFF;
+  --pitch5-secondary-note: #6666BB;
+
+  --pitch6-primary-channel: #CC33FF;
+  --pitch6-secondary-channel: #FF66FF;
+  --pitch6-primary-note: #EEAAFF;
+  --pitch6-secondary-note: #BB66BB;
+
+  --noise1-primary-channel: #FF4444;
+  --noise1-secondary-channel: #FF7777;
+  --noise1-primary-note: #FFAAAA;
+  --noise1-secondary-note: #BB5555;
+
+  --noise2-primary-channel: #FFAA44;
+  --noise2-secondary-channel: #FFCC77;
+  --noise2-primary-note: #FFE0AA;
+  --noise2-secondary-note: #BB8844;
+
+  --mod1-primary-channel: #33CCFF;
+  --mod1-secondary-channel: #66EEFF;
+  --mod1-primary-note: #99FFFF;
+  --mod1-secondary-note: #44BBBB;
+
+  --mod2-primary-channel: #33FFAA;
+  --mod2-secondary-channel: #66FFCC;
+  --mod2-primary-note: #AAFFEE;
+  --mod2-secondary-note: #44BBBB;
+
+  --mod-label-primary: #FFFFFF;
+  --mod-label-secondary-text: #AAAAAA;
+  --mod-label-primary-text: #FFDD88;
+  --disabled-note-primary: #222222;
+  --disabled-note-secondary: #111111;
+}
+
+`,
 "FruityBox Dark": `
 :root {
   -webkit-text-stroke-width: 0.6px;
@@ -11232,7 +16231,6 @@ body::before {
 
 
 "FruityBox Nano": `
- 
 :root {  
   -webkit-text-stroke-width: 0.6px;
   --page-margin: #407DA4;
@@ -11244,13 +16242,15 @@ body::before {
   --inverted-text: #200020;
   --text-selection: #C9EFFF;
   --box-selection-fill: #CAA9FF;
-  --loop-accent: #BE5983;
-  --link-accent: #6A9CFF;
+  
+  --pitch-background: #132E33cc;
+  --tonic: #6692FFcc;
+  --fifth-note: #6E91FFcc;
+  --loop-accent: #BE5983cc;
+  --link-accent: #6A9CFFcc;
   --ui-widget-background: #2D6D61;
   --ui-widget-focus: #74C3B3;
-  --pitch-background: #132E33;
-  --tonic: #6692FF;
-  --fifth-note: #6E91FF;
+
   --white-piano-key-color: #000000;
   --black-piano-key-color: #ffffff;
   --white-piano-key: #90E5FF;
@@ -11396,13 +16396,14 @@ border: 1px solid #5DC5C2  !important; outline:none;
   0% { filter: hue-rotate(0deg); }
   100% { filter: hue-rotate(360deg); }
 }
+ 
 `,
 "FruityBox Standard Blue": `
 :root {
 			--oscilloscope-line-R: #0099A1;
 			--oscilloscope-line-L: #E4FF4D;
   -webkit-text-stroke-width: 0.5px;
-  --page-margin: #586268;
+  --page-margin: #3B474F; /*in player bg*/
   --editor-background: #272929;
   --hover-preview: #B0B0B0;
   --playhead: #356A8C;
@@ -11414,7 +16415,7 @@ border: 1px solid #5DC5C2  !important; outline:none;
   --loop-accent: #356A8C;
   --link-accent: #356A8C;
   --ui-widget-background: #41494F;
-  --ui-widget-focus: #586268;
+  --ui-widget-focus: #41494F;
   --pitch-background: #3B474F;
   --pattern-background: #292C2F;
   --tonic: #2B3941;
@@ -11560,11 +16561,9 @@ display:none;
 select , button, .selection *, input{
 	border-radius:0px !important;
 }
-.piano-label {
-	opacity:0;
-}
+ 
 .beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) {
-  border:0px solid white; outline:none; transform: scale(100%,250%) translateY(2px);  
+  border:0px solid white; outline:none; transform: scale(100%,250%) translateY(15%);  
 }
 .beepboxEditor .piano-button.blackkey  {
   margin-left:20%;
@@ -11576,6 +16575,19 @@ box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
  display:none;
  border:2px solid #3d3c3a;
 }
+
+.beepboxEditor .piano-button.blackkey  {
+  margin-left:20%;
+  align-items:left !important;
+  position:relative; z-index:2;
+box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
+}
+.beepboxEditor .piano-button.blackkey .piano-label  {
+  padding-left:25% !important;
+}
+.beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) .piano-label{
+	transform:scale(100%,40%) translateY(-4px) !important;
+}
 .beepboxEditor .piano-button.blackkey::before {
 		display: none;
 		border: 1px solid #3d3c3a !important;
@@ -11585,10 +16597,10 @@ box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
 `,
 "FruityBox Standard": `
 :root {
-			--oscilloscope-line-R: #0099A1;
+ 			--oscilloscope-line-R: #0099A1;
 			--oscilloscope-line-L: #E4FF4D;
   -webkit-text-stroke-width: 0.5px;
-  --page-margin: #586268;
+  --page-margin: #3B474F;
   --editor-background: #272929;
   --hover-preview: #B0B0B0;
   --playhead: #356A8C;
@@ -11750,7 +16762,7 @@ select , button, .selection *, input{
 	opacity:0;
 }
 .beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) {
-  border:0px solid white; outline:none; transform: scale(100%,250%) translateY(2px);  
+  border:0px solid white; outline:none; transform: scale(100%,250%) translateY(15%);  
 }
 .beepboxEditor .piano-button.blackkey  {
   margin-left:20%;
@@ -11769,9 +16781,195 @@ box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
 		
 }
 `,
+"FruityBox Contrast": ` 
+:root {
+ 			--oscilloscope-line-R: #35C7CF;
+			--oscilloscope-line-L: #FFF44D;
+  -webkit-text-stroke-width: 0.5px;
+  --page-margin: #171819;
+  --editor-background: #212323;
+  --hover-preview: #E0E0E0;
+  --playhead: #5599C5;
+  --primary-text: #EAEAEA;
+  --secondary-text: #9C9C9C;
+  --inverted-text: #101010;
+  --text-selection: #D6D6D6;
+  --box-selection-fill: #777777;
+  --loop-accent: #5992B7;
+  --link-accent: #679FC2;
+  --ui-widget-background: #32373B;
+  --ui-widget-focus: #394044;
+  --pitch-background: #30393E;
+  --pattern-background: #171819;
+  --tonic: #363F44;
+  --fifth-note: #363F44;
+  --white-piano-key-color: #000000;
+  --black-piano-key-color: #FFFFFF;
+  --white-piano-key: #D3D5D5;
+--black-piano-key: #4E4E53;
+  --use-color-formula: false;
+  --track-editor-bg-pitch: #363636;
+  --track-editor-bg-pitch-dim: #262B2B;
+  --track-editor-bg-noise: #363636;
+  --track-editor-bg-noise-dim: #262B2B;
+  --track-editor-bg-mod: #363636;
+  --track-editor-bg-mod-dim: #262B2B;
+  --multiplicative-mod-slider: #B2B2B2;
+  --overwriting-mod-slider: #898A8B;
+  --indicator-primary: #B0B0B0;
+  --indicator-secondary: #707070;
+  --select2-opt-group: #444;
+  --input-box-outline: rgba(95, 95, 95, 0.41);
+  --mute-button-normal: #E0E0E0;
+  --mute-button-mod: #C0C0C0;
+
+  --pitch1-secondary-channel: #0099A1;
+  --pitch1-primary-channel: #25F3FF;
+  --pitch1-secondary-note: #00BDC7;
+  --pitch1-primary-note: #92F9FF;
+  --pitch2-secondary-channel: #A1A100;
+  --pitch2-primary-channel: #FFFF25;
+  --pitch2-secondary-note: #C7C700;
+  --pitch2-primary-note: #FFFF92;
+  --pitch3-secondary-channel: #C77B00;
+  --pitch3-primary-channel: #FFBA52;
+  --pitch3-secondary-note: #FFA11C;
+  --pitch3-primary-note: #FFE1AB;
+  --pitch4-secondary-channel: #00A100;
+  --pitch4-primary-channel: #50FF50;
+  --pitch4-secondary-note: #00C700;
+  --pitch4-primary-note: #A0FFA0;
+  --pitch5-secondary-channel: #D020D0;
+  --pitch5-primary-channel: #FF90FF;
+  --pitch5-secondary-note: #E040E0;
+  --pitch5-primary-note: #FFC0FF;
+  --pitch6-secondary-channel: #0099A1;
+  --pitch6-primary-channel: #25F3FF;
+  --pitch6-secondary-note: #00BDC7;
+  --pitch6-primary-note: #92F9FF;
+  --pitch7-secondary-channel: #A1A100;
+  --pitch7-primary-channel: #FFFF25;
+  --pitch7-secondary-note: #C7C700;
+  --pitch7-primary-note: #FFFF92;
+  --pitch8-secondary-channel: #C77B00;
+  --pitch8-primary-channel: #FFBA52;
+  --pitch8-secondary-note: #FFA11C;
+  --pitch8-primary-note: #FFE1AB;
+  --pitch9-secondary-channel: #00A100;
+  --pitch9-primary-channel: #50FF50;
+  --pitch9-secondary-note: #00C700;
+  --pitch9-primary-note: #A0FFA0;
+  --pitch10-secondary-channel: #D020D0;
+  --pitch10-primary-channel: #FF90FF;
+  --pitch10-secondary-note: #E040E0;
+  --pitch10-primary-note: #FFC0FF;
+
+  --noise1-secondary-channel: #B2B2B2;
+  --noise1-primary-channel: #AAAAAA;
+  --noise1-secondary-note: #818181;
+  --noise1-primary-note: #E0E0E0;
+  --noise2-secondary-channel: #996633;
+  --noise2-primary-channel: #DDAA77;
+  --noise2-secondary-note: #CC9966;
+  --noise2-primary-note: #F0D0BB;
+  --noise3-secondary-channel: #B2B2B2;
+  --noise3-primary-channel: #AAAAAA;
+  --noise3-secondary-note: #818181;
+  --noise3-primary-note: #E0E0E0;
+  --noise4-secondary-channel: #996633;
+  --noise4-primary-channel: #DDAA77;
+  --noise4-secondary-note: #CC9966;
+  --noise4-primary-note: #F0D0BB;
+  --noise5-secondary-channel: #B2B2B2;
+  --noise5-primary-channel: #AAAAAA;
+  --noise5-secondary-note: #818181;
+  --noise5-primary-note: #E0E0E0;
+
+  --mod1-secondary-channel: #339955;
+  --mod1-primary-channel: #77FC55;
+  --mod1-secondary-note: #40862E;
+  --mod1-primary-note: #CDFFEE;
+  --mod2-secondary-channel: #993355;
+  --mod2-primary-channel: #F04960;
+  --mod2-secondary-note: #862E4C;
+  --mod2-primary-note: #FFB8DE;
+  --mod3-secondary-channel: #553399;
+  --mod3-primary-channel: #8855FC;
+  --mod3-secondary-note: #5E2E86;
+  --mod3-primary-note: #F8DDFF;
+  --mod4-secondary-channel: #A86436;
+  --mod4-primary-channel: #C8A825;
+  --mod4-secondary-note: #86862E;
+  --mod4-primary-note: #FFF6D3;
+
+  --mod-label-primary: #E3E3E3;
+  --mod-label-secondary-text: #1C1C1C;
+  --mod-label-primary-text: #B4BABA;
+  --disabled-note-primary: #151515;
+  --disabled-note-secondary: #0A0A0A;
+}
+div.piano-button {
+		border: none;
+		display:block
+}
+.beepboxEditor .modulator-button::before {
+display:none;
+}
+.beepboxEditor .modulator-button.disabled::after {
+	display:none;
+}
+.trackContainer .noSelection {
+	background-color:#151616 !important;
+}
+.muteButtonText {
+		color: white !important;
+}
+.muteEditor div{
+		background-color: #353B3F !important;
+}
+.muteEditor {
+	background-color: #353B3F !important;
+}
+.loopEditor {
+	background-color: #353B3F !important;
+}
+.play-pause-area {
+	background-color: #151616 !important;
+	margin:5px !important; margin-left:-10px !important; padding:5px !important; width: calc(100% + 5px);
+}
+select , button, .selection *, input{
+	border-radius:0px !important;
+}
+
+.beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) {
+  border:0px solid white; outline:none; transform: scale(100%,250%) translateY(15%);  
+}
+.beepboxEditor .piano-button.blackkey  {
+  margin-left:20%;
+  align-items:left !important;
+  position:relative; z-index:2;
+box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
+}
+.beepboxEditor .piano-button.blackkey .piano-label  {
+  padding-left:25% !important;
+}
+.beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) .piano-label{
+	transform:scale(100%,40%) translateY(-4px) !important;
+}
+.beepboxEditor .piano-button::before {
+ display:none;
+ border:2px solid #3d3c3a;
+}
+.beepboxEditor .piano-button.blackkey::before {
+		display: none;
+		border: 1px solid #3d3c3a !important;
+		background-clip:none;
+		
+}
+`,
 "FruityBoxLight":`
 :root {
-  --page-margin: #D7C8FF;
+  --page-margin: #F2ECFF;
   --editor-background: #F8F7FF;
   --hover-preview: #FFB6CE;
   --playhead: #9A3DD9;
@@ -11921,7 +17119,7 @@ box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
 }
 `,
 "coolred":`:root {
-  --page-margin: #BB1717;
+  --page-margin: #4E1F1F;
   --editor-background: #3D1A1A;
   --hover-preview: #FFD7D7;
   --playhead: #FF6060;
@@ -12047,7 +17245,7 @@ box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
 }`,
 "coollime":`
 :root {
-  --page-margin: #4CBB17;
+  --page-margin: #1F4E1F;
   --editor-background: #1A3D1A;
   --hover-preview: #D7FFD9;
   --playhead: #A8FF60;
@@ -12174,7 +17372,7 @@ box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
 `,
 "grayscale":`
 :root {
-  --page-margin: #444444;
+  --page-margin: #2A2A2A;
   --editor-background: #1A1A1A;
   --hover-preview: #E0E0E0;
   --playhead: #BFBFBF;
@@ -13960,6 +19158,76 @@ body::after {
 }
 }
 `,
+"Edit": `
+:root {
+  --page-margin: #2B2B2B;
+  --editor-background: #121212;
+  --hover-preview: #4A4A4A;
+  --playhead: #5C5C5C;
+  --primary-text: #E0E0E0;
+  --secondary-text: #AAAAAA;
+  --inverted-text: #1A1A1A;
+  --text-selection: #2F4F4F;
+  --box-selection-fill: #3B3B3B;
+  --loop-accent: #555;
+  --link-accent: #8AB6C2;
+  --ui-widget-background: #1C1C1C;
+  --ui-widget-focus: #3A3A3A;
+  --pitch-background: #1A1A1A;
+  --tonic: #3D5A6C;
+  --fifth-note: #4D6C7F;
+  --white-piano-key: #777;
+  --black-piano-key: #111;
+  --white-piano-key-color: #000;
+  --black-piano-key-color: #fff;
+  --track-editor-bg-pitch: #2C2C2C;
+  --track-editor-bg-noise: #333;
+  --track-editor-bg-mod: #3A3A3A;
+  --multiplicative-mod-slider: #4D5E6C;
+  --overwriting-mod-slider: #6C7F8D;
+  --indicator-primary: #9DAEBB;
+  --indicator-secondary: #5C6C7A;
+  --input-box-outline: #555;
+  --mute-button-normal: #DDD;
+  --mute-button-mod: #CCC;
+}
+@media (min-aspect-ratio: 1/1) {
+body::after {
+  content: "💀";
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  font-size: 20vh;
+  transform: translate(-50%, -50%);
+  opacity: 0.2;
+  pointer-events: none;
+  z-index: 9999;
+  user-select: none;
+}
+}
+@media (max-aspect-ratio: 1/1) {
+body::after {
+	content: "💀";
+	position: fixed;
+	top: 50% ;
+	left: 50% ;
+	font-size: 20vh;
+	transform: translate(-50% , -50% );
+	opacity: 0.2;
+	pointer-events: none;
+	z-index: 9999;
+	user-select: none;
+}
+}
+#beepboxEditorContainer, body:not(:has(#beepboxEditorContainer)) {
+  filter: hue-rotate(0deg);
+  animation: rainbow 15s linear infinite;
+}
+@keyframes rainbow {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+`,
 "Steel":`
 :root {
   --page-margin: #2E2E33;
@@ -15251,7 +20519,7 @@ updateThemes()
             return (_a = EditorConfig.presetCategories[0].presets.dictionary) === null || _a === void 0 ? void 0 : _a[TypePresets === null || TypePresets === void 0 ? void 0 : TypePresets[instrument]];
         }
     }
-    EditorConfig.version = "1.4.9";
+    EditorConfig.version = "0.5";
     EditorConfig.versionDisplayName = "Slarmoo's Box " + EditorConfig.version;
     EditorConfig.releaseNotesURL = "./patch_notes.html";
     EditorConfig.isOnMac = /^Mac/i.test(navigator.platform) || /Mac OS X/i.test(navigator.userAgent) || /^(iPhone|iPad|iPod)/i.test(navigator.platform) || /(iPhone|iPad|iPod)/i.test(navigator.userAgent);
@@ -17421,8 +22689,13 @@ updateThemes()
             this.type = 0;
             this.preset = 0;
             this.chipWave = 2;
-            
+            this.wave=""
+            this.phaserFreq = 0;
+            this.phaserMix = Config.phaserMixRange - 1;
+            this.phaserFeedback = 0;
+            this.phaserStages = 2; 
             this.chipwaveselected=2; 
+            this.customfunction = ["",""];
             this.isUsingAdvancedLoopControls = false;
             this.chipWaveLoopStart = 0;
             this.chipWaveLoopEnd = Config.rawRawChipWaves[this.chipWave].samples.length - 1;
@@ -17561,7 +22834,12 @@ this.last_unisonSpread = 0
             this.type = type;
             this.preset = type;
             this.volume = 0;
+            this.phaserFreq = 0;
+            this.phaserFeedback = 0;
+            this.phaserStages = 2;
+            this.phaserMix = Config.phaserMixRange - 1; 
             this.effects = (1 << 2);
+            this.customfunction = ["",""];
             this.chorus = Config.chorusRange - 1;
             this.reverb = 0;
             this.echoSustain = Math.floor((Config.echoSustainRange - 1) * 0.5);
@@ -17859,6 +23137,9 @@ this.last_unisonSpread = 0
             if (effectsIncludeOctaveShift(this.effects)) {
                 instrumentObject["pitchShiftOctaves"] = this.octaveShift;
             }
+            if (effectsIncludeFunction(this.effects)) {
+                instrumentObject["customfunction"] = this.customfunction;
+            }
             if (effectsIncludeDetune(this.effects)) {
                 instrumentObject["detuneCents"] = Synth.detuneToCents(this.detune);
             }
@@ -17907,6 +23188,12 @@ this.last_unisonSpread = 0
             if (effectsIncludeBitcrusher(this.effects)) {
                 instrumentObject["bitcrusherOctave"] = (Config.bitcrusherFreqRange - 1 - this.bitcrusherFreq) * Config.bitcrusherOctaveStep;
                 instrumentObject["bitcrusherQuantization"] = Math.round(100 * this.bitcrusherQuantization / (Config.bitcrusherQuantizationRange - 1));
+            }
+            if (effectsIncludePhaser(this.effects)) {
+                instrumentObject["phaserMix"] = Math.round(100 * this.phaserMix / (Config.phaserMixRange - 1));
+                instrumentObject["phaserFreq"] = Math.round(100 * this.phaserFreq / (Config.phaserFreqRange - 1));
+                instrumentObject["phaserFeedback"] = Math.round(100 * this.phaserFeedback / (Config.phaserFeedbackRange - 1));
+                instrumentObject["phaserStages"] = Math.round(100 * this.phaserStages / (Config.phaserMaxStages - 1));
             }
             if (effectsIncludePanning(this.effects)) {
                 instrumentObject["pan"] = Math.round(100 * (this.pan - Config.panCenter) / Config.panCenter);
@@ -18143,7 +23430,7 @@ this.last_unisonSpread = 0
                 for (let i = 0; i < instrumentObject["effects"].length; i++) {
                     effects = effects | (1 << Config.effectNames.indexOf(instrumentObject["effects"][i]));
                 }
-                this.effects = (effects & ((1 << 16) - 1));
+                this.effects = (effects & ((1 << 17) - 1));
             }
             else {
                 const legacyEffectsNames = ["none", "reverb", "chorus", "chorus & reverb"];
@@ -18347,6 +23634,18 @@ this.last_unisonSpread = 0
             if (instrumentObject["bitcrusherQuantization"] != undefined) {
                 this.bitcrusherQuantization = clamp(0, Config.bitcrusherQuantizationRange, Math.round((Config.bitcrusherQuantizationRange - 1) * (instrumentObject["bitcrusherQuantization"] | 0) / 100));
             }
+            if (instrumentObject["phaserMix"] != undefined) {
+                this.phaserMix = clamp(0, Config.phaserMixRange, Math.round((Config.phaserMixRange - 1) * (instrumentObject["phaserMix"] | 0) / 100));
+            }
+            if (instrumentObject["phaserFreq"] != undefined) {
+                this.phaserFreq = clamp(0, Config.phaserFreqRange, Math.round((Config.phaserFreqRange - 1) * (instrumentObject["phaserFreq"] | 0) / 100));
+            }
+            if (instrumentObject["phaserFeedback"] != undefined) {
+                this.phaserFeedback = clamp(0, Config.phaserFeedbackRange, Math.round((Config.phaserFeedbackRange - 1) * (instrumentObject["phaserFeedback"] | 0) / 100));
+            }
+            if (instrumentObject["phaserStages"] != undefined) {
+                this.phaserStages = clamp(0, Config.phaserMaxStages, Math.round((Config.phaserMaxStages - 1) * (instrumentObject["phaserStages"] | 0) / 100));
+            } 
             if (instrumentObject["echoSustain"] != undefined) {
                 this.echoSustain = clamp(0, Config.echoSustainRange, Math.round((Config.echoSustainRange - 1) * (instrumentObject["echoSustain"] | 0) / 100));
             }
@@ -19429,6 +24728,21 @@ buffer.push(110,
                     if (effectsIncludeOctaveShift(instrument.effects)) {
                         buffer.push(base64IntToCharCode[instrument.octaveShift]);
                     }
+                    if (effectsIncludeFunction(instrument.effects)) {
+                     const json = JSON.stringify(instrument.customfunction);
+                     const bytes = new TextEncoder().encode(json);
+                     const b64 = btoa(String.fromCharCode(...bytes))
+                          .replace(/\+/g, "-")
+                          .replace(/\//g, "_")
+                          .replace(/=+$/, "");
+                          const hi = b64.length >> 6;
+                          const lo = b64.length & 63;
+                          buffer.push(base64IntToCharCode[hi]);
+                      buffer.push(base64IntToCharCode[lo]);
+                      for (let i = 0; i < b64.length; i++) {
+                          buffer.push(b64.charCodeAt(i));   
+                      }
+                  }
                     if (effectsIncludeDetune(instrument.effects)) {
                         buffer.push(base64IntToCharCode[(instrument.detune - Config.detuneMin) >> 6], base64IntToCharCode[(instrument.detune - Config.detuneMin) & 0x3F]);
                     }
@@ -19444,6 +24758,12 @@ buffer.push(110,
                     if (effectsIncludeDistortion(instrument.effects)) {
                         buffer.push(base64IntToCharCode[instrument.distortion]);
                         buffer.push(base64IntToCharCode[+instrument.aliases]);
+                    }
+                    if (effectsIncludePhaser(instrument.effects)) {
+                        buffer.push(base64IntToCharCode[instrument.phaserFreq]);
+                        buffer.push(base64IntToCharCode[instrument.phaserFeedback]);
+                        buffer.push(base64IntToCharCode[instrument.phaserStages]);
+                        buffer.push(base64IntToCharCode[instrument.phaserMix]);
                     }
                     if (effectsIncludeBitcrusher(instrument.effects)) {
                         buffer.push(base64IntToCharCode[instrument.bitcrusherFreq], base64IntToCharCode[instrument.bitcrusherQuantization]);
@@ -19487,31 +24807,26 @@ buffer.push(110,
                         harmonicsBits.encodeBase64(buffer);
                     }
 if (instrument.type == 0) {  
-buffer.push(119)
-const waveName = Config.chipWaves[instrument.chipWave]?.name || "square"
-function binEncode4(str) {
-    const utf8 = new TextEncoder().encode(str)
-    const hash = [0,0,0]
-    for (let i = 0; i < utf8.length; i++) hash[i % 3] ^= utf8[i]
-    let val = (hash[0] << 16) | (hash[1] << 8) | hash[2]
-    let result = ''
-    for (let i = 0; i < 4; i++) {
-        let bits = (val >> ((3-i)*6)) & 0x3f
-        for (let j = 5; j >= 0; j--) {
-            result += ((bits >> j) & 1) ? 'A' : 'B'
-        }
-    }
-    return result 
+buffer.push(119) 
+let waveName = Config.chipWaves[instrument.chipWave]?.name ?? "unknown";
+let i4=0; for (let wave of Config.chipWaves) {	if (wave.name === instrument.wave) { i4=true;	}
+} if (i4==0){ waveName=instrument.wave }
+function encodeWaveName(str) {
+    const utf8 = new TextEncoder().encode(str);
+    let bin = "";
+    for (let b of utf8) bin += String.fromCharCode(b);
+    let b64 = btoa(bin)
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+    return b64;
 }
-
-const encodedWave = binEncode4(waveName)
-
+const encodedWave = encodeWaveName(waveName);
 buffer.push(
     base64IntToCharCode[encodedWave.length >> 6],
     base64IntToCharCode[encodedWave.length & 0x3f]
 )
 for (let i = 0; i < encodedWave.length; i++) buffer.push(encodedWave.charCodeAt(i))
-
 
                         buffer.push(104, base64IntToCharCode[instrument.unison]);
                         if (instrument.unison == Config.unisons.length)
@@ -19738,7 +25053,7 @@ buffer.push(
                                 bits.write(neededModInstrumentIndexBits, modInstrument);
                             }
                             if (status != 3) {
-                                bits.write(6, modSetting);
+                                bits.write(7, modSetting);//7 not 6
                             }
                             if (Config.modulators[instrument.modulators[mod]].name == "eq filter" || Config.modulators[instrument.modulators[mod]].name == "note filter" || Config.modulators[instrument.modulators[mod]].name == "song eq") {
                                 bits.write(6, modFilter);
@@ -20000,64 +25315,71 @@ buffer.push(
             const forceSimpleFilter = (fromBeepBox && beforeNine || fromJummBox && beforeFive);
             let willLoadLegacySamplesForOldSongs = false;
             if (fromSlarmoosBox || fromUltraBox || fromGoldBox) {
-                compressed = compressed.replaceAll("%7C", "|");
-                var compressed_array = compressed.split("|");
-                compressed = compressed_array.shift();
-                if (EditorConfig.customSamples == null || EditorConfig.customSamples.join(", ") != compressed_array.join(", ")) {
-                    Song._restoreChipWaveListToDefault();
-                    let willLoadLegacySamples = false;
-                    let willLoadNintariboxSamples = false;
-                    let willLoadMarioPaintboxSamples = false;
-                    const customSampleUrls = [];
-                    const customSamplePresets = [];
-                    sampleLoadingState.statusTable = {};
-                    sampleLoadingState.urlTable = {};
-                    sampleLoadingState.totalSamples = 0;
-                    sampleLoadingState.samplesLoaded = 0;
-                    sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
-                    for (const url of compressed_array) {
-                        if (url.toLowerCase() === "legacysamples") {
-                            if (!willLoadLegacySamples) {
-                                willLoadLegacySamples = true;
-                                customSampleUrls.push(url);
-                                loadBuiltInSamples(0);
-                            }
-                        }
-                        else if (url.toLowerCase() === "nintariboxsamples") {
-                            if (!willLoadNintariboxSamples) {
-                                willLoadNintariboxSamples = true;
-                                customSampleUrls.push(url);
-                                loadBuiltInSamples(1);
-                            }
-                        }
-                        else if (url.toLowerCase() === "mariopaintboxsamples") {
-                            if (!willLoadMarioPaintboxSamples) {
-                                willLoadMarioPaintboxSamples = true;
-                                customSampleUrls.push(url);
-                                loadBuiltInSamples(2);
-                            }
-                        }
-                        else {
-                            const parseOldSyntax = beforeThree;
-                            const ok = Song._parseAndConfigureCustomSample(url, customSampleUrls, customSamplePresets, sampleLoadingState, parseOldSyntax);
-                            if (!ok) {
-                                continue;
-                            }
-                        }
-                    }
-                    if (customSampleUrls.length > 0) {
-                        EditorConfig.customSamples = customSampleUrls;
-                    }
-                    if (customSamplePresets.length > 0) {
-                        const customSamplePresetsMap = toNameMap(customSamplePresets);
-                        EditorConfig.presetCategories[EditorConfig.presetCategories.length] = {
-                            name: "Custom Sample Presets",
-                            presets: customSamplePresetsMap,
-                            index: EditorConfig.presetCategories.length,
-                        };
-                    }
-                }
-            }
+ compressed = compressed.replaceAll("%7C", "|");
+ var compressed_array = compressed.split("|");
+ compressed = compressed_array.shift();
+ if (EditorConfig.customSamples == null || EditorConfig.customSamples.join(", ") != compressed_array.join(", ")) {
+  Song._restoreChipWaveListToDefault();
+  let willLoadLegacySamples = false;
+  let willLoadNintariboxSamples = false;
+  let willLoadMarioPaintboxSamples = false;
+  let willLoadStudioSamples = false;
+  const customSampleUrls = [];
+  const customSamplePresets = [];
+  sampleLoadingState.statusTable = {};
+  sampleLoadingState.urlTable = {};
+  sampleLoadingState.totalSamples = 0;
+  sampleLoadingState.samplesLoaded = 0;
+  sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
+  for (const url of compressed_array) {
+   if (url.toLowerCase() === "legacysamples") {
+    if (!willLoadLegacySamples) {
+     willLoadLegacySamples = true;
+     customSampleUrls.push(url);
+     loadBuiltInSamples(0);
+    }
+   }
+   else if (url.toLowerCase() === "nintariboxsamples") {
+    if (!willLoadNintariboxSamples) {
+     willLoadNintariboxSamples = true;
+     customSampleUrls.push(url);
+     loadBuiltInSamples(1);
+    }
+   }
+   else if (url.toLowerCase() === "mariopaintboxsamples") {
+    if (!willLoadMarioPaintboxSamples) {
+     willLoadMarioPaintboxSamples = true;
+     customSampleUrls.push(url);
+     loadBuiltInSamples(2);
+    }
+   } else if (url.toLowerCase() === "studiosamples") {
+    if (!willLoadStudioSamples) {
+     willLoadStudioSamples = true;
+     customSampleUrls.push(url);
+     loadBuiltInSamples(3);
+    }
+   }
+   else {
+    const parseOldSyntax = beforeThree;
+    const ok = Song._parseAndConfigureCustomSample(url, customSampleUrls, customSamplePresets, sampleLoadingState, parseOldSyntax);
+    if (!ok) {
+     continue;
+    }
+   }
+  }
+  if (customSampleUrls.length > 0) {
+   EditorConfig.customSamples = customSampleUrls;
+  }
+  if (customSamplePresets.length > 0) {
+   const customSamplePresetsMap = toNameMap(customSamplePresets);
+   EditorConfig.presetCategories[EditorConfig.presetCategories.length] = {
+    name: "Custom Sample Presets",
+    presets: customSamplePresetsMap,
+    index: EditorConfig.presetCategories.length,
+   };
+  }
+ }
+}
             if (beforeThree && fromBeepBox) {
                 for (const channel of this.channels) {
                     channel.instruments[0].transition = Config.transitions.dictionary["interrupt"].index;
@@ -20493,39 +25815,28 @@ case 119: {
         if (instrument.type==2) {
             instrument.chipNoise=clamp(0,Config.chipNoises.length,base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
         } else {
-if (fromFruityBox) {
-    const len = (base64CharCodeToInt[compressed.charCodeAt(charIndex++)] << 6) |
-                base64CharCodeToInt[compressed.charCodeAt(charIndex++)]
-    const encodedWave = compressed.substring(charIndex, charIndex + len)
-    charIndex += len
-    function binEncode4(str) {
-        const utf8 = new TextEncoder().encode(str)
-        const hash = [0,0,0]
-        for (let i = 0; i < utf8.length; i++) hash[i % 3] ^= utf8[i]
-        let val = (hash[0] << 16) | (hash[1] << 8) | hash[2]
-        let result = ''
-        for (let i = 0; i < 4; i++) {
-            let bits = (val >> ((3-i)*6)) & 0x3f
-            for (let j = 5; j >= 0; j--) {
-                result += ((bits >> j) & 1) ? 'A' : 'B'
-            }
-        }
-        return result
-    }
-
-    const foundIndex = Config.chipWaves.findIndex(w => binEncode4(w.name) === encodedWave)
-
-    if (foundIndex >= 0) {
-        instrument.wave = Config.chipWaves[foundIndex].name
-        instrument.chipWave = foundIndex
-    } else {
-        const newWave = { name: "unknown", expression: 1, isSampled: true, samples: [] }
-        const newIndex = Config.chipWaves.push(newWave) - 1
-        Config.chipWaves.dictionary[newWave.name] = newWave
-        instrument.wave = newWave.name
-        instrument.chipWave = newIndex
-    }
-}
+ if (fromFruityBox) {
+ 	const len =
+ 		(base64CharCodeToInt[compressed.charCodeAt(charIndex++)] << 6) |
+ 		base64CharCodeToInt[compressed.charCodeAt(charIndex++)];
+ 	
+ 	const encodedWave = compressed.substring(charIndex, charIndex + len);
+ 	charIndex += len;
+ 	let b64 = encodedWave.replace(/-/g, "+").replace(/_/g, "/");
+ 	while (b64.length % 4 != 0) b64 += "=";
+ 	const bin = atob(b64);
+ 	const bytes = new Uint8Array(bin.length);
+ 	for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+ 	const waveName = new TextDecoder().decode(bytes);
+ 	const foundIndex = Config.chipWaves.findIndex(w => w.name === waveName);
+ 	if (foundIndex >= 0) {
+ 		instrument.wave = waveName;
+ 		instrument.chipWave = foundIndex;
+ 	} else {
+ 		instrument.wavenotfound = waveName;
+ 		instrument.wave = waveName;
+ 	}
+ }
 else if (fromSlarmoosBox) {
 	let wave = 0;
 	for (let i = 0; i < 6; i++) {
@@ -21186,6 +26497,22 @@ break;
                                if (effectsIncludeOctaveShift(instrument.effects)) {
                                     instrument.octaveShift = clamp(0, Config.pitchShiftRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                 }
+                                if (effectsIncludeFunction(instrument.effects)) {
+                                    const hi = base64CharCodeToInt[compressed.charCodeAt(charIndex++)];
+                                    const lo = base64CharCodeToInt[compressed.charCodeAt(charIndex++)];
+                                    const len = (hi << 6) | lo;
+                                    let b64 = "";
+                                    for (let i = 0; i < len; i++) {
+                                       b64 += String.fromCharCode(compressed.charCodeAt(charIndex++));
+                                    }
+                                    b64 = b64.replace(/-/g, "+").replace(/_/g, "/");
+                                    const pad = b64.length % 4;
+                                    if (pad) b64 += "=".repeat(4 - pad);
+                                    const bin = atob(b64);
+                                    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+                                    const json = new TextDecoder().decode(bytes);
+                                    instrument.customfunction = JSON.parse(json);
+                                 }
                                 if (effectsIncludeDetune(instrument.effects)) {
                                     if (fromBeepBox) {
                                         instrument.detune = clamp(Config.detuneMin, Config.detuneMax + 1, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
@@ -21214,6 +26541,12 @@ break;
                                     instrument.distortion = clamp(0, Config.distortionRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                     if ((fromJummBox && !beforeFive) || fromGoldBox || fromUltraBox || fromSlarmoosBox)
                                         instrument.aliases = base64CharCodeToInt[compressed.charCodeAt(charIndex++)] ? true : false;
+                                }
+                                if (effectsIncludePhaser(instrument.effects)) {
+                                    instrument.phaserFreq = clamp(0, Config.phaserFreqRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                    instrument.phaserFeedback = clamp(0, Config.phaserFeedbackRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                    instrument.phaserStages = clamp(0, Config.phaserMaxStages + 1, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                    instrument.phaserMix = clamp(0, Config.phaserMixRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                 }
                                 if (effectsIncludeBitcrusher(instrument.effects)) {
                                     instrument.bitcrusherFreq = clamp(0, Config.bitcrusherFreqRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
@@ -21263,7 +26596,7 @@ break;
                                     instrument.ringModHzOffset = clamp(Config.rmHzOffsetMin, Config.rmHzOffsetMax + 1, (base64CharCodeToInt[compressed.charCodeAt(charIndex++)] << 6) + base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                 }
                             }
-                            instrument.effects &= (1 << 16) - 1;// 16 is max effects 
+                            instrument.effects &= (1 << 17) - 1;// 16 is max effects 
                         }
                         break;
                     case 118:
@@ -21863,7 +27196,7 @@ break;
                                                     break;
                                             }
                                             if (status != 3) {
-                                                instrument.modulators[mod] = bits.read(6);
+                                                instrument.modulators[mod] = bits.read(7);
                                             }
                                             if (!jumfive && (Config.modulators[instrument.modulators[mod]].name == "eq filter" || Config.modulators[instrument.modulators[mod]].name == "note filter" || Config.modulators[instrument.modulators[mod]].name == "song eq")) {
                                                 instrument.modFilterTypes[mod] = bits.read(6);
@@ -22205,7 +27538,7 @@ break;
                 }
             if (Config.willReloadForCustomSamples) {
                 window.location.hash = this.toBase64String();
-                setTimeout(() => { location.reload(); }, 50);
+                setTimeout(() => { cleanMemoryBeforeNavigation(); location.reload(); }, 50);
             }
         }
         static _isProperUrl(string) {
@@ -22607,6 +27940,16 @@ break;
                                 	loadBuiltInSamples(2,1);
                                 } else {
                                 	loadBuiltInSamples(2);
+                                }
+                            }
+                        }else if (url.toLowerCase() === "studiosamples") {
+                            if (!willLoadStudioSamples) {
+                                willLoadStudioSamples = true;
+                                customSampleUrls.push(url);
+                                if(jsonFormat=="slarmoosbox2"){
+                                loadBuiltInSamples(3,1);
+                                }else{
+                                loadBuiltInSamples(3);
                                 }
                             }
                         }
@@ -23108,9 +28451,9 @@ break;
             Array.prototype.push.apply(this.channels, newPitchChannels);
             Array.prototype.push.apply(this.channels, newNoiseChannels);
             Array.prototype.push.apply(this.channels, newModChannels);
-            if (Config.willReloadForCustomSamples) {
+            if (Config.willReloadForCustomSamples || true) {
                 window.location.hash = this.toBase64String();
-               setTimeout(() => { location.reload(); }, 50);
+               setTimeout(() => { cleanMemoryBeforeNavigation(); location.reload(); }, 50);
             }
         }
         getPattern(channelIndex, bar) {
@@ -23358,7 +28701,7 @@ break;
             this._modifiedEnvelopeIndices = [];
             this._modifiedEnvelopeCount = 0;
             this.lowpassCutoffDecayVolumeCompensation = 1.0;
-            const length = 56;
+            const length = 64 // 56 was now its 64;
             for (let i = 0; i < length; i++) {
                 this.envelopeStarts[i] = 1.0;
                 this.envelopeEnds[i] = 1.0;
@@ -24073,6 +29416,17 @@ break;
             this.eqFilterVolume = 1.0;
             this.eqFilterVolumeDelta = 0.0;
             this.mixVolume = 1.0;
+            this.phaserSamples = null;
+            this.phaserPrevInputs = null;
+            this.phaserFeedbackMult = 0.0;
+            this.phaserFeedbackMultDelta = 0.0;
+            this.phaserMix = 0.0; 
+            this.phaserMixDelta = 0.0;
+            this.phaserBreakCoef = 0.0;
+            this.phaserBreakCoefDelta = 0.0;
+            this.phaserStages = 0;
+            this.phaserStagesDelta = 0;
+            
             this.mixVolumeDelta = 0.0;
             this.delayInputMult = 0.0;
             this.delayInputMultDelta = 0.0;
@@ -24087,6 +29441,7 @@ break;
             this.ringModMix = 0;
             this.ringModMixDelta = 0;
             this.ringModPhase = 0;
+            this.customfunction = []; 
             this.ringModPhaseDelta = 0;
             this.ringModPhaseDeltaScale = 1.0;
             this.ringModWaveformIndex = 0.0;
@@ -24188,6 +29543,12 @@ break;
                     this.panningDelayLine = new Float32Array(synth.panningDelayBufferSize);
                 }
             }
+            if (effectsIncludePhaser(instrument.effects)) {
+                if (this.phaserSamples == null) {
+                    this.phaserSamples = new Float32Array(Config.phaserMaxStages);
+                    this.phaserPrevInputs = new Float32Array(Config.phaserMaxStages);
+                }
+            }
             if (effectsIncludeChorus(instrument.effects)) {
                 if (this.chorusDelayLineL == null || this.chorusDelayLineL.length < synth.chorusDelayBufferSize) {
                     this.chorusDelayLineL = new Float32Array(synth.chorusDelayBufferSize);
@@ -24284,6 +29645,12 @@ break;
             this.deactivateAfterThisTick = false;
             this.attentuationProgress = 0.0;
             this.flushedSamples = 0;
+            if (this.phaserSamples != null)
+                for (let i = 0; i < this.phaserSamples.length; i++)
+                    this.phaserSamples[i] = 0.0;
+            if (this.phaserPrevInputs != null)
+                for (let i = 0; i < this.phaserPrevInputs.length; i++)
+                    this.phaserPrevInputs[i] = 0.0;
         }
         resetAllEffects() {
             this.deactivate();
@@ -24327,6 +29694,7 @@ break;
             this.effects = instrument.effects;
             this.aliases = instrument.aliases; 
             this.volumeScale = 1.0;
+            this.customfunction = instrument.customfunction;
             const samplesPerSecond = synth.samplesPerSecond;
             this.updateWaves(instrument, samplesPerSecond);
             const ticksIntoBar = synth.getTicksIntoBar();
@@ -24356,6 +29724,7 @@ break;
             }
             this.envelopeComputer.computeEnvelopes(instrument, currentPart, this.envelopeTime, tickTimeStart, secondsPerTick, tone, envelopeSpeeds, this, synth, channelIndex, instrumentIndex, false);
             const envelopeStarts = this.envelopeComputer.envelopeStarts;
+            const usesPhaser = effectsIncludePhaser(this.effects);
             const envelopeEnds = this.envelopeComputer.envelopeEnds;
             const usesGranular = effectsIncludeGranular(this.effects);
             const usesRingModulation = effectsIncludeRingModulation(this.effects);
@@ -24741,6 +30110,67 @@ instrument.unisonSign = (step(((
                 this.echoShelfB1 = Synth.tempFilterStartCoefficients.b[1];
             }
             let maxReverbMult = 0.0;
+            if (usesPhaser) { 
+                const phaserMinFeedback = 0.0;
+                const phaserMaxFeedback = 0.95;
+                const phaserFeedbackMultSlider = instrument.phaserFeedback / Config.phaserFeedbackRange;
+                const phaserFeedbackMultEnvelopeStart = envelopeStarts[59];
+                const phaserFeedbackMultEnvelopeEnd = envelopeEnds[59];
+                let phaserFeedbackMultRawStart = phaserFeedbackMultSlider * phaserFeedbackMultEnvelopeStart;
+                let phaserFeedbackMultRawEnd = phaserFeedbackMultSlider * phaserFeedbackMultEnvelopeEnd;
+                if (synth.isModActive(Config.modulators.dictionary["phaser feedback"].index, channelIndex, instrumentIndex)) {
+                    phaserFeedbackMultRawStart = synth.getModValue(Config.modulators.dictionary["phaser feedback"].index, channelIndex, instrumentIndex, false) / (Config.phaserFeedbackRange);
+                    phaserFeedbackMultRawEnd = synth.getModValue(Config.modulators.dictionary["phaser feedback"].index, channelIndex, instrumentIndex, true) / (Config.phaserFeedbackRange);
+                }
+                const phaserFeedbackMultStart = Math.max(phaserMinFeedback, Math.min(phaserMaxFeedback, phaserFeedbackMultRawStart));
+                const phaserFeedbackMultEnd = Math.max(phaserMinFeedback, Math.min(phaserMaxFeedback, phaserFeedbackMultRawEnd));
+                this.phaserFeedbackMult = phaserFeedbackMultStart;
+                this.phaserFeedbackMultDelta = (phaserFeedbackMultEnd - phaserFeedbackMultStart) / roundedSamplesPerTick;
+                const phaserMixSlider = instrument.phaserMix / (Config.phaserMixRange - 1);
+                const phaserMixEnvelopeStart = envelopeStarts[58];
+                const phaserMixEnvelopeEnd = envelopeEnds[58];
+                let phaserMixStart = phaserMixSlider * phaserMixEnvelopeStart;
+                let phaserMixEnd = phaserMixSlider * phaserMixEnvelopeEnd;
+                if (synth.isModActive(Config.modulators.dictionary["phaser"].index, channelIndex, instrumentIndex)) {
+                    phaserMixStart = Math.max(0, Math.min(Config.phaserMixRange - 1, synth.getModValue(Config.modulators.dictionary["phaser"].index, channelIndex, instrumentIndex, false))) / (Config.phaserMixRange - 1);
+                    phaserMixEnd = Math.max(0, Math.min(Config.phaserMixRange - 1, synth.getModValue(Config.modulators.dictionary["phaser"].index, channelIndex, instrumentIndex, true))) / (Config.phaserMixRange - 1);
+                }
+                this.phaserMix = phaserMixStart;
+                this.phaserMixDelta = (phaserMixEnd - phaserMixStart) / roundedSamplesPerTick;
+                const phaserBreakFreqSlider = instrument.phaserFreq / (Config.phaserFreqRange - 1);
+                let phaserBreakFreqEnvelopeStart = envelopeStarts[57];
+                let phaserBreakFreqEnvelopeEnd = envelopeEnds[57];
+                let phaserBreakFreqRawStart = phaserBreakFreqSlider * phaserBreakFreqEnvelopeStart;
+                let phaserBreakFreqRawEnd = phaserBreakFreqSlider * phaserBreakFreqEnvelopeEnd;
+                if (synth.isModActive(Config.modulators.dictionary["phaser frequency"].index, channelIndex, instrumentIndex)) {
+                    phaserBreakFreqRawStart = synth.getModValue(Config.modulators.dictionary["phaser frequency"].index, channelIndex, instrumentIndex, false) / (Config.phaserFreqRange);
+                    phaserBreakFreqRawEnd = synth.getModValue(Config.modulators.dictionary["phaser frequency"].index, channelIndex, instrumentIndex, true) / (Config.phaserFreqRange);
+                }
+                const phaserBreakFreqRemappedStart = Config.phaserMinFreq * Math.pow(Config.phaserMaxFreq / Config.phaserMinFreq, phaserBreakFreqRawStart);
+                const phaserBreakFreqRemappedEnd = Config.phaserMinFreq * Math.pow(Config.phaserMaxFreq / Config.phaserMinFreq, phaserBreakFreqRawEnd);
+                const phaserBreakFreqStart = Math.max(Config.phaserMinFreq, Math.min(Config.phaserMaxFreq, phaserBreakFreqRemappedStart));
+                const phaserBreakFreqStartT = Math.tan(Math.PI * phaserBreakFreqStart / samplesPerSecond);
+                const phaserBreakCoefStart = (phaserBreakFreqStartT - 1) / (phaserBreakFreqStartT + 1);
+                const phaserBreakFreqEnd = Math.max(Config.phaserMinFreq, Math.min(Config.phaserMaxFreq, phaserBreakFreqRemappedEnd));
+                const phaserBreakFreqEndT = Math.tan(Math.PI * phaserBreakFreqEnd / samplesPerSecond);
+                const phaserBreakCoefEnd = (phaserBreakFreqEndT - 1) / (phaserBreakFreqEndT + 1);
+                this.phaserBreakCoef = phaserBreakCoefStart;
+                this.phaserBreakCoefDelta = (phaserBreakCoefEnd - phaserBreakCoefStart) / roundedSamplesPerTick;
+                const phaserStagesEnvelopeStart = envelopeStarts[60];
+                const phaserStagesEnvelopeEnd = envelopeEnds[60];
+                
+                
+                
+                const phaserStagesSlider = instrument.phaserStages;
+                let phaserStagesStart = Math.max(Config.phaserMinStages, Math.min(Config.phaserMaxStages, phaserStagesSlider * phaserStagesEnvelopeStart));
+                let phaserStagesEnd = Math.max(Config.phaserMinStages, Math.min(Config.phaserMaxStages, phaserStagesSlider * phaserStagesEnvelopeEnd));
+                if (synth.isModActive(Config.modulators.dictionary["phaser stages"].index, channelIndex, instrumentIndex)) {
+                    phaserStagesStart = Math.round(synth.getModValue(Config.modulators.dictionary["phaser stages"].index, channelIndex, instrumentIndex, false));
+                    phaserStagesEnd = Math.round(synth.getModValue(Config.modulators.dictionary["phaser stages"].index, channelIndex, instrumentIndex, false));
+                }
+                this.phaserStages = phaserStagesStart;
+                this.phaserStagesDelta = (phaserStagesEnd - phaserStagesStart) / roundedSamplesPerTick;
+            }
             if (usesReverb) {
                 const reverbEnvelopeStart = envelopeStarts[47];
                 const reverbEnvelopeEnd = envelopeEnds[47];
@@ -24837,7 +30267,7 @@ instrument.unisonSign = (step(((
             this.delayInputMultDelta = (delayInputMultEnd - delayInputMultStart) / roundedSamplesPerTick;
             this.envelopeComputer.clearEnvelopes();
         }
-           updateWaves(instrument, samplesPerSecond) {
+     updateWaves(instrument, samplesPerSecond) {
       this.volumeScale = 1.0;
       if (instrument.type == 0) {
        this.wave = (this.aliases) ? Config.chipWaves[instrument.chipWave].samples : Config.chipWaves[instrument.chipWave].samples;
@@ -26976,7 +32406,6 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             const instrumentState = channelState.instruments[tone.instrumentIndex];
             instrumentState.awake = true;
             instrumentState.tonesAddedInThisTick = true;
-          //  console.log( (instrumentState) )
             if (!instrumentState.computed) {
                 instrumentState.compute(this, instrument, samplesPerTick, roundedSamplesPerTick, tone, channelIndex, tone.instrumentIndex);
             }
@@ -27268,19 +32697,19 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                 intervalStart += pitchShift * envelopeStart * pitchShiftScalarStart;
                 intervalEnd += pitchShift * envelopeEnd * pitchShiftScalarEnd;
             }
-            if (effectsIncludeOctaveShift(instrument.effects)) {
-	let baseShift = (instrument.octaveShift * 12) / intervalScale;
+if (effectsIncludeOctaveShift(instrument.effects)) {
+	let baseShift = (instrument.octaveShift * 12) / 1
 	let pitchShiftStart = baseShift;
 	let pitchShiftEnd = baseShift;
 	if (this.isModActive(Config.modulators.dictionary["octave shift"].index, channelIndex, tone.instrumentIndex)) {
 		const modnow = this.getModValue(Config.modulators.dictionary["octave shift"].index, channelIndex, tone.instrumentIndex, false)
-		pitchShiftStart = (modnow * 12) / intervalScale ;
-		pitchShiftEnd = (modnow * 12) / intervalScale ;
+		pitchShiftStart = (modnow * 12) / intervalScale;
+		pitchShiftEnd = (modnow * 12) / intervalScale;
 	}
 	const envelopeStart = envelopeStarts[18];
 	const envelopeEnd = envelopeEnds[18];
-	intervalStart += (-12*12 + pitchShiftStart) * envelopeStart;
-	intervalEnd += (-12*12 + pitchShiftEnd) * envelopeEnd;
+	intervalStart += (-12 * 12 + pitchShiftStart) * envelopeStart;
+	intervalEnd += (-12 * 12 + pitchShiftEnd) * envelopeEnd;
 }
             if (effectsIncludeDetune(instrument.effects) || this.isModActive(Config.modulators.dictionary["song detune"].index, channelIndex, tone.instrumentIndex)) {
                 const envelopeStart = envelopeStarts[19];
@@ -28658,6 +34087,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
         }
         static effectsSynth(synth, outputDataL, outputDataR, bufferIndex, runLength, instrumentState) {
             const usesDistortion = effectsIncludeDistortion(instrumentState.effects);
+            const usesFunction = effectsIncludeFunction(instrumentState.effects);
             const usesBitcrusher = effectsIncludeBitcrusher(instrumentState.effects);
             const usesEqFilter = instrumentState.eqFilterCount > 0;
             const usesPanning = effectsIncludePanning(instrumentState.effects);
@@ -28665,6 +34095,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             const usesEcho = effectsIncludeEcho(instrumentState.effects);
             const usesReverb = effectsIncludeReverb(instrumentState.effects);
             const usesGranular = effectsIncludeGranular(instrumentState.effects);
+            const usesPhaser = effectsIncludePhaser(instrumentState.effects);
             const usesRingModulation = effectsIncludeRingModulation(instrumentState.effects);
             let signature = 0;
             if (usesDistortion)
@@ -28688,9 +34119,16 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             if (usesReverb)
                 signature = signature | 1;
             signature = signature << 1;
+            if (usesPhaser)
+                signature = signature | 1;
+            signature = signature << 1;
             if (usesGranular)
                 signature = signature | 1;
             signature = signature << 1;
+            if (usesFunction) {
+            	signature = signature | 1;
+            	signature = signature << 1;
+            }
             if (usesRingModulation)
                 signature = signature | 1;
             let effectsFunction = Synth.effectsFunctionCache[signature];
@@ -28709,6 +34147,19 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
 				let delayInputMult = +instrumentState.delayInputMult;
 				const delayInputMultDelta = +instrumentState.delayInputMultDelta;`;
                 }
+if (usesFunction) {
+	effectsSource += `
+const customFunc = instrumentState.customfunction[1];
+let safe = v => (v === undefined || v === null || isNaN(v)) ? 0 : v;
+let notetone = instrumentState.noteFrequency 
+let customEval;
+try {
+	customEval = new Function("p", "b", "safe","notetone", "return " + customFunc);
+} catch (e) {
+	customEval = () => {return 0};
+}
+    `;
+}
                 if (usesGranular) {
                     effectsSource += `
                 let granularWet = instrumentState.granularMix;
@@ -28786,6 +34237,22 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                     waveform = Synth.getOperatorWave(ringModWaveformIndex, ringModPulseWidth).samples;
                 }
                 const waveformLength = waveform.length - 1;
+                `;
+                }
+                 if (usesPhaser) {
+                    effectsSource += `
+                
+                const phaserSamples = instrumentState.phaserSamples;
+                const phaserPrevInputs = instrumentState.phaserPrevInputs;
+                let phaserStages = instrumentState.phaserStages;
+                let phaserStagesInt = Math.floor(phaserStages);
+                const phaserStagesDelta = instrumentState.phaserStagesDelta;
+                const phaserFeedbackMultDelta = +instrumentState.phaserFeedbackMultDelta;
+                let phaserFeedbackMult = +instrumentState.phaserFeedbackMult;
+                const phaserMixDelta = +instrumentState.phaserMixDelta;
+                let phaserMix = +instrumentState.phaserMix;
+                const phaserBreakCoefDelta = +instrumentState.phaserBreakCoefDelta;
+                let phaserBreakCoef = +instrumentState.phaserBreakCoef;
                 `;
                 }
                 if (usesEqFilter) {
@@ -29056,6 +34523,26 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                  
                 `;
                 }
+                if (usesPhaser) {
+                    effectsSource += `
+                        const phaserFeedback = phaserSamples[Math.max(0,phaserStagesInt - 1)] * phaserFeedbackMult;
+                        for (let stage = 0; stage < phaserStagesInt; stage++) {
+                            const phaserInput = stage === 0 ? sample + phaserFeedback : phaserSamples[stage - 1];
+                            const phaserPrevInput = phaserPrevInputs[stage];
+                            const phaserSample = phaserSamples[stage];
+                            const phaserNextOutput = phaserBreakCoef * phaserInput + phaserPrevInput - phaserBreakCoef * phaserSample;
+                            phaserPrevInputs[stage] = phaserInput;
+                            phaserSamples[stage] = phaserNextOutput;
+                        }
+                        const phaserOutput = phaserSamples[Math.max(0,phaserStagesInt - 1)];
+                        sample = sample + phaserOutput * phaserMix;
+                        phaserFeedbackMult += phaserFeedbackMultDelta;
+                        phaserBreakCoef += phaserBreakCoefDelta;
+                        phaserMix += phaserMixDelta;
+                        phaserStages += phaserStagesDelta;
+                        /*phaserStagesInt = Math.floor(phaserStages);*/
+                    `;
+                }
                 if (usesEqFilter) {
                     effectsSource += `
 					
@@ -29068,6 +34555,21 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
 					
 					sample *= eqFilterVolume;
 					eqFilterVolume += eqFilterVolumeDelta;`;
+if (usesFunction) {
+	effectsSource += `
+    const p = { v: sample, i: sampleIndex };
+    const b = tempMonoInstrumentSampleBuffer;
+	const customFunc = instrumentState.customfunction[1];
+	let safe = v => (v === undefined || v === null || isNaN(v)) ? 0 : v;
+	let notetone = instrumentState.noteFrequency 
+	try {
+		customEval = new Function("p", "b", "safe","notetone", "return " + customFunc);
+	} catch (e) {
+		customEval = () => { return 0; };
+	}
+	sample = customEval(p, b, safe, notetone );
+	`
+}
                 if (usesPanning) {
                     effectsSource += `
 					
@@ -29271,6 +34773,19 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                 instrumentState.ringModPulseWidth = ringModPulseWidth;
                 instrumentState.ringModMixFade = ringModMixFade;
                  `;
+                }
+                if (usesPhaser) {
+                    effectsSource += `
+                
+                for (let stage = 0; stage < phaserStages; stage++) {
+                    if (!Number.isFinite(phaserPrevInputs[stage]) || Math.abs(phaserPrevInputs[stage]) < epsilon) phaserPrevInputs[stage] = 0.0;
+                    if (!Number.isFinite(phaserSamples[stage]) || Math.abs(phaserSamples[stage]) < epsilon) phaserSamples[stage] = 0.0;
+                }
+                
+                instrumentState.phaserMix = phaserMix;
+                instrumentState.phaserFeedbackMult = phaserFeedbackMult;
+                instrumentState.phaserBreakCoef = phaserBreakCoef;
+                `;
                 }
                 if (usesEqFilter) {
                     effectsSource += `
@@ -30377,21 +35892,328 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             events.listen("oscilloscopeUpdate", this._EventUpdateCanvas);
         }
     }
-
-    const { a, button, div, h1, input, canvas } = HTML;
+class SongPlayerLayout {
+        static setLayout(layout) {
+            this._styleElement.textContent = this._spLayoutMap[layout];
+        }
+    }
+    SongPlayerLayout.layoutLookup = new Map();
+    SongPlayerLayout._spLayoutMap = {
+        "classic": `
+        .songPlayerContainer {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .piano {
+        height: 0;
+        display: none;
+        }
+        div.visualizer {
+            transform: scale(1);
+            }
+        .timelineContainer {
+            transform: translateX(0);
+        } 
+        `,
+        "top": `
+        body {
+            display: flex;
+            flex-direction: column-reverse;
+            height: 100%;
+        }
+        .piano {
+        height: 0;
+        display: none;
+        }
+        div.visualizer {
+            transform: scale(1);
+            }
+        .timelineContainer {
+            transform: translateX(0);
+        }    
+        `,
+        "shitbox4": `
+        .songPlayerContainer {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .piano {
+        height: 0;
+        display: none;
+        }
+        div.visualizer {
+            transform: skew(30deg,20deg) scale(0.5);
+            }
+        .timelineContainer {
+            transform: translateX(0);
+        }    
+        `,
+        "boxbeep": `
+        .songPlayerContainer {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .piano {
+        height: 0;
+        display: none;
+        }
+        div.visualizer {
+            transform: scale(-1);
+        }
+        .timelineContainer {
+            transform: translateX(0);
+        }
+        `,
+        "piano": `
+        .songPlayerContainer {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        div.visualizer {
+            transform: scale(1);
+            }
+        .timelineContainer {
+            transform: translateX(0);
+        }
+        `,
+        "vertical": `
+        .songPlayerContainer {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .piano {
+        min-height: 140px;
+        display: flex;
+        }
+        div.visualizer {
+            transform: scale(1);
+            }
+        .timelineContainer {
+            transform: translateX(0);
+        }
+        `,
+        "vertical-reversed": `
+        body {
+            display: flex;
+            flex-direction: column-reverse;
+            height: 100%;
+        }
+        .songPlayerContainer {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .piano {
+        min-height: 140px;
+        display: flex;
+        }
+        div.visualizer {
+            transform: scale(-1);
+        }
+        .timelineContainer {
+            transform: translateX(0);
+        }
+        `,
+        "middle": `
+        .songPlayerContainer {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .piano {
+        height: 0;
+        display: none;
+        }
+        div.visualizer {
+            transform: scale(1);
+            }
+        .timelineContainer {
+            transform: translateX(50vw);
+        }
+        `,
+    };
+    SongPlayerLayout._styleElement = document.head.appendChild(HTML.style({ type: "text/css" }));
+    
+    const { a, button, div, h1, input, canvas, form, label, h2 } = HTML;
     const { svg, circle, rect, path } = SVG;
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|android|ipad|playbook|silk/i.test(navigator.userAgent);
     document.head.appendChild(HTML.style({ type: "text/css" }, `
+		:root {
+		--button-size: 26px;
+		--settings-area-width: 192px;
+		--play-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path d="M -5 -8 L -5 8 L 8 0 z" fill="gray"/></svg>');
+		--pause-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><rect x="-5" y="-7" width="4" height="14" fill="gray"/><rect x="3" y="-7" width="4" height="14" fill="gray"/></svg>');
+		--record-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><circle cx="0" cy="0" r="6" fill="gray"/></svg>');
+		--stop-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><rect x="-6" y="-6" width="12" height="12" fill="gray"/></svg>');
+		--prev-bar-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><rect x="-6" y="-6" width="2" height="12" fill="gray"/><path d="M 6 -6 L 6 6 L -3 0 z" fill="gray"/></svg>');
+		--next-bar-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><rect x="4" y="-6" width="2" height="12" fill="gray"/><path d="M -6 -6 L -6 6 L 3 0 z" fill="gray"/></svg>');
+		--volume-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26"><path d="M 4 16 L 4 10 L 8 10 L 13 5 L 13 21 L 8 16 z M 15 11 L 16 10 A 7.2 7.2 0 0 1 16 16 L 15 15 A 5.8 5.8 0 0 0 15 12 z M 18 8 L 19 7 A 11.5 11.5 0 0 1 19 19 L 18 18 A 10.1 10.1 0 0 0 18 8 z" fill="gray"/></svg>');
+		--unmuted-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="3 3 20 20"><path d="M 4 16 L 4 10 L 8 10 L 13 5 L 13 21 L 8 16 z M 15 11 L 16 10 A 7.2 7.2 0 0 1 16 16 L 15 15 A 5.8 5.8 0 0 0 15 12 z M 18 8 L 19 7 A 11.5 11.5 0 0 1 19 19 L 18 18 A 10.1 10.1 0 0 0 18 8 z" fill="gray"/></svg>');
+		--muted-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="3 3 20 20"><path d="M 4 16 L 4 10 L 8 10 L 13 5 L 13 21 L 8 16 z" fill="gray"/></svg>');
+		--menu-down-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path d="M -4 -2 L 4 -2 L 0 3 z" fill="gray"/></svg>');
+		--select-arrows-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path d="M -4 -3 L 4 -3 L 0 -8 z M -4 3 L 4 3 L 0 8 z" fill="gray"/></svg>');
+		--file-page-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-5 -21 26 26"><path d="M 2 0 L 2 -16 L 10 -16 L 14 -12 L 14 0 z M 3 -1 L 13 -1 L 13 -11 L 9 -11 L 9 -15 L 3 -15 z" fill="gray"/></svg>');
+		--edit-pencil-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-5 -21 26 26"><path d="M 0 0 L 1 -4 L 4 -1 z M 2 -5 L 10 -13 L 13 -10 L 5 -2 zM 11 -14 L 13 -16 L 14 -16 L 16 -14 L 16 -13 L 14 -11 z" fill="gray"/></svg>');
+		--preferences-gear-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path d="M 5.78 -1.6 L 7.93 -0.94 L 7.93 0.94 L 5.78 1.6 L 4.85 3.53 L 5.68 5.61 L 4.21 6.78 L 2.36 5.52 L 0.27 5.99 L -0.85 7.94 L -2.68 7.52 L -2.84 5.28 L -4.52 3.95 L -6.73 4.28 L -7.55 2.59 L -5.9 1.07 L -5.9 -1.07 L -7.55 -2.59 L -6.73 -4.28 L -4.52 -3.95 L -2.84 -5.28 L -2.68 -7.52 L -0.85 -7.94 L 0.27 -5.99 L 2.36 -5.52 L 4.21 -6.78 L 5.68 -5.61 L 4.85 -3.53 M 2.92 0.67 L 2.92 -0.67 L 2.35 -1.87 L 1.3 -2.7 L 0 -3 L -1.3 -2.7 L -2.35 -1.87 L -2.92 -0.67 L -2.92 0.67 L -2.35 1.87 L -1.3 2.7 L -0 3 L 1.3 2.7 L 2.35 1.87 z" fill="gray"/></svg>');
+		--customize-dial-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"> \
+				<g transform="translate(0,1)" fill="gray"> \
+					<circle cx="0" cy="0" r="6.5" stroke="gray" stroke-width="1" fill="none"/> \
+					<rect x="-1" y="-5" width="2" height="4" transform="rotate(30)"/> \
+					<circle cx="-7.79" cy="4.5" r="0.75"/> \
+					<circle cx="-9" cy="0" r="0.75"/> \
+					<circle cx="-7.79" cy="-4.5" r="0.75"/> \
+					<circle cx="-4.5" cy="-7.79" r="0.75"/> \
+					<circle cx="0" cy="-9" r="0.75"/> \
+					<circle cx="4.5" cy="-7.79" r="0.75"/> \
+					<circle cx="7.79" cy="-4.5" r="0.75"/> \
+					<circle cx="9" cy="0" r="0.75"/> \
+					<circle cx="7.79" cy="4.5" r="0.75"/> \
+				</g> \
+			</svg>');
+		--instrument-copy-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-5 -21 26 26"><path d="M 0 -15 L 1 -15 L 1 0 L 13 0 L 13 1 L 0 1 L 0 -15 z M 2 -1 L 2 -17 L 10 -17 L 14 -13 L 14 -1 z M 3 -2 L 13 -2 L 13 -12 L 9 -12 L 9 -16 L 3 -16 z" fill="currentColor"></path></svg>');
+		--instrument-paste-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26"><path d="M 8 18 L 6 18 L 6 5 L 17 5 L 17 7 M 9 8 L 16 8 L 20 12 L 20 22 L 9 22 z" stroke="currentColor" fill="none"></path><path d="M 9 3 L 14 3 L 14 6 L 9 6 L 9 3 z M 16 8 L 20 12 L 16 12 L 16 8 z" fill="currentColor"></path></svg>');
+		--export-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path fill="gray" d="M -8 3 L -8 8 L 8 8 L 8 3 L 6 3 L 6 6 L -6 6 L -6 3 z M 0 2 L -4 -2 L -1 -2 L -1 -8 L 1 -8 L 1 -2 L 4 -2 z"/></svg>');
+		--close-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path fill="gray" d="M -7.07 -5.66 L -5.66 -7.07 L 0 -1.4 L 5.66 -7.07 L 7.07 -5.66 L 1.4 0 L 7.07 5.66 L 5.66 7.07 L 0 1.4 L -5.66 7.07 L -7.07 5.66 L -1.4 0 z"/></svg>');
+		--add-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path fill="gray" d="M -8 -1 L -1 -1 L -1 -8  L 1 -8 L 1 -1 L 8 -1 L 8 1 L 1 1 L 1 8 L -1 8 L -1 1 L -8 1 z"/></svg>');
+		--zoom-in-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="-10 -10 20 20"><circle cx="-1" cy="-1" r="6" stroke-width="2" stroke="gray" fill="none"></circle><path stroke="gray" stroke-width="2" d="M 3 3 L 7 7 M -1 -4 L -1 2 M -4 -1 L 2 -1" fill="none"></path></svg>');
+		--zoom-out-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="-10 -10 20 20"><circle cx="-1" cy="-1" r="6" stroke-width="2" stroke="gray" fill="none"></circle><path stroke="gray" stroke-width="2" d="M 3 3 L 7 7 M -4 -1 L 2 -1" fill="none"></path></svg>');
+		--undo-symbol: url("https://choptop84.github.io/abyssbox-app/icon-undo.png");
+		--redo-symbol: url("https://choptop84.github.io/abyssbox-app/icon-redo.png");
+		--copy-symbol: url("https://choptop84.github.io/abyssbox-app/icon-copy.png");
+		--paste-symbol: url("https://choptop84.github.io/abyssbox-app/icon-paste.png");
+		--insert-channel-symbol: url("https://choptop84.github.io/abyssbox-app/icon-insertChannel.png");
+		--delete-channel-symbol: url("https://choptop84.github.io/abyssbox-app/icon-deleteChannel.png");
+		--select-all-symbol: url("https://choptop84.github.io/abyssbox-app/icon-SelectAll.png");
+		--duplicate-symbol: url("https://choptop84.github.io/abyssbox-app/icon-duplicate.png");
+		--notes-up-symbol: url("https://choptop84.github.io/abyssbox-app/moveNotesUp.png");
+		--notes-down-symbol: url("https://choptop84.github.io/abyssbox-app/moveNotesDown.png");
+		--loop-bar-symbol: url("https://choptop84.github.io/abyssbox-app/icon-singleBarLoop.png");
+		--fullscreen-symbol: url("https://choptop84.github.io/abyssbox-app/icon-fullscreen.png");
+		--checkmark-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path fill="gray" d="M -9 -2 L -8 -3 L -3 2 L 9 -8 L 10 -7 L -3 8 z"/></svg>');
+		--drum-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40"> \
+				<defs> \
+					<linearGradient id="gold1" x1="0%" y1="0%" x2="100%" y2="0%"> \
+						<stop offset="0%" stop-color="%237e3302"/> \
+						<stop offset="40%" stop-color="%23ffec6b"/> \
+						<stop offset="100%" stop-color="%237e3302"/> \
+					</linearGradient> \
+					<linearGradient id="gold2" x1="0%" y1="0%" x2="100%" y2="0%"> \
+						<stop offset="0%" stop-color="%23faaf7d"/> \
+						<stop offset="15%" stop-color="%23fffba9"/> \
+						<stop offset="40%" stop-color="%23ffffe3"/> \
+						<stop offset="65%" stop-color="%23fffba9"/> \
+						<stop offset="100%" stop-color="%23faaf7d"/> \
+					</linearGradient> \
+					<radialGradient id="gold3" cx="0%" cy="0%" r="100%"> \
+						<stop offset="0%" stop-color="%23ffffe3"/> \
+						<stop offset="50%" stop-color="%23ffec6b"/> \
+						<stop offset="100%" stop-color="%237e3302"/> \
+					</radialGradient> \
+					<linearGradient id="red" x1="0%" y1="0%" x2="100%" y2="0%"> \
+						<stop offset="0%" stop-color="%23641919"/> \
+						<stop offset="40%" stop-color="%23cd2c2c"/> \
+						<stop offset="100%" stop-color="%23641919"/> \
+					</linearGradient> \
+					<radialGradient id="membrane"> \
+						<stop offset="10%" stop-color="%23cccccc" /> \
+						<stop offset="90%" stop-color="%23f6f6f7" /> \
+						<stop offset="100%" stop-color="%23999" /> \
+					</radialGradient> \
+				</defs> \
+				<ellipse cx="16" cy="26" rx="16" ry="14" fill="rgba(0,0,0,0.5)"/> \
+				<ellipse cx="16" cy="25" rx="16" ry="14" fill="url(%23gold1)"/> \
+				<rect x="0" y="23" width="32" height="2" fill="url(%23gold1)"/> \
+				<ellipse cx="16" cy="23" rx="16" ry="14" fill="url(%23gold2)"/> \
+				<ellipse cx="16" cy="23" rx="15" ry="13" fill="url(%23red)"/> \
+				<rect x="1" y="17" width="30" height="6" fill="url(%23red)"/> \
+				<rect x="5" y="27" width="1" height="5" rx="0.5" fill="rgba(0,0,0,0.5)"/> \
+				<rect x="15" y="31" width="2" height="5" rx="1" fill="rgba(0,0,0,0.5)"/> \
+				<rect x="26" y="27" width="1" height="5" rx="0.5" fill="rgba(0,0,0,0.5)"/> \
+				<rect x="5" y="26" width="1" height="5" rx="0.5" fill="url(%23gold3)"/> \
+				<rect x="15" y="30" width="2" height="5" rx="1" fill="url(%23gold3)"/> \
+				<rect x="26" y="26" width="1" height="5" rx="0.5" fill="url(%23gold3)"/> \
+				<ellipse cx="16" cy="18" rx="15" ry="13" fill="rgba(0,0,0,0.5)"/> \
+				<ellipse cx="16" cy="16" rx="16" ry="14" fill="url(%23gold1)"/> \
+				<rect x="0" y="14" width="32" height="2" fill="url(%23gold1)"/> \
+				<ellipse cx="16" cy="14" rx="16" ry="14" fill="url(%23gold2)"/> \
+				<ellipse cx="16" cy="14" rx="15" ry="13" fill="url(%23membrane)"/> \
+			</svg>');
+		--piano-key-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="15" preserveAspectRatio="none" viewBox="0 -1 32 15"> \
+				<defs> \
+					<linearGradient id="shadow" x1="0%" y1="0%" x2="100%" y2="0%"> \
+						<stop offset="0%" stop-color="rgba(0,0,0,0.5)"/> \
+						<stop offset="100%" stop-color="transparent"/> \
+					</linearGradient> \
+				</defs> \
+				<rect x="-1" y="1" width="31" height="1" rx="0.6" fill="rgba(255,255,255,0.4)"/> \
+				<path d="M -1 11 L 30 11 L 30 2 L 33 -1 L 33 14 L -1 14 z" fill="rgba(0,0,0,0.7)"/> \
+				<rect x="-1" y="-1" width="19" height="15" fill="url(%23shadow)"/> \
+			</svg>');
+	--mod-key-symbol: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="80" preserveAspectRatio="none" viewBox="0 -1 32 80"> \
+				<defs> \
+					<linearGradient id="shadow" x1="0%" y1="0%" x2="100%" y2="0%"> \
+						<stop offset="0%" stop-color="rgba(0,0,0,0.4)"/> \
+						<stop offset="100%" stop-color="transparent"/> \
+					</linearGradient> \
+				</defs> \
+				<rect x="-1" y="1" width="31" height="1" rx="0.6" fill="rgba(255,255,255,0.2)"/> \
+				<path d="M -1 76 L 30 76 L 30 1 L 33 -1 L 33 80 L -1 80 z" fill="rgba(0,0,0,0.7)"/> \
+				<rect x="-1" y="-1" width="19" height="80" fill="url(%23shadow)"/> \
+			</svg>');
+	}
+
 	body {
 		color: ${ColorConfig.primaryText};
-		background: ${ColorConfig.editorBackground};
+		background: ${ColorConfig.songPlayerMargin};
 	}
+	.songPlayerContainer {
+		display:flex; 
+		flex-direction: column;
+		height: 100%;
+	}
+	.piano {
+	display: none;
+	min-height = 0px;
+	}
+	.layout-option {
+		width: 25%;
+	}
+	.timeline-bar-progress {
+		background: var(--progress-bar, var(--text-selection, rgb(0, 255, 0)));
+	}
+	.layout-option input:checked ~ * {
+		color:white !important;
+	}
+	.layout-option:has(input:checked) {
+    opacity: 1 !important;
+ }
 	h1 {
 		font-weight: bold;
 		font-size: 14px;
 		line-height: 22px;
 		text-align: initial;
 		margin: 0;
+	}
+	button.closePrompt::before {
+		content: "";
+		position: absolute;
+		width: 32px;
+		height: 32px;
+		left: 0;
+		top: 0;
+		pointer-events: none;
+		background: currentColor;
+		mask-image: var(--close-symbol);
+		mask-repeat: no-repeat;
+		mask-position: center;
+		-webkit-mask-image: var(--close-symbol);
+		-webkit-mask-repeat: no-repeat;
+		-webkit-mask-position: center;
 	}
 	a {
 		font-weight: bold;
@@ -30517,7 +36339,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
 		border-radius: 2px;
 		background: ${ColorConfig.primaryText};
 		cursor: pointer;
-	}
+	} 
 `));
     const colorTheme = getLocalStorage("colorTheme");
     ColorConfig.setTheme(colorTheme === null ? ColorConfig.defaultTheme : colorTheme);
@@ -30538,6 +36360,18 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
         synth.oscEnabled = false;
     }
     let titleText = h1({ style: "flex-grow: 1; margin: 0 1px; margin-left: 10px; overflow: hidden;" }, "");
+let layoutStuffs = button({
+			class: "songPlayerLayoutsButton",
+			style: "margin: 0 1px; height: auto; padding:3px; width: 42px !important; border-radius:0px; display: block;"
+},"");
+
+layoutStuffs.innerHTML = `
+<svg style="width:30px; height:30px; fill: none; stroke: var(--primary-text); stroke-width:1;" viewBox="0 0 24 24" fill="none" stroke="var(--primary-text)" role="img" aria-hidden="true">
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M20.25 3L21 3.75V20.25L20.25 21H3.75L3 20.25V3.75L3.75 3H20.25ZM19.5 4.5L4.5 4.5L4.5 19.5H8.25L8.25 9.75H4.5V8.25H8.25H9.75H19.5V4.5ZM19.5 9.75H9.75L9.75 19.5H19.5V9.75Z" fill="var(--primary-text)" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+`;
+
     let editLink = a({ target: "_top", style: "margin: 0 4px;" }, "✎ Edit");
     let copyLink = a({ href: "javascript:void(0)", style: "margin: 0 4px;" }, "⎘ Copy URL");
     let shareLink = a({ href: "javascript:void(0)", style: "margin: 0 4px;" }, "⤳ Share");
@@ -30559,8 +36393,8 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
     const zoomButton2 = button({ title: "zoom", style: "background: none; flex: 0 0 12px; margin: 0 3px; width: 12px; height: 12px; display: flex;" }, zoomIcon2);
     const timeline = svg({ style: "min-width: 0; min-height: 0; touch-action: pan-y pinch-zoom;" });
     const playhead = div({ style: `position: absolute; left: 0; top: 0; width: 2px; height: 100%; background: ${ColorConfig.playhead}; pointer-events: none;` });
-    const timelineContainer = div({ style: "display: flex; flex-grow: 1; flex-shrink: 1; position: relative;" }, timeline, playhead);
-    const visualizationContainer = div({ style: "display: flex; flex-grow: 1; flex-shrink: 1; height: 0; position: relative; align-items: center; overflow: hidden;" }, timelineContainer);
+    const timelineContainer = div({  class:"timelineContainer" ,style: "display: flex; flex-grow: 1; flex-shrink: 1; position: relative;" }, timeline, playhead);
+    const visualizationContainer = div({ class: "visualizer",style: "display: flex; flex-grow: 1; flex-shrink: 1; height: 0; position: relative; align-items: center; overflow: hidden;" }, timelineContainer);
     let noteFlashElementsPerBar;
     let currentNoteFlashElements = [];
     let currentNoteFlashBar = -1;
@@ -30578,8 +36412,157 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
     const sampleLoadingBarContainer = div({ class: `sampleLoadingContainer`, style: `overflow: hidden; margin: auto; width: 90%; height: 50%; background-color: var(--empty-sample-bar, ${ColorConfig.indicatorSecondary});`, preserveAspectRatio: "none" }, sampleLoadingBar);
     const sampleLoadingStatusContainer = div({}, div({ class: "selectRow", style: "overflow: hidden; margin: auto; width: 160px; height: 10px; " }, sampleLoadingBarContainer));
     const volumeBarContainerDiv = div({ class: `volBarContainer`, style: "display:flex; flex-direction:column; touch-action: none; overflow: hidden; margin: auto" }, volumeBarContainer, sampleLoadingStatusContainer);
+    
+
+    const closePrompt = button({ class: "closePrompt", style: "width: 32px; height: 32px; float: right; position: absolute;top: 8px;right: 8px;" });
+    const _okayButton = button({ class: "okayButton", style: "width:45%; height: 32px;" }, "Okay");
+    const _form = form({ style: "display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;" }, label({ class: "layout-option", style: "width:90px; color: var(--secondary-text); opacity:0.7;" }, input({ type: "radio", name: "spLayout", value: "classic", style: "display:none;" }), SVG(`\
+					<svg viewBox="-1 -1 28 22">
+					<rect x="0" y="0" width="26" height="20" fill="none" stroke="currentColor" stroke-width="1"/>
+					<rect x="2" y="3" width="22" height="1" fill="currentColor"/>
+					<rect x="2" y="4" width="1" height="7" fill="currentColor"/>
+					<rect x="23" y="4" width="1" height="7" fill="currentColor"/>
+					<rect x="2" y="11" width="22" height="1" fill="currentColor"/>
+
+					<rect x="2" y="5" width="22" height="1" fill="currentColor"/>
+					<rect x="2" y="7" width="22" height="1" fill="currentColor"/>
+					<rect x="2" y="9" width="22" height="1" fill="currentColor"/>
+
+					<rect x="2" y="15" width="22" height="3" fill="currentColor"/>
+					</svg>
+				`), div("Classic")), label({ class: "layout-option", style: "width:90px; color: var(--secondary-text);opacity:0.7;" }, input({ type: "radio", name: "spLayout", value: "top", style: "display:none;" }), SVG(`\
+					<svg viewBox="-1 -1 28 22">
+						<rect x="0" y="0" width="26" height="20" fill="none" stroke="currentColor" stroke-width="1"/>
+						<rect x="2" y="2" width="22" height="3" fill="currentColor"/>
+
+						<rect x="2" y="8" width="22" height="1" fill="currentColor"/>
+						<rect x="2" y="9" width="1" height="7" fill="currentColor"/>
+						<rect x="23" y="9" width="1" height="7" fill="currentColor"/>
+						<rect x="2" y="16" width="22" height="1" fill="currentColor"/>
+	
+						<rect x="2" y="10" width="22" height="1" fill="currentColor"/>
+						<rect x="2" y="12" width="22" height="1" fill="currentColor"/>
+						<rect x="2" y="14" width="22" height="1" fill="currentColor"/>
+					</svg>
+				`), div("Top")), label({ class: "layout-option", style: "width:90px; color: var(--secondary-text);opacity:0.7;" }, input({ type: "radio", name: "spLayout", value: "shitbox4", style: "display:none;" }), SVG(`\
+					<svg viewBox="-1 -1 28 22">
+						<rect x="0" y="0" width="26" height="20" fill="none" stroke="currentColor" stroke-width="1"/>
+						<rect x="2" y="15" width="22" height="3" fill="currentColor"/>
+
+						<rect x="2" y="2"  width="22" height="1" fill="currentColor" style="transform: skew(0.1deg,10deg);"/>
+						<rect x="2" y="3"  width="1"  height="5" fill="currentColor" style="transform: skew(0.1deg,10deg);"/>
+						<rect x="23" y="3" width="1" height="5" fill="currentColor" style="transform: skew(0.1deg,10deg);"/>
+						<rect x="2" y="8"  width="22" height="1" fill="currentColor" style="transform: skew(0.1deg,10deg);"/>
+	
+						<rect x="2" y="6" width="22" height="1" fill="currentColor" style="transform: skew(0.1deg,10deg);"/>
+						<rect x="2" y="4" width="22" height="1" fill="currentColor" style="transform: skew(0.1deg,10deg);"/>
+					</svg>
+				`), div("shitBox4")), label({ class: "layout-option", style: "width:90px; color: var(--secondary-text);opacity:0.7;" }, input({ type: "radio", name: "spLayout", value: "boxbeep", style: "display:none;" }), SVG(`\
+				<svg viewBox="-1 -1 28 22">
+				<rect x="0" y="0" width="26" height="20" fill="none" stroke="currentColor" stroke-width="1"/>
+					<rect x="2" y="3" width="22" height="1" fill="currentColor"/>
+					<rect x="2" y="4" width="1" height="7" fill="currentColor"/>
+					<rect x="23" y="4" width="1" height="7" fill="currentColor"/>
+					<rect x="2" y="11" width="22" height="1" fill="currentColor"/>
+
+					<rect x="2" y="5" width="18" height="1" fill="currentColor"/>
+					<rect x="2" y="7" width="18" height="1" fill="currentColor"/>
+					<rect x="2" y="9" width="18" height="1" fill="currentColor"/>
+
+					<rect x="21" y="5" width="1" height="5" fill="currentColor"/>
+
+					<rect x="2" y="15" width="22" height="3" fill="currentColor"/>
+				</svg>
+				`), div("BoxBeep")), label({ class: "layout-option", style: "width:90px; color: var(--secondary-text);opacity:0.7;" }, input({ type: "radio", name: "spLayout", value: "piano", style: "display:none;" }), SVG(`\
+				<svg viewBox="-1 -1 28 22">
+					<rect x="0" y="0" width="26" height="20" fill="none" stroke="currentColor" stroke-width="1"/>
+					<rect x="4" y="3" width="20" height="1" fill="currentColor"/>
+					<rect x="2" y="3" width="1" height="9" fill="currentColor"/>
+					<rect x="23" y="4" width="1" height="7" fill="currentColor"/>
+					<rect x="4" y="11" width="20" height="1" fill="currentColor"/>
+
+					<rect x="4" y="5" width="20" height="1" fill="currentColor"/>
+					<rect x="4" y="7" width="20" height="1" fill="currentColor"/>
+					<rect x="4" y="9" width="20" height="1" fill="currentColor"/>
+
+					<rect x="2" y="15" width="22" height="3" fill="currentColor"/>
+					</svg>
+				`), div("Music Box")), label({ class: "layout-option", style: "width:90px; color: var(--secondary-text);opacity:0.7;" }, input({ type: "radio", name: "spLayout", value: "vertical", style: "display:none;" }), SVG(`\
+				<svg viewBox="-1 -1 28 22">
+					<rect x="0" y="0" width="26" height="20" fill="none" stroke="currentColor" stroke-width="1"/>
+					<rect x="2" y="3" width="22" height="1" fill="currentColor"/>
+					<rect x="2" y="4" width="1" height="7" fill="currentColor"/>
+					<rect x="23" y="4" width="1" height="7" fill="currentColor"/>
+					<rect x="2" y="11" width="22" height="1" fill="currentColor"/>
+
+					<rect x="5" y="4" width="1" height="7" fill="currentColor"/>
+					<rect x="8" y="4" width="1" height="7" fill="currentColor"/>
+					<rect x="12" y="4" width="1" height="7" fill="currentColor"/>
+					<rect x="16" y="4" width="1" height="7" fill="currentColor"/>
+					<rect x="20" y="4" width="1" height="7" fill="currentColor"/>
+
+					<rect x="2" y="15" width="22" height="3" fill="currentColor"/>
+					</svg>
+				`), div("Vertical")), label({ class: "layout-option", style: "width:90px; color: var(--secondary-text);opacity:0.7;" }, input({ type: "radio", name: "spLayout", value: "vertical-reversed", style: "display:none;" }), SVG(`\
+<svg viewBox="-1 -1 28 22">
+  <g transform="rotate(180 13 10)">
+    <rect x="0" y="0" width="26" height="20" fill="none" stroke="currentColor" stroke-width="1"/>
+    <rect x="2" y="3" width="22" height="1" fill="currentColor"/>
+    <rect x="2" y="4" width="1" height="7" fill="currentColor"/>
+    <rect x="23" y="4" width="1" height="7" fill="currentColor"/>
+    <rect x="2" y="11" width="22" height="1" fill="currentColor"/>
+
+    <rect x="5" y="4" width="1" height="7" fill="currentColor"/>
+    <rect x="8" y="4" width="1" height="7" fill="currentColor"/>
+    <rect x="12" y="4" width="1" height="7" fill="currentColor"/>
+    <rect x="16" y="4" width="1" height="7" fill="currentColor"/>
+    <rect x="20" y="4" width="1" height="7" fill="currentColor"/>
+
+    <rect x="2" y="15" width="22" height="3" fill="currentColor"/>
+  </g>
+</svg>
+				`), div("Vertical Reversed")), label({ class: "layout-option", style: "width:90px; color: var(--secondary-text);opacity:0.7;" }, input({ type: "radio", name: "spLayout", value: "middle", style: "display:none;" }), SVG(`\
+				<svg viewBox="-1 -1 28 22">
+				<rect x="0" y="0" width="26" height="20" fill="none" stroke="currentColor" stroke-width="1"/>
+				<rect x="4" y="3" width="8" height="1" fill="currentColor"/>
+
+				<rect x="2" y="3" width="1" height="9" fill="currentColor"/>
+
+				<rect x="13" y="3" width="1" height="9" fill="currentColor"/>
+
+				<rect x="23" y="3" width="1" height="9" fill="currentColor"/>
+
+				<rect x="4" y="11" width="8" height="1" fill="currentColor"/>
+				<rect x="4" y="5" width="8" height="1" fill="currentColor"/>
+				<rect x="4" y="7" width="8" height="1" fill="currentColor"/>
+				<rect x="4" y="9" width="8" height="1" fill="currentColor"/>
+
+				<rect x="15" y="3" width="7" height="1" fill="currentColor"/>
+				<rect x="15" y="11" width="7" height="1" fill="currentColor"/>
+				<rect x="15" y="5" width="7" height="1" fill="currentColor"/>
+				<rect x="15" y="7" width="7" height="1" fill="currentColor"/>
+				<rect x="15" y="9" width="7" height="1" fill="currentColor"/>
+
+				<rect x="2" y="15" width="22" height="3" fill="currentColor"/>
+					</svg>
+				`), div("Middle")));
+const layoutContainer = div({ class: "prompt noSelection", style: "width: 300px; max-height:50vh; overflow :hidden scroll; margin: auto;text-align: center;background: var(--editor-background);border-radius: 15px;border: 4px solid var(--ui-widget-background);color: var(--primary-text);padding: 20px;display: flex;flex-direction: column;position: relative;box-shadow: 5px 5px 20px 10px rgba(0,0,0,0.5);" }, div({ class: "promptTitle" }, h2({ class: "layoutExt", style: "text-align: inherit;" }, ""), h2({ class: "layoutTitle" }, "Layout")), _form, div({ style: "margin-top: 1em;" }, _okayButton), closePrompt);
+const promptContainer = div({ class: "promptContainer", style: "display:none; backdrop-filter: saturate(1.5) blur(4px); width: 100%; height: 100%; position: fixed; z-index: 999; display: flex; justify-content: center; align-items: center;" });
+promptContainer.style.display = "none"; 
+document.body.appendChild(promptContainer);
+promptContainer.appendChild(layoutContainer);
+
+    const timelineBarProgress = div({ class: `timeline-bar-progress`, style: `overflow: hidden; width: 5%; height: 100%; z-index: 5;` });
+    const timelineBar = div({ style: `overflow: hidden; height: 100%; margin: auto; background: var(--ui-widget-background);` }, timelineBarProgress);
+    const timelineBarContainer = div({ style: `overflow: hidden; height: 4px; ` }, timelineBar);
+    
+    const piano = svg({ style: "pointer-events: none; display: block; margin: 0 auto;" });
+const pianoContainer = div({ class: "piano", style: "grid-area: piano;" }, piano);
     document.body.appendChild(visualizationContainer);
-    document.body.appendChild(div({ style: `flex-shrink: 0; height: 20vh; min-height: 22px; max-height: 70px; display: flex; align-items: center;` }, playButtonContainer, loopButton, volumeIcon, volumeSlider, zoomButton,zoomButton2, volumeBarContainerDiv, oscilloscope.canvas, titleText, editLink, copyLink, shareLink, fullscreenLink));
+    document.body.appendChild(pianoContainer);
+    document.body.appendChild(timelineBarContainer);
+     
+    document.body.appendChild(div({ class: "control-center", id: "control-center", style: `flex-shrink: 0; height: 20vh; min-height: 22px; max-height: 70px; display: flex; align-items: center;` }, playButtonContainer, loopButton, volumeIcon, volumeSlider, zoomButton,zoomButton2, volumeBarContainerDiv, oscilloscope.canvas, titleText, layoutStuffs, editLink, copyLink, shareLink, fullscreenLink));
     function setLocalStorage(key, value) {
         try {
             localStorage.setItem(key, value);
@@ -30613,8 +36596,14 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
         const updatedSongString = synth.song.toBase64String();
 if (location.href.startsWith("file:///")) {
 	let fileFull = "file:///android_asset/WebView/index.html#" + updatedSongString
+	editLink.onclick = () => {
+  cleanMemoryBeforeNavigation(); 
+};
 	editLink.href = fileFull;
 } else {
+	editLink.onclick = () => {
+  cleanMemoryBeforeNavigation();  
+};
 	editLink.href = "./" + (OFFLINE ? "index.html" : "") + "#" + updatedSongString;
 }
     }
@@ -30721,6 +36710,15 @@ if (location.href.startsWith("file:///")) {
         }
         renderPlayButton();
     }
+    function onExitButton() {
+        promptContainer.style.display = "none";
+    }
+    function onLayoutPicked() {
+	SongPlayerLayout.setLayout(_form.elements["spLayout"].value);
+	promptContainer.style.display = "none";
+	window.localStorage.setItem("spLayout", _form.elements["spLayout"].value);
+	renderTimeline();
+}
     function onToggleLoop() {
         if (synth.loopRepeatCount == -1) {
             synth.loopRepeatCount = 0;
@@ -30777,157 +36775,275 @@ if (location.href.startsWith("file:///")) {
         volume = Math.round(volume*4/3)
         synth.volume = Math.min(1.0, Math.pow(volume / 50.0, 0.5)) * Math.pow(2.0, (volume - 75.0) / 25.0); 
     } 
-    function renderPlayhead() {
-        if (synth.song != null) {
-            let pos = synth.playhead / synth.song.barCount;
-            playhead.style.left = (timelineWidth * pos) + "px";
-            const boundingRect = visualizationContainer.getBoundingClientRect();
-            visualizationContainer.scrollLeft = pos * (timelineWidth - boundingRect.width);
-            if (notesFlashWhenPlayed) {
-                const playheadBar = Math.floor(synth.playhead);
-                const modPlayhead = synth.playhead - playheadBar;
-                const partsPerBar = synth.song.beatsPerBar * Config.partsPerBeat;
-                const noteFlashElementsForThisBar = noteFlashElementsPerBar[playheadBar];
-                if (noteFlashElementsForThisBar != null && playheadBar !== currentNoteFlashBar) {
-                    for (var i = currentNoteFlashElements.length - 1; i >= 0; i--) {
-                        var element = currentNoteFlashElements[i];
-                        const outsideOfCurrentBar = Number(element.getAttribute("note-bar")) !== playheadBar;
-                        const isInvisible = element.style.opacity === "0";
-                        if (outsideOfCurrentBar && isInvisible) {
-                            removeFromUnorderedArray(currentNoteFlashElements, i);
-                        }
-                    }
-                    for (var i = 0; i < noteFlashElementsForThisBar.length; i++) {
-                        var element = noteFlashElementsForThisBar[i];
-                        currentNoteFlashElements.push(element);
-                    }
-                }
-                if (currentNoteFlashElements != null) {
-                    for (var i = 0; i < currentNoteFlashElements.length; i++) {
-                        var element = currentNoteFlashElements[i];
-                        const noteStart = Number(element.getAttribute("note-start")) / partsPerBar;
-                        const noteEnd = Number(element.getAttribute("note-end")) / partsPerBar;
-                        const noteBar = Number(element.getAttribute("note-bar"));
-                        if ((modPlayhead >= noteStart) && (noteBar == playheadBar)) {
-                            const dist = noteEnd - noteStart;
-                            element.style.opacity = String((1 - (((modPlayhead - noteStart) - (dist / 2)) / (dist / 2))));
-                        }
-                        else {
-                            element.style.opacity = "0";
-                        }
-                    }
-                }
-                currentNoteFlashBar = playheadBar;
-            }
-        }
+function renderPlayhead() {
+ 	const maxPer = 144;
+ 	if (synth.song != null) {
+ 		let pos = synth.playhead / synth.song.barCount;
+ 		timelineBarProgress.style.width = Math.round((maxPer * pos / maxPer) * 1000) / 10 + "%";
+ 		const usePiano = (_form.elements["spLayout"].value == "piano") || (window.localStorage.getItem("spLayout") == "piano");
+ 		const useMiddle = (_form.elements["spLayout"].value == "middle") || (window.localStorage.getItem("spLayout") == "middle");
+ 		const useVertical = (_form.elements["spLayout"].value == "vertical") || (window.localStorage.getItem("spLayout") == "vertical") || (_form.elements["spLayout"].value == "vertical-reversed") || (window.localStorage.getItem("spLayout") == "vertical-reversed");
+ 		if (usePiano) {
+ 			playhead.style.left = (timelineWidth * pos) + "px";
+ 			timelineContainer.style.left = "-" + (timelineWidth * pos) + "px";
+ 			timelineContainer.style.bottom = "0";
+ 			timelineContainer.style.top = "0";
+ 		}
+ 		else if (useMiddle) {
+ 			playhead.style.left = (timelineWidth * pos) + "px";
+ 			timelineContainer.style.left = "-" + (timelineWidth * pos) + "px";
+ 			timelineContainer.style.bottom = "0";
+ 			timelineContainer.style.top = "0";
+ 		}
+ 		else if (useVertical) {
+ 			const boundingRect = visualizationContainer.getBoundingClientRect();
+ 			const o = boundingRect.height / 2;
+ 			playhead.style.left = (timelineWidth * pos) + "px";
+ 			timelineContainer.style.bottom = "-" + (timelineWidth * pos) + "px";
+ 			timelineContainer.style.top = (timelineWidth * pos + o) + "px";
+ 		}
+ 		else {
+ 			playhead.style.left = (timelineWidth * pos) + "px";
+ 			timelineContainer.style.left = "0";
+ 			timelineContainer.style.bottom = "0";
+ 			timelineContainer.style.top = "0";
+ 			const boundingRect = visualizationContainer.getBoundingClientRect();
+ 			visualizationContainer.scrollLeft = pos * (timelineWidth - boundingRect.width);
+ 		}
+ 		if (notesFlashWhenPlayed) {
+ 			const playheadBar = Math.floor(synth.playhead);
+ 			const modPlayhead = synth.playhead - playheadBar;
+ 			const partsPerBar = synth.song.beatsPerBar * Config.partsPerBeat;
+ 			const noteFlashElementsForThisBar = noteFlashElementsPerBar[playheadBar];
+ 			if (noteFlashElementsForThisBar != null && playheadBar !== currentNoteFlashBar) {
+ 				for (var i = currentNoteFlashElements.length - 1; i >= 0; i--) {
+ 					var element = currentNoteFlashElements[i];
+ 					const outsideOfCurrentBar = Number(element.getAttribute("note-bar")) !== playheadBar;
+ 					const isInvisible = element.style.opacity === "0";
+ 					if (outsideOfCurrentBar && isInvisible) {
+ 						removeFromUnorderedArray(currentNoteFlashElements, i);
+ 					}
+ 				}
+ 				for (var i = 0; i < noteFlashElementsForThisBar.length; i++) {
+ 					var element = noteFlashElementsForThisBar[i];
+ 					currentNoteFlashElements.push(element);
+ 				}
+ 			}
+ 			const kc = piano.children.length;
+ 			for (let i = 0; i < kc; i++) {
+ 				const k = piano.children[i];
+ 				const kf = k.getAttribute("original-fill");
+ 				k.setAttribute("fill", kf);
+ 			}
+ 			if (currentNoteFlashElements != null) {
+ 				for (var i = 0; i < currentNoteFlashElements.length; i++) {
+ 					var element = currentNoteFlashElements[i];
+ 					const noteStart = Number(element.getAttribute("note-start")) / partsPerBar;
+ 					const noteEnd = Number(element.getAttribute("note-end")) / partsPerBar;
+ 					const noteBar = Number(element.getAttribute("note-bar"));
+ 					const p = Number(element.getAttribute("note-pitch"));
+ 					const isNoise = element.getAttribute("note-noise") === "true";
+ 					const k = piano.children[p];
+ 					const kf2 = element.getAttribute("note-color");
+ 					if ((modPlayhead >= noteStart) && (noteBar == playheadBar)) {
+ 						const dist = noteEnd - noteStart;
+ 						const opacity = (1 - (((modPlayhead - noteStart) - (dist / 2)) / (dist / 2)));
+ 						element.style.opacity = String(opacity);
+ 						if (!isNoise)
+ 							if (opacity > 0.05)
+ 								k === null || k === void 0 ? void 0 : k.setAttribute("fill", kf2);
+ 					}
+ 					else {
+ 						element.style.opacity = "0";
+ 					}
+ 				}
+ 			}
+ 			currentNoteFlashBar = playheadBar;
+ 		}
+ 	}
+ }
+function renderTimeline() {
+    	timeline.innerHTML = "";
+    	if (synth.song == null)
+    		return;
+    	const boundingRect = visualizationContainer.getBoundingClientRect();
+    	let timelineHeight;
+    	let windowOctaves;
+    	let windowPitchCount;
+    	const useVertical = (_form.elements["spLayout"].value == "vertical") || (window.localStorage.getItem("spLayout") == "vertical") || (_form.elements["spLayout"].value == "vertical-reversed") || (window.localStorage.getItem("spLayout") == "vertical-reversed");
+if (zoomEnabled2) {
+	timelineHeight = useVertical ? boundingRect.width : boundingRect.height;
+	windowOctaves = Math.max(1, Math.min(Config.pitchOctaves, Math.round(timelineHeight / (12 * 2))));
+	windowPitchCount = windowOctaves * 12 + 1;
+	const semitoneHeight = (timelineHeight - 1) / windowPitchCount;
+	const zoomFactorX = 6;
+	const targetBeatWidth = Math.max(8, semitoneHeight * 4 * zoomFactorX);
+	timelineWidth = Math.max(boundingRect.width, targetBeatWidth * synth.song.barCount * synth.song.beatsPerBar);
+	
+	if (useVertical) {
+		timelineContainer.style.transform = `translateX(-${timelineWidth / 2}px) rotate(-90deg) translateX(${timelineWidth / 2}px) translateY(${timelineHeight / 2}px) scaleY(-1)`;
+		pianoContainer.style.minHeight = "140px";
+		if (isMobile) {
+			pianoContainer.style.display = "none";
+			pianoContainer.style.minHeight = "0px";
+		}
+		timelineContainer.style.left = "0px";
+	} else {
+		timelineContainer.style.transform = '';
+		pianoContainer.style.minHeight = "0px";
+	}
+}else 
+    	if (zoomEnabled) {
+    		timelineHeight = useVertical ? boundingRect.width : boundingRect.height;
+    		windowOctaves = Math.max(1, Math.min(Config.pitchOctaves, Math.round(timelineHeight / (12 * 2))));
+    		windowPitchCount = windowOctaves * 12 + 1;
+    		const semitoneHeight = (timelineHeight - 1) / windowPitchCount;
+    		const targetBeatWidth = Math.max(8, semitoneHeight * 4);
+    		timelineWidth = Math.max(boundingRect.width, targetBeatWidth * synth.song.barCount * synth.song.beatsPerBar);
+    		if (useVertical) {
+    			timelineContainer.style.transform = `translateX(-${timelineWidth / 2}px) rotate(-90deg) translateX(${timelineWidth / 2}px) translateY(${timelineHeight / 2}px) scaleY(-1)`;
+    			pianoContainer.style.minHeight = "140px";
+    			if (isMobile) {
+    				pianoContainer.style.display = "none";
+    				pianoContainer.style.minHeight = "0px";
+    			}
+    			timelineContainer.style.left = "0px";
+    		}
+    		else {
+    			timelineContainer.style.transform = '';
+    			pianoContainer.style.minHeight = "0px";
+    		}
+    	}
+    	else {
+    		timelineWidth = boundingRect.width;
+    		const targetSemitoneHeight = Math.max(1, timelineWidth / (synth.song.barCount * synth.song.beatsPerBar) / 6.0);
+    		timelineHeight = Math.min(boundingRect.height, targetSemitoneHeight * (Config.maxPitch + 1) + 1);
+    		windowOctaves = Math.max(3, Math.min(Config.pitchOctaves, Math.round(timelineHeight / (12 * targetSemitoneHeight))));
+    		windowPitchCount = windowOctaves * 12 + 1;
+    		if (useVertical) {
+    			timelineContainer.style.transform = `translateX(-${timelineWidth / 2}px) rotate(-90deg) translateX(${timelineWidth / 2}px) translateY(${timelineWidth / 2}px) scaleY(-1)`;
+    			pianoContainer.style.height = "0";
+    			pianoContainer.style.minHeight = "0";
+    			if (isMobile) {
+    				pianoContainer.style.display = "none";
+    				pianoContainer.style.minHeight = "0px";
+    			}
+    			timelineContainer.style.left = "0px";
+    		}
+    		else {
+    			pianoContainer.style.minHeight = "0px";
+    			timelineContainer.style.transform = '';
+    		}
+    	}
+    	timelineContainer.style.width = timelineWidth + "px";
+    	timelineContainer.style.height = timelineHeight + "px";
+    	timeline.style.width = timelineWidth + "px";
+    	timeline.style.height = timelineHeight + "px";
+    	const barWidth = timelineWidth / synth.song.barCount;
+    	const partWidth = (barWidth / (synth.song.beatsPerBar * Config.partsPerBeat) );
+    	const wavePitchHeight = (timelineHeight - 1) / windowPitchCount;
+    	const drumPitchHeight = (timelineHeight - 1) / Config.drumCount;
+    	for (let bar = 0; bar < synth.song.barCount + 1; bar++) {
+    		const color = (bar == synth.song.loopStart || bar == synth.song.loopStart + synth.song.loopLength) ? ColorConfig.loopAccent : ColorConfig.uiWidgetBackground;
+    		timeline.appendChild(rect({ x: bar * barWidth - 1, y: 0, width: 2, height: timelineHeight, fill: color }));
+    	}
+    	for (let octave = 0; octave <= windowOctaves; octave++) {
+    		timeline.appendChild(rect({ x: 0, y: octave * 12 * wavePitchHeight, width: timelineWidth, height: wavePitchHeight + 1, fill: ColorConfig.tonic, opacity: 0.75 }));
+    	} 
+    	let noteFlashColor = "#ffffff";
+    	let noteFlashColorSecondary = "#ffffff77";
+    	if (notesFlashWhenPlayed) {
+    		noteFlashColor = ColorConfig.getComputed("--note-flash") !== "" ? "var(--note-flash)" : "#ffffff";
+    		noteFlashColorSecondary = ColorConfig.getComputed("--note-flash-secondary") !== "" ? "var(--note-flash-secondary)" : "#ffffff77";
+    	}
+    	if (notesFlashWhenPlayed) {
+    		noteFlashElementsPerBar = [];
+    		for (let bar = 0; bar < synth.song.barCount; bar++) {
+    			noteFlashElementsPerBar.push([]);
+    		}
+    		currentNoteFlashBar = -1;
+    	}
+    	for (let channel = synth.song.channels.length - 1 - synth.song.modChannelCount; channel >= 0; channel--) {
+    		const isNoise = synth.song.getChannelIsNoise(channel);
+    		const pitchHeight = isNoise ? drumPitchHeight : wavePitchHeight;
+    		const configuredOctaveScroll = synth.song.channels[channel].octave;
+    		const newOctaveScroll = Math.max(0, Math.min(Config.pitchOctaves - windowOctaves, Math.ceil(configuredOctaveScroll - windowOctaves * 0.5)));
+    		const offsetY = newOctaveScroll * pitchHeight * 12 + timelineHeight - pitchHeight * 0.5 - 0.5;
+    		for (let bar = 0; bar < synth.song.barCount; bar++) {
+    			const pattern = synth.song.getPattern(channel, bar);
+    			if (pattern == null)
+    				continue;
+    			const offsetX = bar * barWidth;
+    			for (let i = 0; i < pattern.notes.length; i++) {
+    				const note = pattern.notes[i];
+    				for (const pitch of note.pitches) {
+    					const d = drawNote(pitch, note.start, note.pins, (pitchHeight + 1) / 2, offsetX, offsetY, partWidth, pitchHeight);
+    					const noteElement = path({ d: d, fill: ColorConfig.getChannelColor(synth.song, channel).primaryChannel });
+    					if (isNoise)
+    						noteElement.style.opacity = String(0.6);
+    					timeline.appendChild(noteElement);
+    					if (notesFlashWhenPlayed) {
+    						const dflash = drawNote(pitch, note.start, note.pins, (pitchHeight + 1) / 2, offsetX, offsetY, partWidth, pitchHeight);
+    						const noteFlashElement = path({ d: dflash, fill: (isNoise ? noteFlashColorSecondary : noteFlashColor) });
+    						noteFlashElement.style.opacity = "0";
+    						noteFlashElement.setAttribute('note-start', String(note.start));
+    						noteFlashElement.setAttribute('note-end', String(note.end));
+    						noteFlashElement.setAttribute('note-pitch', String(pitch));
+    						noteFlashElement.setAttribute('note-noise', String(isNoise));
+    						noteFlashElement.setAttribute('note-bar', String(bar));
+    						noteFlashElement.setAttribute('note-color', String(noteElement.getAttribute("fill")));
+    						timeline.appendChild(noteFlashElement);
+    						const noteFlashElementsForThisBar = noteFlashElementsPerBar[bar];
+    						noteFlashElementsForThisBar.push(noteFlashElement);
+    					}
+    				}
+    			}
+    		}
+    	} 
+    	renderPlayhead();
+    	const pianoContainerBoundingRect = pianoContainer.getBoundingClientRect();
+    	renderPiano(piano, timelineHeight, pianoContainerBoundingRect.height, windowOctaves, synth.song);
     }
-    function renderTimeline() {
-        timeline.innerHTML = "";
-        if (synth.song == null)
-            return;
-        const boundingRect = visualizationContainer.getBoundingClientRect();
-        let timelineHeight;
-        let windowOctaves;
-        let windowPitchCount;
-        if (zoomEnabled2) {
- timelineHeight = boundingRect.height;
- windowOctaves = Math.max(1, Math.min(Config.pitchOctaves, Math.round(timelineHeight / (12 * 2))));
- windowPitchCount = windowOctaves * 12 + 1;
- const semitoneHeight = (timelineHeight - 1) / windowPitchCount;
- const zoomFactorX = 6;
- const targetBeatWidth = Math.max(8, semitoneHeight * 4 * zoomFactorX);
- timelineWidth = Math.max(boundingRect.width, targetBeatWidth * synth.song.barCount * synth.song.beatsPerBar);
-} else if (zoomEnabled) {
-            timelineHeight = boundingRect.height;
-            windowOctaves = Math.max(1, Math.min(Config.pitchOctaves, Math.round(timelineHeight / (12 * 2))));
-            windowPitchCount = windowOctaves * 12 + 1;
-            const semitoneHeight = (timelineHeight - 1) / windowPitchCount;
-            const targetBeatWidth = Math.max(8, semitoneHeight * 4);
-            timelineWidth = Math.max(boundingRect.width, targetBeatWidth * synth.song.barCount * synth.song.beatsPerBar);
-        }
-        else {
-            timelineWidth = boundingRect.width;
-            const targetSemitoneHeight = Math.max(1, timelineWidth / (synth.song.barCount * synth.song.beatsPerBar) / 6.0);
-            timelineHeight = Math.min(boundingRect.height, targetSemitoneHeight * (Config.maxPitch + 1) + 1);
-            windowOctaves = Math.max(3, Math.min(Config.pitchOctaves, Math.round(timelineHeight / (12 * targetSemitoneHeight))));
-            windowPitchCount = windowOctaves * 12 + 1;
-        }
-        timelineContainer.style.width = timelineWidth + "px";
-        timelineContainer.style.height = timelineHeight + "px";
-        timeline.style.width = timelineWidth + "px";
-        timeline.style.height = timelineHeight + "px";
-        const barWidth = timelineWidth / synth.song.barCount;
-        const partWidth = barWidth / (synth.song.beatsPerBar * Config.partsPerBeat);
-        const wavePitchHeight = (timelineHeight - 1) / windowPitchCount;
-        const drumPitchHeight = (timelineHeight - 1) / Config.drumCount;
-        for (let bar = 0; bar < synth.song.barCount + 1; bar++) {
-            const color = (bar == synth.song.loopStart || bar == synth.song.loopStart + synth.song.loopLength) ? ColorConfig.loopAccent : ColorConfig.uiWidgetBackground;
-            timeline.appendChild(rect({ x: bar * barWidth - 1, y: 0, width: 2, height: timelineHeight, fill: color }));
-        }
-        for (let octave = 0; octave <= windowOctaves; octave++) {
-            timeline.appendChild(rect({ x: 0, y: octave * 12 * wavePitchHeight, width: timelineWidth, height: wavePitchHeight + 1, fill: ColorConfig.tonic, opacity: 0.75 }));
-        }
-        let noteFlashColor = "#ffffff";
-        let noteFlashColorSecondary = "#ffffff77";
-        if (notesFlashWhenPlayed) {
-            noteFlashColor = "var(--note-flash)";
-            noteFlashColorSecondary = "var(--note-flash-secondary)";
-        }
-        if (notesFlashWhenPlayed) {
-            noteFlashElementsPerBar = [];
-            for (let bar = 0; bar < synth.song.barCount; bar++) {
-                noteFlashElementsPerBar.push([]);
-            }
-            currentNoteFlashBar = -1;
-        }
-        for (let channel = synth.song.channels.length - 1 - synth.song.modChannelCount; channel >= 0; channel--) {
-            const isNoise = synth.song.getChannelIsNoise(channel);
-            const pitchHeight = isNoise ? drumPitchHeight : wavePitchHeight;
-            const configuredOctaveScroll = synth.song.channels[channel].octave;
-            const newOctaveScroll = Math.max(0, Math.min(Config.pitchOctaves - windowOctaves, Math.ceil(configuredOctaveScroll - windowOctaves * 0.5)));
-            const offsetY = newOctaveScroll * pitchHeight * 12 + timelineHeight - pitchHeight * 0.5 - 0.5;
-            for (let bar = 0; bar < synth.song.barCount; bar++) {
-                const pattern = synth.song.getPattern(channel, bar);
-                if (pattern == null)
-                    continue;
-                const offsetX = bar * barWidth;
-                for (let i = 0; i < pattern.notes.length; i++) {
-                    const note = pattern.notes[i];
-                    for (const pitch of note.pitches) {
-                        const d = drawNote(pitch, note.start, note.pins, (pitchHeight + 1) / 2, offsetX, offsetY, partWidth, pitchHeight);
-                        const noteElement = path({ d: d, fill: ColorConfig.getChannelColor(synth.song, channel).primaryChannel });
-                        if (isNoise)
-                            noteElement.style.opacity = String(0.6);
-                        timeline.appendChild(noteElement);
-                        if (notesFlashWhenPlayed) {
-                            const dflash = drawNote(pitch, note.start, note.pins, (pitchHeight + 1) / 2, offsetX, offsetY, partWidth, pitchHeight);
-                            const noteFlashElement = path({ d: dflash, fill: (isNoise ? noteFlashColorSecondary : noteFlashColor) });
-                            noteFlashElement.style.opacity = "0";
-                            noteFlashElement.setAttribute('note-start', String(note.start));
-                            noteFlashElement.setAttribute('note-end', String(note.end));
-                            noteFlashElement.setAttribute('note-bar', String(bar));
-                            timeline.appendChild(noteFlashElement);
-                            const noteFlashElementsForThisBar = noteFlashElementsPerBar[bar];
-                            noteFlashElementsForThisBar.push(noteFlashElement);
-                        }
-                    }
-                }
-            }
-        }
-        renderPlayhead();
+     function renderPiano(element, width, height, octaves, song) {
+    	if (song == null)
+    		return;
+    	element.innerHTML = "";
+    	element.style.width = width + "px";
+    	element.style.height = height + "px";
+    	const kc = octaves * 12 + 1;
+    	const kw = width / kc;
+    	const kh = height;
+    	for (let i = 0; i < kc; i++) {
+    		const pitchNameIndex = (i + Config.keys[song.key].basePitch) % Config.pitchesPerOctave;
+    		const isWhiteKey = Config.keys[pitchNameIndex].isWhiteKey;
+    		const color = isWhiteKey ? "white" : "black";
+    		element.appendChild(rect({
+    			x: i / kc * width,
+    			y: 0,
+    			width: kw,
+    			height: kh,
+    			stroke: "rgba(0, 0, 0, 0.5)",
+    			"stroke-width": 2,
+    			"original-fill": color,
+    			fill: color,
+    		}));
+    	}
     }
     function drawNote(pitch, start, pins, radius, offsetX, offsetY, partWidth, pitchHeight) {
         let d = `M ${offsetX + partWidth * (start + pins[0].time)} ${offsetY - pitch * pitchHeight + radius * (pins[0].size / Config.noteSizeMax)} `;
+        let NOTE_SHRINK = 0;  if(zoomEnabled2==true){NOTE_SHRINK=3}
         for (let i = 0; i < pins.length; i++) {
             const pin = pins[i];
-            const x = offsetX + partWidth * (start + pin.time);
+            const isLastPin = (i === pins.length - 1);
+            const x = offsetX + partWidth * (start + pin.time) - (isLastPin ? NOTE_SHRINK : 0);
             const y = offsetY - pitchHeight * (pitch + pin.interval);
             const expression = pin.size / Config.noteSizeMax;
             d += `L ${x} ${y - radius * expression} `;
         }
         for (let i = pins.length - 1; i >= 0; i--) {
             const pin = pins[i];
-            const x = offsetX + partWidth * (start + pin.time);
+            const isLastPin = (i === pins.length - 1);
+            const x = offsetX + partWidth * (start + pin.time) - (isLastPin ? NOTE_SHRINK : 0);
             const y = offsetY - pitchHeight * (pitch + pin.interval);
             const expression = pin.size / Config.noteSizeMax;
             d += `L ${x} ${y + radius * expression} `;
@@ -30986,6 +37102,7 @@ zoomIcon2.style.color = zoomEnabled2 ? ColorConfig.linkAccent : ColorConfig.uiWi
             case 80:
                 if (event.shiftKey) {
                     hashUpdatedExternally();
+                    cleanMemoryBeforeNavigation()
                     location.href = "" + (OFFLINE ? "index.html" : "") + "#" + synth.song.toBase64String();
                     event.preventDefault();
                 }
@@ -31041,6 +37158,9 @@ zoomIcon2.style.color = zoomEnabled2 ? ColorConfig.linkAccent : ColorConfig.uiWi
     function onShareClicked() {
         navigator.share({ url: location.href });
     }
+    function onLayoutButton() {
+	    promptContainer.style.display = "flex";
+    }
     function updateSampleLoadingBar(_e) {
         const e = _e;
         const percent = (e.totalSamples === 0
@@ -31077,6 +37197,11 @@ zoomIcon2.style.color = zoomEnabled2 ? ColorConfig.linkAccent : ColorConfig.uiWi
     timeline.addEventListener("touchmove", onTimelineTouchMove);
     timeline.addEventListener("touchend", onTimelineCursorUp);
     timeline.addEventListener("touchcancel", onTimelineCursorUp);
+    
+    layoutStuffs.addEventListener("click", onLayoutButton);
+    closePrompt.addEventListener("click", onExitButton);
+    _okayButton.addEventListener("click", onLayoutPicked);
+    
     playButton.addEventListener("click", onTogglePlay);
     loopButton.addEventListener("click", onToggleLoop);
     volumeSlider.addEventListener("input", onVolumeChange);

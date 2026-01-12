@@ -1,7 +1,279 @@
 if(typeof updateSampledWaves == "function"){ updateSampledWaves = function() {} } else { var updateSampledWaves = function() {} }
+
+	    
+const loadingScreen = document.createElement("div");
+loadingScreen.style.position = "fixed";
+loadingScreen.style.inset = "0";
+loadingScreen.style.background = "#222";
+loadingScreen.style.color = "white"; 
+loadingScreen.style.display = "flex";
+loadingScreen.style.flexDirection = "column";
+loadingScreen.style.justifyContent = "center";
+loadingScreen.style.alignItems = "center";
+loadingScreen.style.zIndex = "9999";
+loadingScreen.style.transition = "opacity 0.6s ease-in-out";
+
+const loadingText = document.createElement("div");
+loadingText.style.fontSize = "13px";
+loadingText.style.marginBottom = "6px";
+loadingText.style.width = "200px";
+loadingText.style.textAlign = "left";
+loadingText.style.whiteSpace = "nowrap";
+loadingText.style.overflow = "hidden";
+loadingText.style.textOverflow = "ellipsis";
+loadingText.innerText = "Loading Editor...";
+
+
+const progressBar = document.createElement("div");
+progressBar.style.width = "200px";
+progressBar.style.height = "5px";
+progressBar.style.background = "#444";
+progressBar.style.borderRadius = "1px";
+progressBar.style.overflow = "hidden";
+
+const progressFill = document.createElement("div");
+progressFill.style.height = "100%";
+progressFill.style.width = "0%";
+progressFill.style.background = "limegreen";
+progressFill.style.transition = "width 0.3s ease";
+
+progressBar.appendChild(progressFill);
+loadingScreen.appendChild(loadingText);
+loadingScreen.appendChild(progressBar);
+document.body.appendChild(loadingScreen);
+	    
+	    
+let topZ = 1000;
+
+function POPUP(x, y, title, content, framecolor = "#000080") {
+	const win = document.createElement("div");
+	Object.assign(win.style, {
+		position: "absolute",
+		left: x + "px",
+		top: y + "px",
+		width: "300px",
+		height: "150px",
+		border: `2px solid ${framecolor}`,
+		background: "#e0e0e0",
+		resize: "both",
+		overflow: "hidden",
+		boxShadow: "5px 5px 10px rgba(0,0,0,0.5)",
+		minWidth: "200px",
+		minHeight: "100px",
+		zIndex: ++topZ,
+		fontWeight: "200",
+		fontFamily: "sans-serif"
+	});
+
+	const titlebar = document.createElement("div");
+	Object.assign(titlebar.style, {
+		background: framecolor,
+		color: "#fff",
+		padding: "2px 5px",
+		cursor: "grab",
+		display: "flex",
+		fontWeight: "200",
+		fontFamily: "sans-serif",
+		justifyContent: "space-between",
+		alignItems: "center",
+		userSelect: "none"
+	});
+
+	const titleText = document.createElement("span");
+	titleText.textContent = title;
+
+	const buttons = document.createElement("div");
+	const closeBtn = document.createElement("button");
+	closeBtn.type = "button";
+	closeBtn.className = "no-drag";
+	closeBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="white"><line x1="4" y1="4" x2="20" y2="20" stroke="white" stroke-width="2"/><line x1="20" y1="4" x2="4" y2="20" stroke="white" stroke-width="2"/></svg>`;
+	Object.assign(closeBtn.style, {
+		background: "red",
+		border: "none",
+		cursor: "pointer",
+		width: "24px",
+		height: "24px",
+		padding: "0",
+		display: "flex",
+		justifyContent: "center",
+		alignItems: "center"
+	});
+	closeBtn.addEventListener("mousedown", e => e.stopPropagation());
+	closeBtn.addEventListener("touchstart", e => { e.stopPropagation(); }, { passive: false });
+	closeBtn.addEventListener("click", () => win.remove());
+
+	buttons.appendChild(closeBtn);
+	titlebar.appendChild(titleText);
+	titlebar.appendChild(buttons);
+
+	const contentDiv = document.createElement("div");
+	Object.assign(contentDiv.style, {
+		padding: "10px",
+		height: "calc(100% - 26px)",
+		overflow: "auto"
+	});
+	contentDiv.innerHTML = content;
+
+	win.appendChild(titlebar);
+	win.appendChild(contentDiv);
+	document.body.appendChild(win);
+
+	let isDragging = false, offsetX = 0, offsetY = 0;
+
+	function startDrag(e) {
+		const target = e.target;
+		if (target && target.closest && target.closest('.no-drag')) return;
+		isDragging = true;
+		const evt = e.touches ? e.touches[0] : e;
+		offsetX = evt.clientX - win.offsetLeft;
+		offsetY = evt.clientY - win.offsetTop;
+		titlebar.style.cursor = "grabbing";
+		document.body.style.overflow = "hidden";
+		e.preventDefault();
+	}
+
+	function drag(e) {
+		if (!isDragging) return;
+		const evt = e.touches ? e.touches[0] : e;
+		let newX = evt.clientX - offsetX;
+		let newY = evt.clientY - offsetY;
+		newX = Math.max(0, Math.min(window.innerWidth - win.offsetWidth, newX));
+		newY = Math.max(0, Math.min(document.body.scrollHeight - win.offsetHeight, newY));
+		win.style.left = newX + "px";
+		win.style.top = newY + "px";
+	}
+
+	function endDrag() {
+		isDragging = false;
+		titlebar.style.cursor = "grab";
+		document.body.style.overflow = "";
+	}
+
+	titlebar.addEventListener("mousedown", startDrag);
+	document.addEventListener("mousemove", drag);
+	document.addEventListener("mouseup", endDrag);
+	titlebar.addEventListener("touchstart", startDrag, { passive: false });
+	document.addEventListener("touchmove", drag, { passive: false });
+	document.addEventListener("touchend", endDrag);
+	win.addEventListener("mousedown", () => win.style.zIndex = ++topZ);
+	win.addEventListener("touchstart", () => win.style.zIndex = ++topZ);
+}
+
 let runned=0
 let OFFLINE=1 
 let pressPianoKey=function (){}
+let reloadsite=function (){}
+function readSaved(inp) {
+  return inp;
+}
+let db , db2;
+let CustomThemes={}; 
+let filesMap = [];
+let allfilesloaded = 0;
+function saveBuffer(id,name,buffer,extradetune1,expression1,rootnote){
+ const transaction=db.transaction(["files"],"readwrite");
+ const store=transaction.objectStore("files");
+ const obj = { id, name, buffer, expression: expression1 };
+if(extradetune1 != null) obj.extradetune = extradetune1;
+if(rootnote != null) obj.rootNote = rootnote;
+store.put(obj);
+ return new Promise(res=>transaction.oncomplete=()=>res());
+}
+function deleteFile(id) {
+ const transaction = db.transaction(["files"], "readwrite");
+ const store = transaction.objectStore("files");
+ store.delete(id);
+}
+function formatSize(bytes) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let i = 0;
+    while (bytes >= 1024 && i < units.length - 1) {
+        bytes /= 1024;
+        i++;
+    }
+    return bytes.toFixed(2) + ' ' + units[i];
+}
+
+let Config = {};
+Config.keys = [
+  { name: "C", isWhiteKey: true, basePitch: 0 },
+  { name: "C♯", isWhiteKey: false, basePitch: 1 },
+  { name: "D", isWhiteKey: true, basePitch: 2 },
+  { name: "D♯", isWhiteKey: false, basePitch: 3 },
+  { name: "E", isWhiteKey: true, basePitch: 4 },
+  { name: "F", isWhiteKey: true, basePitch: 5 },
+  { name: "F♯", isWhiteKey: false, basePitch: 6 },
+  { name: "G", isWhiteKey: true, basePitch: 7 },
+  { name: "G♯", isWhiteKey: false, basePitch: 8 },
+  { name: "A", isWhiteKey: true, basePitch: 9 },
+  { name: "A♯", isWhiteKey: false, basePitch: 10 },
+  { name: "B", isWhiteKey: true, basePitch: 11 },
+];
+Config.pitchesPerOctave = 12;
+function _noteNameFromPitchNumber(n) {
+  n = Math.floor(n);
+  const octave = Math.floor(n / Config.pitchesPerOctave) - 1;
+  const index = ((n % Config.pitchesPerOctave) + Config.pitchesPerOctave) % Config.pitchesPerOctave;
+  const key = Config.keys[index];
+  if (!key) return "?";
+
+  return key.name + octave;
+}
+async function audioFileToBuffer(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const audioCtx = new AudioContext({ sampleRate: 44100 });
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  const channelData = audioBuffer.getChannelData(0);
+  return Array.from(channelData);
+}
+function blobToBase6422(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64data = reader.result.split(',')[1];
+      resolve(base64data);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+let loadedBB=0
+let pageloaded=0
+const request = indexedDB.open("HyperBoxData", 1);
+request.onupgradeneeded = function(event) {
+ db = event.target.result;
+ db.createObjectStore("files", { keyPath: "id" });
+};
+request.onsuccess = function(event) {
+ db = event.target.result;
+ loadFiles();
+};
+const scripts = [
+    "./StudioSamples.js",
+    "./samples.js",
+    "./samples2.js",
+    "./samples3.js",
+    "./drumsamples.js",
+    "./wario_samples.js",
+    "./kirby_samples.js",
+    "./nintaribox_samples.js",
+    "./mario_paintbox_samples.js"
+];
+
+function loadScriptsSequentially() {
+    let promise = Promise.resolve();
+    scripts.forEach(src => {
+        promise = promise.then(() => new Promise(resolve => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = false; 
+            script.onload = () => resolve();
+            script.onerror = () => resolve();
+            document.head.appendChild(script);
+        }));
+    });
+    return promise;
+}
 
 function loadFiles() {
 	const transaction = db.transaction(["files"], "readonly");
@@ -11,7 +283,8 @@ function loadFiles() {
 		const total = countRequest.result;
 		let loaded = 0;
 		const request = store.openCursor();
-		request.onsuccess = function(event) {
+		document.querySelector("body").style.display="flex"
+		request.onsuccess = async function(event) {
 			const cursor = event.target.result;
 			if (cursor) {
 				const file = cursor.value;
@@ -24,35 +297,50 @@ function loadFiles() {
 					expression: file.expression || 2.0,
 				};
 				loaded++;
-				loadingText.innerText = `Loading sample: ${file.name}`;
+				loadingText.innerText = `${file.name} `;
 				const percent = Math.round((loaded / total) * 100);
 				progressFill.style.width = percent + "%";
 				cursor.continue();
 			} else {
 				allfilesloaded = 1;
-				setTimeout(() => { loadingText.innerText = "All samples loaded successfully" }, 50);
-				RUNBEEPBOX()
-				updateSampledWaves()
-				setTimeout(() => {
+				
+				if(window.location.hash){
+				await loadScriptsSequentially();
+				}
+if (document.readyState !== "loading") {
+	setTimeout(() => {
+		loadingScreen.style.opacity = "0";
+		setTimeout(() => {
+			loadingScreen.style.display = "none";
+		}, 600);
+	}, 500);
+}
+				if(loadedBB==0){
+					if (document.readyState === "loading") {
+						setTimeout(() => { loadingText.innerText = "Loading Page" }, 50);
+     document.addEventListener('DOMContentLoaded', () => {
+      	setTimeout(() => { loadingText.innerText = "All samples loaded successfully" }, 50);
+      	setTimeout(() => {
 					loadingScreen.style.opacity = "0";
 					setTimeout(() => {
 						loadingScreen.style.display = "none";
 					}, 600);
 				}, 500);
+    	  RUNBEEPBOX()
+      });
+    }else{
+    setTimeout(() => { loadingText.innerText = "All samples loaded successfully" }, 50);
+				 RUNBEEPBOX()
+    }
+				} else if(loadedBB==1){
+				updateSampledWaves()
+				}
+				
 			}
 		};
 	};
 }
 
-const request = indexedDB.open("HyperBoxData", 1);
-request.onupgradeneeded = function(event) {
-	db = event.target.result;
-	db.createObjectStore("files", { keyPath: "id" });
-};
-request.onsuccess = function(event) {
-	db = event.target.result;
-	loadFiles();
-};
 var updateThemes = function() {}
 function POPUP(x, y, title, content, framecolor = "#000080") {
 	const win = document.createElement("div");
@@ -356,7 +644,7 @@ function readBase64Int(str, index, digits) {
                     url = joined;
                 }
             }
-            fetch(url).then((response) => {
+            fetch(url).then((response) => { 
                 if (!response.ok) {
                     sampleLoadingState.statusTable[chipWaveIndex] = 2;
                     return Promise.reject(new Error("Couldn't load sample"));
@@ -386,7 +674,7 @@ function readBase64Int(str, index, digits) {
                 }
             }).catch((error) => {
                 sampleLoadingState.statusTable[chipWaveIndex] = 2;
-                alert("Failed to load " + url + ":\n" + error);
+                POPUP(innerWidth/2-150, innerHeight/2-100 + window.scrollY,"Warning", "Failed to load " + url + ":\n" + error, "#00afdf");
                 if (!closedSampleLoaderAudioContext) {
                     closedSampleLoaderAudioContext = true;
                     sampleLoaderAudioContext.close();
@@ -401,19 +689,22 @@ function readBase64Int(str, index, digits) {
         }
         return value;
     }
-    function loadScript(url) {
-        const result = new Promise((resolve, reject) => {
-            if (!Config.willReloadForCustomSamples) {
-                const script = document.createElement("script");
-                script.src = url;
-                document.head.appendChild(script);
-                script.addEventListener("load", (event) => {
-                    resolve();
-                });
-            }
-        });
-        return result;
-    }
+ function loadScript(url) {
+ 	if (location.href.startsWith("file:///")) {
+ 		url = "file:///android_asset/WebView/" + url
+ 	}
+ 	const result = new Promise((resolve, reject) => {
+ 		if (!Config.willReloadForCustomSamples) {
+ 			const script = document.createElement("script");
+ 			script.src = url;
+ 			document.head.appendChild(script);
+ 			script.addEventListener("load", (event) => {
+ 				resolve();
+ 			});
+ 		}
+ 	});
+ 	return result;
+ }
     
  
 
@@ -523,13 +814,7 @@ Config.chipWaves.dictionary = {};
   			sampleLoadingState.urlTable[chipWaveIndex] = "legacySamples";
   		}
 
-  		loadScript("samples.js")
-  			.then(() => loadScript("samples2.js"))
-  			.then(() => loadScript("samples3.js"))
-  			.then(() => loadScript("drumsamples.js"))
-  			.then(() => loadScript("wario_samples.js"))
-  			.then(() => loadScript("kirby_samples.js"))
-  			.then(() => {
+  		 
   				
   				const chipWaveSamples = [
   					centerWave(kicksample),
@@ -614,7 +899,7 @@ Config.chipWaves.dictionary = {};
   					sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
   					chipWaveIndexOffset++;
   				}
-  			});
+  			
   	}
   	else if (set == 1) {
   		const chipWaves = [
@@ -639,8 +924,7 @@ Config.chipWaves.dictionary = {};
   			sampleLoadingState.statusTable[chipWaveIndex] = 0;
   			sampleLoadingState.urlTable[chipWaveIndex] = "nintariboxSamples";
   		}
-  		loadScript("nintaribox_samples.js")
-  			.then(() => {
+  		 
   				const chipWaveSamples = [
   					centerWave(chronoperc1finalsample),
   					centerWave(synthkickfmsample),
@@ -658,7 +942,6 @@ Config.chipWaves.dictionary = {};
   					sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
   					chipWaveIndexOffset++;
   				}
-  			});
   	}
   	else if (set == 2) {
   		const chipWaves = [
@@ -690,8 +973,7 @@ Config.chipWaves.dictionary = {};
   			sampleLoadingState.statusTable[chipWaveIndex] = 0;
   			sampleLoadingState.urlTable[chipWaveIndex] = "marioPaintboxSamples";
   		}
-  		loadScript("mario_paintbox_samples.js")
-  			.then(() => {
+  		 
   				const chipWaveSamples = [
   					centerWave(catpaintboxsample),
   					centerWave(gameboypaintboxsample),
@@ -716,12 +998,113 @@ Config.chipWaves.dictionary = {};
   					sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
   					chipWaveIndexOffset++;
   				}
-  			});
+  			
+  	}else if (set == 3) { 
+
+
+  		const chipWaves = [
+  			{ name: "Realistic Piano", expression: 2, isPercussion: false, rootKey: 60 },
+  			{ name: "Acoustic Hi-Hat", expression: 2, isPercussion: false, rootKey: 60 },
+  			{ name: "Acoustic Snare", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "Acoustic Kick Shot", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "Octave Brass", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "House Drum Loop", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "Drum Kit", expression: 2,  isPercussion: false, rootKey: 60 },
+  			{ name: "Break Core Sample", expression: 2,   isPercussion: false, rootKey: 60 },
+  			{ name: "Aguda Keys", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "Jump Style Kick Drop", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "Chimer Keys", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "808 Shot", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "SQ2D", expression: 2,  isPercussion: false, rootKey: 60 },
+  			{ name: "GrittyKick", expression: 2,   isPercussion: true, rootKey: 60  },
+  		];
+  		sampleLoadingState.totalSamples += chipWaves.length;
+  		const startIndex = Config.rawRawChipWaves.length;
+
+for (const chipWave of chipWaves) {
+    const chipWaveIndex = Config.rawRawChipWaves.length;
+    const rootKey = chipWave.rootKey !== undefined ? chipWave.rootKey : 60;
+    const rawChipWave = {
+        index: chipWaveIndex,
+        name: chipWave.name,
+        expression: chipWave.expression,
+        isPercussion: chipWave.isPercussion,
+        isCustomSampled: true,
+        isCustomLoaded: true,
+        sampleRate: 44100,
+        rootKey: rootKey,
+        samples: defaultSamples
+    };
+
+    const rawRawChipWave = {
+        index: chipWaveIndex,
+        name: chipWave.name,
+        expression: chipWave.expression,
+        isPercussion: chipWave.isPercussion,
+        isCustomLoaded: true,
+        sampleRate: 44100,
+        isCustomSampled: true,
+        rootKey: rootKey,
+        samples: defaultSamples
+    };
+
+    const integratedChipWave = {
+        index: chipWaveIndex,
+        name: chipWave.name,
+        expression: chipWave.expression,
+        isPercussion: chipWave.isPercussion,
+        isCustomLoaded: true,
+        sampleRate: 44100,
+        rootKey: rootKey,
+        isCustomSampled: true,
+        samples: defaultIntegratedSamples
+    };
+
+    Config.rawRawChipWaves[chipWaveIndex] = rawRawChipWave;
+    Config.rawRawChipWaves.dictionary[chipWave.name] = rawRawChipWave;
+    Config.rawChipWaves[chipWaveIndex] = rawChipWave;
+    Config.rawChipWaves.dictionary[chipWave.name] = rawChipWave;
+    Config.chipWaves[chipWaveIndex] = integratedChipWave;
+    Config.chipWaves.dictionary[chipWave.name] = rawChipWave;
+
+    sampleLoadingState.statusTable[chipWaveIndex] = 0;
+    sampleLoadingState.urlTable[chipWaveIndex] = "studioSamples";
+}
+
+  		 
+  				const chipWaveSamples = [
+  					centerWave(RealisticPiano_mp3),
+  					centerWave(AcousticHihat_wav),
+  					centerWave(AcousticSnare1_wav),
+  					centerWave(AcousticKickShot_wav),
+  					centerWave(OctaveBrass_wav),
+  					centerWave(HouseDrumLoop_wav),
+  					centerWave(DrumKit_mp3),
+  					centerWave(BreakCore_mp3),
+  					centerWave(AgudaKey_wav),
+  					centerWave(JumpStyleKicks_wav),
+  					centerWave(ChimerKey_wav),
+  					centerWave(S808Shot_wav),
+  					centerWave(SQ2D_wav),
+  					centerWave(GrittyKick_wav),
+  				];
+  				let chipWaveIndexOffset = 0;
+  				for (const chipWaveSample of chipWaveSamples) {
+  					const chipWaveIndex = startIndex + chipWaveIndexOffset;
+  					Config.rawChipWaves[chipWaveIndex].samples = chipWaveSample;
+  					Config.rawRawChipWaves[chipWaveIndex].samples = chipWaveSample;
+  					Config.chipWaves[chipWaveIndex].samples = performIntegral(chipWaveSample);
+  					sampleLoadingState.statusTable[chipWaveIndex] = 1;
+  					sampleLoadingState.samplesLoaded++;
+  					sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
+  					chipWaveIndexOffset++;
+  				}
+  			
   	}
   	else {
   		console.log("invalid set of built-in samples");
   	}
-updateAllSamples()
+  updateAllSamples()
   }
   
     class Config {
@@ -822,7 +1205,7 @@ updateAllSamples()
     ]);
     Config.blackKeyNameParents = [-1, 1, -1, 1, -1, 1, -1, -1, 1, -1, 1, -1];
     Config.tempoMin = 1;
-    Config.tempoMax = 320*3; 
+    Config.tempoMax = 640; 
     Config.octaveMin = -2;
     Config.octaveMax = 2;
     Config.echoDelayRange = 24;
@@ -835,6 +1218,15 @@ updateAllSamples()
     Config.reverbRange = 32;
     Config.reverbDelayBufferSize = 16384;
     Config.reverbDelayBufferMask = _a$1.reverbDelayBufferSize - 1;
+    
+    Config.phaserMixRange = 32;
+    Config.phaserFeedbackRange = 32;
+    Config.phaserFreqRange = 32;
+    Config.phaserMinFreq = 8.0;
+    Config.phaserMaxFreq = 20000.0;
+    Config.phaserMinStages = 0;
+    Config.phaserMaxStages = 32;
+    
     Config.beatsPerBarMin = 1;
     Config.beatsPerBarMax = 64;
     Config.barCountMin = 1;
@@ -1014,11 +1406,33 @@ async function updateAllSamples() {
  updateSampledWaves()
 } 
 let isUpdatingSamples = false;
+function cleanMemoryBeforeNavigation() {
+    for (const key in filesMap) {
+        const obj = filesMap[key];
+        if (obj && obj.buffer) {
+            obj.buffer = null; 
+        }
+        filesMap[key] = null;
+        delete filesMap[key];
+    }
+    filesMap = {};
+    if (Config) {
+        if (Config.rawChipWaves) {
+            for (let i = 0; i < Config.rawChipWaves.length; i++) {
+                Config.rawChipWaves[i] = null;
+            }
+        }
+        Config.rawChipWaves = [];
+        Config.chipWaves = [];
+        Config.firstIndexForSamplesInChipWaveList = 0;
+    }
+    isUpdatingSamples = false;
+}
+
  updateSampledWaves = async function() {
 	if (!filesMap) return;
 	if (isUpdatingSamples) return;
 	isUpdatingSamples = true;
-	await Promise.resolve();
 	const existingNames = new Set(Config.rawChipWaves.map(s => s.name));
 	const newSamples = [];
 	
@@ -1031,13 +1445,14 @@ let isUpdatingSamples = false;
 			const chipWaveIndex = Config.rawChipWaves.length + newSamples.length+1;
 let js = {}
 if(!entry.rootNote){
+	
  js = {
  	name: entry.name,
  	expression,
  	isSampled: true,
  	isPercussion: false,
  	extraSampleDetune,
- 	samples: centerWave(entry.buffer)
+ 	samples: centerWave(readSaved(entry.buffer)) 
  }
  }else{
  js = {
@@ -1048,7 +1463,7 @@ if(!entry.rootNote){
   isPercussion: false,
   sampleRate: 44100,
   rootKey:  parseFloat(entry.rootNote) , 
-  samples: centerWave(entry.buffer)
+  samples: centerWave(readSaved(entry.buffer))
 };
 }
 newSamples.push(js);
@@ -1057,17 +1472,16 @@ newSamples.push(js);
 	
 	if (newSamples.length > 0) {
 		Config.rawChipWaves = toNameMap([...Config.rawChipWaves, ...(newSamples)]);
-		Config.chipWaves = rawChipToIntegrated(Config.rawChipWaves)
+		Config.rawRawChipWaves = Config.rawChipWaves;
+		Config.chipWaves = rawChipToIntegrated(Config.rawChipWaves) 
 		isUpdatingSamples = false;
 	}else{
 		isUpdatingSamples = false;
 	}
-	
-	renderFileList();
 	Config.firstIndexForSamplesInChipWaveList = _a$1.chipWaves.length;
 }
-
- 
+updateSampledWaves()
+ loadedBB=1 
     Config.filterFreqStep = 1.0 / 4.0;
     Config.filterFreqRange = 34;
     Config.filterFreqReferenceSetting = 28;
@@ -1140,8 +1554,8 @@ newSamples.push(js);
         { name: "extraterrestrial", voices: 6, spread: 15.2, offset: -6, expression: 0.35, sign: 0.7 },
         { name: "bow", voices: 9, spread: 0.006, offset: 0, expression: 0.15, sign: 0.5 }
     ]);
-    Config.effectNames = ["reverb", "chorus", "panning", "distortion", "bitcrusher", "note filter", "echo", "pitch shift", "detune", "vibrato", "transition type", "chord type", "", "ring mod", "granular","octave shift"];
-    Config.effectOrder = [2, 10, 11, 7, 8, 9, 5, 14, 3, 4, 1, 6, 0, 13, 15]; // effects to  show
+    Config.effectNames = ["reverb", "chorus", "panning", "distortion", "bitcrusher", "note filter", "echo", "pitch shift", "detune", "vibrato", "transition type", "chord type", "", "ring mod", "granular","octave shift","phaser"]; 
+    Config.effectOrder = [2, 10, 11, 7, 8, 9, 5, 14, 3, 4, 1, 6, 0, 13, 16,15 ]; // every << 18 is how much bits you have to store in ser/deser effects 
     Config.noteSizeMax = 6;
     Config.volumeRange = 50;   
     Config.volumeLogScale = 0.1428;
@@ -1168,12 +1582,12 @@ newSamples.push(js);
     Config.chorusDelayOffsets = [[1.51, 2.10, 3.35], [1.47, 2.15, 3.25]];
     Config.chorusPhaseOffsets = [[0.0, 2.1, 4.2], [3.2, 5.3, 1.0]];
     Config.chorusMaxDelay = _a$1.chorusDelayRange * (1.0 + _a$1.chorusDelayOffsets[0].concat(_a$1.chorusDelayOffsets[1]).reduce((x, y) => Math.max(x, y)));
-    Config.chords = toNameMap([
-        { name: "simultaneous", customInterval: false, arpeggiates: false, strumParts: 0, singleTone: false },
-        { name: "strum", customInterval: false, arpeggiates: false, strumParts: 1, singleTone: false },
-        { name: "arpeggio", customInterval: false, arpeggiates: true, strumParts: 0, singleTone: true },
-        { name: "custom interval", customInterval: true, arpeggiates: false, strumParts: 0, singleTone: true },
-        { name: "monophonic", customInterval: false, arpeggiates: false, strumParts: 0, singleTone: true }
+        Config.chords = toNameMap([
+    	{ name: "simultaneous", customInterval: false, arpeggiates: false, strumParts: 0, singleTone: false },
+    	{ name: "strum", customInterval: false, arpeggiates: false, strumParts: 1, singleTone: false },
+    	{ name: "arpeggio", customInterval: false, arpeggiates: true, strumParts: 0, singleTone: true },
+    	{ name: "custom interval", customInterval: true, arpeggiates: false, strumParts: 0, singleTone: true },
+    	{ name: "monophonic", customInterval: false, arpeggiates: false, strumParts: 0, singleTone: true }
     ]);
     Config.maxChordSize = 9;
     Config.operatorCount = 4;
@@ -1442,14 +1856,15 @@ newSamples.push(js);
     Config.noiseInterval = 6;
     Config.pitchesPerOctave = 12;
     Config.drumCount = 12;
-    Config.pitchOctaves = 12;
+    Config.pitchOctaves = 9;
     Config.modCount = 6; 
     Config.maxPitch = _a$1.pitchOctaves * _a$1.pitchesPerOctave;
     Config.maximumTonesPerChannel = _a$1.maxChordSize * 2;
 Config.justIntonationSemitones = [1.0 / 2.0, 8.0 / 15.0, 9.0 / 16.0, 3.0 / 5.0, 5.0 / 8.0, 2.0 / 3.0, 32.0 / 45.0, 3.0 / 4.0, 4.0 / 5.0, 5.0 / 6.0, 8.0 / 9.0, 15.0 / 16.0, 1.0, 16.0 / 15.0, 9.0 / 8.0, 6.0 / 5.0, 5.0 / 4.0, 4.0 / 3.0, 45.0 / 32.0, 3.0 / 2.0, 8.0 / 5.0, 5.0 / 3.0, 16.0 / 9.0, 15.0 / 8.0, 2.0].map(x => Math.log2(x) * Config.pitchesPerOctave);
 Config.pitchShiftRange = Config.justIntonationSemitones.length;
 Config.pitchShiftCenter = Config.pitchShiftRange >> 1;
-Config.pitchShiftCenter = Math.floor(16) 
+Config.pitchShiftRange = Config.justIntonationSemitones.length;
+ 
 
     Config.detuneCenter = 200;
     Config.detuneMax = 400;
@@ -1552,9 +1967,9 @@ Config.pitchShiftCenter = Math.floor(16)
     Config.bitcrusherFreqRange = 14;
     Config.bitcrusherOctaveStep = 0.5;
     Config.bitcrusherQuantizationRange = 8;
-    Config.maxEnvelopeCount = 16;
+    Config.maxEnvelopeCount = 16; 
     Config.defaultAutomationRange = 13; 
-    Config.instrumentAutomationTargets = toNameMap([
+    Config.instrumentAutomationTargets = toNameMap([  
 	{ name: "none", computeIndex: null, displayName: "none", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: null },
 	{ name: "noteVolume", computeIndex: 0, displayName: "note volume", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: null },
 	{ name: "pulseWidth", computeIndex: 2, displayName: "pulse width", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [6, 8] },
@@ -1587,10 +2002,12 @@ Config.pitchShiftCenter = Math.floor(16)
 	{ name: "grainSize", computeIndex: 53, displayName: "grain size", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
 	{ name: "grainRange", computeIndex: 54, displayName: "grain range", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
 	{ name: "echoDelay", computeIndex: 55, displayName: "echo delay", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 6, compatibleInstruments: null },
-	
-	{ name: "grainRange", computeIndex: 54, displayName: "grain range", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
-{ name: "octaveShift", computeIndex: 18, displayName: "octave shift", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 15, compatibleInstruments: null }, 
-	{ name: "boost", computeIndex: 18, displayName: "boost", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null }, 
+{ name: "octaveShift", computeIndex: 18, displayName: "octave shift", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 15, compatibleInstruments: null },  //perNote: false, very important shit
+{ name: "phaserFreq", perNote: false,  computeIndex: 57, displayName: "phaser freq", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null }, 
+{ name: "phaserMix", perNote: false,  computeIndex: 58, displayName: "phaser", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
+{ name: "phaserFeedback", perNote: false,  computeIndex: 59, displayName: "phaser feedback", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
+{ name: "phaserStages", perNote: false,  computeIndex: 60, displayName: "phaser stages", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },  
+	{ name: "function", perNote: false,  computeIndex: 61, displayName: "function", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 17, compatibleInstruments: null },  
 ]);
     Config.operatorWaves = toNameMap([
         { name: "sine", samples: _a$1.sineWave },
@@ -1617,14 +2034,17 @@ Config.pitchShiftCenter = Math.floor(16)
     Config.barEditorHeight = 10;
     
     
-     
+ 
       Config.modulators = toNameMap([
         { name: "none", pianoName: "None", maxRawVol: 6, newNoteVol: 6, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
             promptName: "No Mod Setting", promptDesc: ["No setting has been chosen yet, so this modulator will have no effect. Try choosing a setting with the dropdown, then click this '?' again for more info.", "[$LO - $HI]"] },
         { name: "song volume", pianoName: "Volume", maxRawVol: 100, newNoteVol: 100, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
             promptName: "Song Volume", promptDesc: ["This setting affects the overall volume of the song, just like the main volume slider.", "At $HI, the volume will be unchanged from default, and it will get gradually quieter down to $LO.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
-        { name: "tempo", pianoName: "Tempo", maxRawVol: _a$1.tempoMax - _a$1.tempoMin, newNoteVol: Math.ceil((_a$1.tempoMax - _a$1.tempoMin) / 2), forSong: true, convertRealFactor: _a$1.tempoMin, associatedEffect: 15, maxIndex: 0,
-            promptName: "Song Tempo", promptDesc: ["This setting controls the speed your song plays at, just like the tempo slider.", "When you first make a note for this setting, it will default to your current tempo. Raising it speeds up the song, up to $HI BPM, and lowering it slows it down, to a minimum of $LO BPM.", "Note that you can make a 'swing' effect by rapidly changing between two tempo values.", "[OVERWRITING] [$LO - $HI] [BPM]"] },
+        { name: "tempo",
+            pianoName: "Tempo",
+            maxRawVol: Config.tempoMax - Config.tempoMin, newNoteVol: Math.ceil((Config.tempoMax - Config.tempoMin) / 2), forSong: true, convertRealFactor: Config.tempoMin, associatedEffect: 15,
+            promptName: "Song Tempo",
+            promptDesc: ["This setting controls the speed your song plays at, just like the tempo slider.", "When you first make a note for this setting, it will default to your current tempo. Raising it speeds up the song, up to $HI BPM, and lowering it slows it down, to a minimum of $LO BPM.", "Note that you can make a 'swing' effect by rapidly changing between two tempo values.", "[OVERWRITING] [$LO - $HI] [BPM]"] },
         { name: "song reverb", pianoName: "Reverb", maxRawVol: _a$1.reverbRange * 2, newNoteVol: _a$1.reverbRange, forSong: true, convertRealFactor: -_a$1.reverbRange, associatedEffect: 15, maxIndex: 0,
             promptName: "Song Reverb", promptDesc: ["This setting affects the overall reverb of your song. It works by multiplying existing reverb for instruments, so those with no reverb set will be unaffected.", "At $MID, all instruments' reverb will be unchanged from default. This increases up to double the reverb value at $HI, or down to no reverb at $LO.", "[MULTIPLICATIVE] [$LO - $HI]"] },
         { name: "next bar", pianoName: "Next Bar", maxRawVol: 1, newNoteVol: 1, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
@@ -1750,21 +2170,41 @@ Config.pitchShiftCenter = Math.floor(16)
               }, 
          { name: "octave shift", pianoName: "Octave Shift", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
             promptName: "Octave Shift", promptDesc: ["This setting controls the pitch offset of your instrument controls i by octaves, just like the pitch shift slider but in octaves.", "At $MID your instrument will have no octave shift'ed. This increases as you decrease toward $LO pitches (half-steps) at the low end, or increases towards +$HI pitches at the high end.", "[OVERWRITING] [$LO - $HI] [pitch]"] },
-         { name: "boost", pianoName: "Boost", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
-            promptName: "Boost Shift", promptDesc: ["This setting controls the volume boost of your instrument.", "At $MID your instrument will have no boosted'ed. This increases as you decrease toward $LO boost (half-steps) at the low end, or increases towards +$HI boost at the high end.", "[OVERWRITING] [$LO - $HI] [pitch]"] },
+                { name: "phaser",
+            pianoName: "Phaser",
+            maxRawVol: Config.phaserMixRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Instrument Phaser",
+            promptDesc: ["This setting controls the Phaser Mix of your insturment, just like the Phaser slider.", "At $LO, your instrument will have no phaser. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "phaser frequency",
+            pianoName: "Phaser Frequency",
+            maxRawVol: Config.phaserFreqRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Phaser Frequency",
+            promptDesc: ["This setting controls the phaser frequency of your insturment, just like the phaser freq slider.", "At $LO, your instrument will have no phaser freq. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "phaser feedback",
+            pianoName: "Phaser Feedback",
+            maxRawVol: Config.phaserFeedbackRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Phaser Feedback",
+            promptDesc: ["This setting controls the phaser feedback of your insturment, just like the phaser feedback slider.", "At $LO, your instrument will have no phaser feedback. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "phaser stages",
+            pianoName: "Phaser Stages",
+            maxRawVol: Config.phaserMaxStages, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Phaser Stages",
+            promptDesc: ["This setting controls the number of phaser stages in your insturment, just like the phaser stages slider.", "At $LO, your instrument will have no phaser stages. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+         { name: "function", pianoName: "Function", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 17, maxIndex: 0,
+            promptName: "Function", promptDesc: ["This setting controls the buffer with custom algorithm you made. p is point it has p.v value and p.i index b[] is arraybuffer of realtime audio . safe() is safe function if buffer for example doesn't exist just returns 0", "[CURRENT BUFFER VALUE]  -> [§ALGORITHM]"] },
     ]);
      
     function centerWave(wave) {
-	let sum = 0.0;
-	for (let i = 0; i < wave.length; i++)
-		sum += wave[i];
-	const average = sum / wave.length;
-	for (let i = 0; i < wave.length; i++)
-		wave[i] -= average;
-	performIntegral(wave);
-	wave.push(0);
-	return new Float32Array(wave);
-}
+    	let sum = 0.0;
+    	for (let i = 0; i < wave.length; i++)
+      sum += wave[i];
+     	const average = sum / wave.length;
+      for (let i = 0; i < wave.length; i++)
+    		wave[i] -= average;
+     	performIntegral(wave);
+     	wave.push(0);
+	     return new Float32Array(wave);
+    }
     function centerAndNormalizeWave(wave) {
         let magn = 0.0;
         centerWave(wave);
@@ -1982,15 +2422,15 @@ Config.pitchShiftCenter = Math.floor(16)
         }
     }
     function toNameMap(array) {
-        const dictionary = {};
-        for (let i = 0; i < array.length; i++) {
-            const value = array[i];
-            value.index = i;
-            dictionary[value.name] = value;
-        }
-        const result = array;
-        result.dictionary = dictionary;
-        return result;
+    	const dictionary = {};
+    	for (let i = 0; i < array.length; i++) {
+    		const value = array[i];
+    		value.index = i;
+    		dictionary[value.name] = value;
+    	}
+    	const result = array;
+    	result.dictionary = dictionary;
+    	return result;
     }
     function effectsIncludeTransition(effects) {
         return (effects & (1 << 10)) != 0;
@@ -2034,12 +2474,15 @@ Config.pitchShiftCenter = Math.floor(16)
     function effectsIncludeGranular(effects) {
         return (effects & (1 << 14)) != 0;
     }
-    function effectsIncludeOctaveShift(effects) {
+    function effectsIncludeOctaveShift(effects) { 
        	return (effects & (1 << 15)) != 0;
     }
-    function effectsIncludeBoost(effects) {
- return (effects & (1 << 16)) != 0;
-}
+    function effectsIncludePhaser(effects) { 
+      	return (effects & (1 << 16)) != 0;
+    }
+    function effectsIncludeFunction(effects) {
+        return (effects & (1 << 17)) != 0;
+    }
     function calculateRingModHertz(sliderHz, sliderHzOffset = 0) {
         if (sliderHz == 0)
             return 0;
@@ -2120,8 +2563,8 @@ function rawChipToIntegrated2(raw) {
             return (_a = EditorConfig.presetCategories[0].presets.dictionary) === null || _a === void 0 ? void 0 : _a[TypePresets === null || TypePresets === void 0 ? void 0 : TypePresets[instrument]];
         }
     }
-    EditorConfig.version = "0.4";
-    EditorConfig.versionDisplayName = "Fruity Box " + EditorConfig.version;
+    EditorConfig.version = "0.5";
+    EditorConfig.versionDisplayName = "Studio Box" + EditorConfig.version;
     EditorConfig.releaseNotesURL = "./patch_notes.html";
     EditorConfig.isOnMac = /^Mac/i.test(navigator.platform) || /Mac OS X/i.test(navigator.userAgent) || /^(iPhone|iPad|iPod)/i.test(navigator.platform) || /(iPhone|iPad|iPod)/i.test(navigator.userAgent);
     EditorConfig.ctrlSymbol = EditorConfig.isOnMac ? "⌘" : "Ctrl+";
@@ -2477,8 +2920,109 @@ function rawChipToIntegrated2(raw) {
                 { name: "vinyl", generalMidi: false, settings: { "type": "noise", "volume": 0, "eqFilter": [{ "type": "high-pass", "cutoffHz": 1414.21, "linearGain": 0.3536 }, { "type": "low-pass", "cutoffHz": 1189.21, "linearGain": 0.25 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "high-pass", "cutoffHz": 1414.21, "linearGain": 0.3536 }, { "type": "low-pass", "cutoffHz": 1189.21, "linearGain": 0.25 }], "effects": ["transition type", "note filter", "distortion", "bitcrusher", "chorus", "echo", "reverb"], "transition": "interrupt", "clicklessTransition": false, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "high-pass", "cutoffHz": 250, "linearGain": 0.5 }, { "type": "low-pass", "cutoffHz": 8000, "linearGain": 1 }], "noteSubFilters0": [{ "type": "high-pass", "cutoffHz": 250, "linearGain": 0.5 }, { "type": "low-pass", "cutoffHz": 8000, "linearGain": 1 }], "distortion": 14, "aliases": false, "bitcrusherOctave": 5.5, "bitcrusherQuantization": 14, "chorus": 29, "echoSustain": 14, "echoDelayBeats": 0.083, "reverb": 32, "fadeInSeconds": 0, "fadeOutTicks": 24, "wave": "crackling", "unison": "none", "envelopes": [], "isDrum": false } },
             ])
         },
+                { name: "Modbox Presets", presets: toNameMap([
+                { name: "modbox theepsynth", settings: { "type": "FM", "effects": "none", "transition": "hard", "chord": "arpeggio", "filterCutoffHz": 4000, "filterResonance": 14, "filterEnvelope": "custom", "vibrato": "none", "algorithm": "1←3 2←4", "feedbackType": "1⟲ 2⟲", "feedbackAmplitude": 11, "feedbackEnvelope": "steady", "operators": [{ "frequency": "1×", "amplitude": 15, "envelope": "custom" }, { "frequency": "1×", "amplitude": 15, "envelope": "custom" }, { "frequency": "2×", "amplitude": 7, "envelope": "steady" }, { "frequency": "1×", "amplitude": 11, "envelope": "steady" }] } },
+            ]) },
+        { name: "Sandbox Presets", presets: toNameMap([
+                { name: "sandbox netsky hollow", generalMidi: false, isNoise: true, midiSubharmonicOctaves: -1, settings: { "type": "spectrum", "effects": "reverb", "transition": "hard", "chord": "arpeggio", "filterCutoffHz": 8000, "filterResonance": 0, "filterEnvelope": "steady", "spectrum": [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45] } },
+                { name: "sandbox abnormality", generalMidi: false, midiSubharmonicOctaves: 1, settings: { "type": "chip", "effects": "none", "transition": "seamless", "chord": "arpeggio", "filterCutoffHz": 8000, "filterResonance": 0, "filterEnvelope": "steady", "wave": "spiky", "interval": "fifth", "vibrato": "none" } },
+                { name: "sandbox playstation", generalMidi: false, midiSubharmonicOctaves: 1, settings: { "type": "chip", "effects": "chorus", "transition": "seamless", "chord": "harmony", "filterCutoffHz": 1414, "filterResonance": 29, "filterEnvelope": "steady", "wave": "glitch", "interval": "shimmer", "vibrato": "none" } },
+                { name: "sandbox harmony pulse", generalMidi: false, midiSubharmonicOctaves: 1, settings: { "type": "chip", "effects": "chorus", "transition": "soft", "chord": "harmony", "filterCutoffHz": 4000, "filterResonance": 29, "filterEnvelope": "punch", "wave": "double pulse", "interval": "union", "vibrato": "none" } },
+                { name: "sandbox pink ping", generalMidi: false, midiSubharmonicOctaves: -1, settings: { "type": "spectrum", "effects": "reverb", "transition": "soft", "chord": "harmony", "filterCutoffHz": 3000, "filterResonance": 0, "filterEnvelope": "tripolo6", "spectrum": [0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] } },
+                { name: "sandbox tv static", generalMidi: false, isNoise: true, midiSubharmonicOctaves: 1, settings: { "type": "noise", "effects": "reverb", "transition": "medium fade", "chord": "harmony", "filterCutoffHz": 8000, "filterResonance": 40, "filterEnvelope": "steady", "wave": "static" } },
+                { name: "sandbox clean pulse", generalMidi: false, settings: { "type": "custom chip", "transition": "hard", "effects": "none", "chord": "arpeggio", "filterCutoffHz": 4000, "filterResonance": 0, "filterEnvelope": "steady", "interval": "union", "vibrato": "none", "customChipWave": [-24, -24, -24, -24, -24, -24, -24, -24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -24, -24, -24, -24, -24, -24, -24, -24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] } },
+                { name: "sandbox snp chorus", generalMidi: false, settings: { "type": "FM", "transition": "hard", "effects": "chorus & reverb", "chord": "strum", "filterCutoffHz": 2000, "filterResonance": 0, "filterEnvelope": "twang 2", "vibrato": "none", "algorithm": "1←(2 3 4)", "feedbackType": "1→2→3→4", "feedbackAmplitude": 1, "feedbackEnvelope": "flare 1", "operators": [{ "frequency": "1×", "amplitude": 15, "envelope": "custom" }, { "frequency": "2×", "amplitude": 15, "envelope": "custom" }, { "frequency": "4×", "amplitude": 10, "envelope": "custom" }, { "frequency": "3×", "amplitude": 6, "envelope": "custom" }] } },
+                { name: "sandbox snp echo", generalMidi: false, settings: { "type": "FM", "transition": "hard fade", "effects": "chorus", "chord": "strum", "filterCutoffHz": 8000, "filterResonance": 0, "filterEnvelope": "steady", "vibrato": "none", "algorithm": "1←(2 3←4)", "feedbackType": "3⟲ 4⟲", "feedbackAmplitude": 5, "feedbackEnvelope": "decay 2", "operators": [{ "frequency": "1×", "amplitude": 15, "envelope": "custom" }, { "frequency": "2×", "amplitude": 15, "envelope": "custom" }, { "frequency": "20×", "amplitude": 9, "envelope": "twang 1" }, { "frequency": "20×", "amplitude": 5, "envelope": "twang 2" }] } },
+                { name: "sandbox tori synth lead", generalMidi: false, settings: { "type": "harmonics", "effects": "chorus", "transition": "seamless", "chord": "harmony", "filterCutoffHz": 2000, "filterResonance": 0, "filterEnvelope": "steady", "interval": "union", "vibrato": "none", "harmonics": [100, 100, 100, 100, 71, 71, 43, 43, 43, 29, 29, 43, 43, 43, 43, 43, 43, 43, 43, 43, 43, 43, 29, 14, 0, 0, 0, 86] } },
+                { name: "sandbox glorious piano 1", generalMidi: false, settings: { "type": "custom chip", "transition": "hard fade", "effects": "chorus & reverb", "chord": "harmony", "filterCutoffHz": 2828, "filterResonance": 14, "filterEnvelope": "steady", "interval": "union", "vibrato": "none", "customChipWave": [24, 24, -16, -15, -15, -14, -13, -13, -12, -11, -11, -10, -9, -8, -8, -7, -6, -5, -5, -4, -3, -2, -2, 23, 22, 22, 21, 20, 20, 19, 19, 18, 18, 17, 16, 15, 15, 14, 13, 12, 12, 11, 0, -1, -1, -2, -3, -3, -4, -5, -5, -6, -20, -19, -17, -17, -14, -11, -8, -5, -2, -23, -24, -24] } },
+                { name: "sandbox glorious piano 2", generalMidi: false, settings: { "type": "custom chip", "transition": "hard fade", "effects": "chorus & reverb", "chord": "harmony", "filterCutoffHz": 2828, "filterResonance": 14, "filterEnvelope": "punch", "interval": "shimmer", "vibrato": "light", "customChipWave": [24, 24, -16, -15, -15, -14, -13, -13, -12, 12, 9, 5, 2, -3, -7, -10, -6, -5, -5, -4, -3, -2, -2, 23, 22, 22, 21, 20, 20, 19, 19, 18, 18, 17, 16, 15, 15, 0, 4, 8, 15, 21, 0, -1, -1, -2, -3, -3, -4, -5, -5, -6, -20, -19, -17, -17, -2, -2, -8, 2, -2, -5, -24, -24] } },
+                { name: "sandbox muffled katrumpet", generalMidi: false, settings: { "type": "custom chip", "transition": "cross fade", "effects": "reverb", "chord": "strum", "filterCutoffHz": 5657, "filterResonance": 29, "filterEnvelope": "steady", "interval": "union", "vibrato": "light", "customChipWave": [24, 23, 22, 22, 22, 22, 22, 21, 21, 19, 19, 15, 11, 7, 5, -2, -5, -11, -13, -14, -16, -17, -17, -17, -17, -17, -17, -17, -17, -13, -10, -1, 4, 6, 8, 10, 11, 14, 15, 15, 16, 16, 16, 16, 16, 16, 16, 16, 15, 15, 14, 11, 8, 4, 2, -4, -7, -11, -12, -13, -14, -15, -15, -15] } },
+                { name: "sandbox ehruthing", generalMidi: false, settings: { "type": "custom chip", "hard fade": "seamless", "effects": "reverb", "chord": "strum", "filterCutoffHz": 5657, "filterResonance": 14, "filterEnvelope": "twang 2", "interval": "union", "vibrato": "none", "customChipWave": [24, 24, 23, 22, 21, 21, 20, 19, 18, 18, 17, 16, 15, -22, -20, -18, -16, -14, -13, -11, -10, -7, -6, -4, -3, -2, 0, 2, 4, 17, 16, 15, 13, 12, 11, 9, 8, 6, 5, 4, 3, 2, 1, -1, -1, -2, -3, -4, -6, -6, -7, -8, -8, -9, -10, -10, -11, -13, -15, -16, -17, -3, -4, -5] } },
+                { name: "sandbox wurtz organ", generalMidi: false, settings: { "type": "FM", "transition": "seamless", "effects": "chorus", "chord": "harmony", "filterCutoffHz": 1414, "filterResonance": 0, "filterEnvelope": "punch", "vibrato": "none", "algorithm": "1 2 3 4", "feedbackType": "1⟲ 2⟲ 3⟲ 4⟲", "feedbackAmplitude": 3, "feedbackEnvelope": "decay 2", "operators": [{ "frequency": "1×", "amplitude": 14, "envelope": "tremolo6" }, { "frequency": "2×", "amplitude": 9, "envelope": "tripolo3" }, { "frequency": "4×", "amplitude": 5, "envelope": "pentolo3" }, { "frequency": "8×", "amplitude": 2, "envelope": "pentolo6" }] } },
+            ]) },
+        { name: "Blackbox Presets", presets: toNameMap([
+                { name: "blackbox deep key", midiProgram: 9, generalMidi: true, settings: { "type": "harmonics", "effects": "reverb", "transition": "hard fade", "chord": "harmony", "filterCutoffHz": 8000, "filterResonance": 32, "filterEnvelope": "twang 1", "interval": "shimmer", "vibrato": "light", "harmonics": [100, 86, 86, 86, 86, 71, 71, 57, 0, 57, 29, 43, 57, 57, 57, 43, 43, 0, 29, 43, 43, 43, 43, 43, 43, 29, 0, 30] } },
+                { name: "blackbox ring ding", midiProgram: 78, generalMidi: true, settings: { "type": "FM", "effects": "reverb", "transition": "hard", "chord": "strum", "filterCutoffHz": 1500, "filterResonance": 16, "filterEnvelope": "twang 2", "vibrato": "none", "algorithm": "1 2 3 4", "feedbackType": "1⟲ 2⟲", "feedbackAmplitude": 0, "feedbackEnvelope": "steady", "operators": [{ "frequency": "1×", "amplitude": 9, "envelope": "custom" }, { "frequency": "4×", "amplitude": 8, "envelope": "custom" }, { "frequency": "12×", "amplitude": 9, "envelope": "custom" }, { "frequency": "22×", "amplitude": 4, "envelope": "twang 2" }] } },
+            ]) },
+        { name: "Todbox Presets", presets: toNameMap([
+                { name: "todbox accordion", midiProgram: 21, generalMidi: true, settings: { "type": "chip", "effects": "reverb", "transition": "cross fade", "chord": "harmony", "filterCutoffHz": 5657, "filterResonance": 0, "filterEnvelope": "swell 1", "wave": "todbox accordian", "interval": "honky tonk", "vibrato": "none" } },
+                { name: "todbox wind", generalMidi: false, settings: { "type": "FM", "effects": "reverb", "transition": "seamless", "chord": "harmony", "filterCutoffHz": 200, "filterResonance": 2950, "filterEnvelope": "steady", "vibrato": "none", "algorithm": "1→3 2→4", "feedbackType": "1→3 2→4", "feedbackAmplitude": 15, "feedbackEnvelope": "steady", "operators": [{ "frequency": "16×", "amplitude": 15, "envelope": "steady" }, { "frequency": "16×", "amplitude": 0, "envelope": "custom" }, { "frequency": "16×", "amplitude": 15, "envelope": "steady" }, { "frequency": "16×", "amplitude": 0, "envelope": "flare 2" }] } },
+            ]) },
+        { name: "Midbox Misc Presets", presets: toNameMap([
+                { name: "Broken Music Box", midiProgram: 21, generalMidi: true, settings: { "type": "chip", "eqFilter": [{ "type": "high-pass", "cutoffHz": 210.22, "linearGain": 0.5 }, { "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 500, "linearGain": 1.4142 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "high-pass", "cutoffHz": 210.22, "linearGain": 0.5 }, { "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 500, "linearGain": 1.4142 }], "effects": ["transition type", "chord type", "vibrato", "note filter", "bitcrusher", "chorus", "echo", "reverb"], "transition": "normal", "clicklessTransition": false, "chord": "strum", "fastTwoNoteArp": false, "arpeggioSpeed": 12, "vibrato": "custom", "vibratoDepth": 0.72, "vibratoDelay": 19, "vibratoSpeed": 30, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 4756.83, "linearGain": 0.0884 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 4756.83, "linearGain": 0.0884 }], "bitcrusherOctave": 3, "bitcrusherQuantization": 29, "panDelay": 10, "chorus": 29, "echoSustain": 43, "echoDelayBeats": 1, "reverb": 23, "fadeInSeconds": 0, "fadeOutTicks": 12, "wave": "rounded", "unison": "none", "isUsingAdvancedLoopControls": false, "chipWaveLoopStart": 0, "chipWaveLoopEnd": 64, "chipWaveLoopMode": 0, "chipWavePlayBackwards": false, "chipWaveStartOffset": 0, "envelopes": [{ "target": "noteFilterFreq", "envelope": "twang 1", "index": 0 }] } },
+                { name: "Enhanced Synth Kick", generalMidi: false, settings: { "type": "FM", "eqFilter": [{ "type": "peak", "cutoffHz": 594.6, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 19027.31, "linearGain": 4 }, { "type": "high-pass", "cutoffHz": 62.5, "linearGain": 2.8284 }, { "type": "peak", "cutoffHz": 1681.79, "linearGain": 0.25 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "peak", "cutoffHz": 594.6, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 19027.31, "linearGain": 4 }, { "type": "high-pass", "cutoffHz": 62.5, "linearGain": 2.8284 }, { "type": "peak", "cutoffHz": 1681.79, "linearGain": 0.25 }], "effects": ["pitch shift", "vibrato", "note filter", "distortion", "bitcrusher", "chorus"], "pitchShiftSemitones": 24, "vibrato": "custom", "vibratoDepth": 2, "vibratoDelay": 0, "vibratoSpeed": 30, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "peak", "cutoffHz": 148.65, "linearGain": 11.3137 }], "noteSubFilters0": [{ "type": "peak", "cutoffHz": 148.65, "linearGain": 11.3137 }], "distortion": 71, "aliases": false, "bitcrusherOctave": 4, "bitcrusherQuantization": 57, "panDelay": 10, "chorus": 29, "fadeInSeconds": 0, "fadeOutTicks": -1, "algorithm": "1 2←(3 4)", "feedbackType": "1⟲", "feedbackAmplitude": 13, "operators": [{ "frequency": "20×", "amplitude": 15, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "16×", "amplitude": 8, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "operatorFrequency", "envelope": "twang 1", "index": 0 }, { "target": "noteVolume", "envelope": "twang 3" }, { "target": "feedbackAmplitude", "envelope": "twang 1" }, { "target": "noteFilterFreq", "envelope": "twang 1", "index": 0 }, { "target": "operatorAmplitude", "envelope": "twang 1", "index": 1 }, { "target": "pitchShift", "envelope": "twang 1" }, { "target": "pitchShift", "envelope": "twang 2" }] } },
+                { name: "Scratch String", generalMidi: false, settings: { "type": "FM", "eqFilter": [{ "type": "low-pass", "cutoffHz": 3363.59, "linearGain": 0.1768 }, { "type": "high-pass", "cutoffHz": 176.78, "linearGain": 0.25 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 3363.59, "linearGain": 0.1768 }, { "type": "high-pass", "cutoffHz": 176.78, "linearGain": 0.25 }], "effects": ["transition type", "vibrato", "note filter", "distortion", "echo", "reverb"], "transition": "normal", "clicklessTransition": false, "vibrato": "light", "vibratoDepth": 0.15, "vibratoDelay": 0, "vibratoSpeed": 10, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 1189.21, "linearGain": 0.3536 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 1189.21, "linearGain": 0.3536 }], "distortion": 100, "aliases": false, "panDelay": 10, "echoSustain": 29, "echoDelayBeats": 0.75, "reverb": 29, "fadeInSeconds": 0, "fadeOutTicks": 12, "algorithm": "1←2←(3 4)", "feedbackType": "1→4", "feedbackAmplitude": 3, "operators": [{ "frequency": "1×", "amplitude": 15, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "~2×", "amplitude": 8, "waveform": "triangle", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "~2×", "amplitude": 3, "waveform": "sawtooth", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "operatorAmplitude", "envelope": "swell 1", "index": 3 }, { "target": "operatorAmplitude", "envelope": "tremolo1", "index": 1 }] } },
+                { name: "Xylophone Saw", generalMidi: false, settings: { "type": "custom chip", "eqFilter": [{ "type": "high-pass", "cutoffHz": 210.22, "linearGain": 1 }, { "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.1768 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "high-pass", "cutoffHz": 210.22, "linearGain": 1 }, { "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.1768 }], "effects": ["chord type", "pitch shift", "vibrato", "bitcrusher", "chorus", "echo"], "chord": "simultaneous", "fastTwoNoteArp": true, "arpeggioSpeed": 12, "pitchShiftSemitones": 24, "vibrato": "light", "vibratoDepth": 0.15, "vibratoDelay": 0, "vibratoSpeed": 10, "vibratoType": 0, "bitcrusherOctave": 5.5, "bitcrusherQuantization": 14, "panDelay": 10, "chorus": 29, "echoSustain": 43, "echoDelayBeats": 0.75, "fadeInSeconds": 0, "fadeOutTicks": 12, "wave": "square", "unison": "none", "customChipWave": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 24, "7": 24, "8": 24, "9": 24, "10": 24, "11": -12, "12": -12, "13": -12, "14": -12, "15": -12, "16": 24, "17": 24, "18": 24, "19": 24, "20": 24, "21": 24, "22": 12, "23": 12, "24": 12, "25": 12, "26": 12, "27": -24, "28": -24, "29": -24, "30": -24, "31": -24, "32": 0, "33": 0, "34": 0, "35": 0, "36": 0, "37": 0, "38": 24, "39": 24, "40": 24, "41": 24, "42": 24, "43": -11, "44": -11, "45": -11, "46": -11, "47": -11, "48": 24, "49": 24, "50": 24, "51": 24, "52": 24, "53": 24, "54": 12, "55": 12, "56": 12, "57": 12, "58": 12, "59": 12, "60": 12, "61": 12, "62": 12, "63": 12 }, "customChipWaveIntegral": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "10": 0, "11": 0, "12": 0, "13": 0, "14": 0, "15": 0, "16": 0, "17": 0, "18": 0, "19": 0, "20": 0, "21": 0, "22": 0, "23": 0, "24": 0, "25": 0, "26": 0, "27": 0, "28": 0, "29": 0, "30": 0, "31": 0, "32": 0, "33": 0, "34": 0, "35": 0, "36": 0, "37": 0, "38": 0, "39": 0, "40": 0, "41": 0, "42": 0, "43": 0, "44": 0, "45": 0, "46": 0, "47": 0, "48": 0, "49": 0, "50": 0, "51": 0, "52": 0, "53": 0, "54": 0, "55": 0, "56": 0, "57": 0, "58": 0, "59": 0, "60": 0, "61": 0, "62": 0, "63": 0, "64": 0 }, "envelopes": [{ "target": "noteVolume", "envelope": "twang 2" }] } },
+                { name: "Bow Bass", generalMidi: false, settings: { "type": "custom chip", "eqFilter": [{ "type": "high-pass", "cutoffHz": 210.22, "linearGain": 1 }, { "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 0.5 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 0.1768 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "high-pass", "cutoffHz": 210.22, "linearGain": 1 }, { "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 0.5 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 0.1768 }], "effects": ["chord type", "pitch shift", "vibrato", "note filter", "bitcrusher", "chorus", "echo"], "chord": "simultaneous", "fastTwoNoteArp": true, "arpeggioSpeed": 12, "pitchShiftSemitones": 19, "vibrato": "custom", "vibratoDepth": 0.36, "vibratoDelay": 0, "vibratoSpeed": 30, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 707.11, "linearGain": 2.8284 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 707.11, "linearGain": 2.8284 }], "bitcrusherOctave": 6, "bitcrusherQuantization": 29, "panDelay": 10, "chorus": 29, "echoSustain": 43, "echoDelayBeats": 0.75, "fadeInSeconds": 0, "fadeOutTicks": 6, "wave": "square", "unison": "custom", "unisonVoices": 2, "unisonSpread": 12, "unisonOffset": -12, "unisonExpression": 1, "unisonSign": 1, "customChipWave": { "0": -24, "1": -24, "2": -24, "3": -24, "4": -24, "5": -24, "6": 24, "7": 24, "8": 24, "9": 24, "10": 24, "11": 24, "12": 24, "13": 24, "14": 24, "15": 24, "16": 24, "17": 24, "18": 24, "19": 24, "20": 24, "21": 24, "22": 24, "23": 24, "24": 24, "25": 24, "26": 24, "27": 24, "28": 24, "29": 24, "30": 24, "31": 24, "32": 24, "33": 24, "34": 24, "35": 24, "36": 24, "37": 24, "38": 24, "39": 24, "40": 24, "41": 24, "42": 24, "43": 24, "44": 24, "45": 24, "46": 24, "47": 24, "48": 24, "49": 24, "50": 24, "51": 24, "52": 24, "53": 24, "54": 24, "55": 24, "56": 24, "57": 24, "58": 24, "59": 24, "60": 24, "61": 24, "62": 24, "63": 24 }, "customChipWaveIntegral": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "10": 0, "11": 0, "12": 0, "13": 0, "14": 0, "15": 0, "16": 0, "17": 0, "18": 0, "19": 0, "20": 0, "21": 0, "22": 0, "23": 0, "24": 0, "25": 0, "26": 0, "27": 0, "28": 0, "29": 0, "30": 0, "31": 0, "32": 0, "33": 0, "34": 0, "35": 0, "36": 0, "37": 0, "38": 0, "39": 0, "40": 0, "41": 0, "42": 0, "43": 0, "44": 0, "45": 0, "46": 0, "47": 0, "48": 0, "49": 0, "50": 0, "51": 0, "52": 0, "53": 0, "54": 0, "55": 0, "56": 0, "57": 0, "58": 0, "59": 0, "60": 0, "61": 0, "62": 0, "63": 0, "64": 0 }, "envelopes": [{ "target": "noteFilterFreq", "envelope": "twang 2", "index": 0 }, { "target": "noteFilterFreq", "envelope": "twang 2", "index": 1 }] } },
+                { name: "Depths", generalMidi: false, settings: { "type": "FM", "eqFilter": [{ "type": "low-pass", "cutoffHz": 1681.79, "linearGain": 0.25 }, { "type": "peak", "cutoffHz": 4000, "linearGain": 0.7071 }, { "type": "peak", "cutoffHz": 840.9, "linearGain": 0.3536 }, { "type": "high-pass", "cutoffHz": 62.5, "linearGain": 2 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 1681.79, "linearGain": 0.25 }, { "type": "peak", "cutoffHz": 4000, "linearGain": 0.7071 }, { "type": "peak", "cutoffHz": 840.9, "linearGain": 0.3536 }, { "type": "high-pass", "cutoffHz": 62.5, "linearGain": 2 }], "effects": ["transition type", "chord type", "pitch shift", "detune", "vibrato", "note filter", "bitcrusher", "chorus", "reverb"], "transition": "normal", "clicklessTransition": false, "chord": "strum", "fastTwoNoteArp": false, "arpeggioSpeed": 12, "pitchShiftSemitones": 0, "detuneCents": -52, "vibrato": "custom", "vibratoDepth": 0.56, "vibratoDelay": 0, "vibratoSpeed": 1, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.0884 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.0884 }], "bitcrusherOctave": 3, "bitcrusherQuantization": 29, "panDelay": 10, "chorus": 100, "reverb": 71, "fadeInSeconds": 0, "fadeOutTicks": -1, "algorithm": "1←2←3←4", "feedbackType": "1⟲", "feedbackAmplitude": 0, "operators": [{ "frequency": "1×", "amplitude": 15, "waveform": "pulse width", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 8, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 15, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 3, "waveform": "ramp", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "noteFilterFreq", "envelope": "tremolo4", "index": 0 }] } },
+                { name: "Disco Vocal Lead", generalMidi: false, settings: { "type": "Picked String", "eqFilter": [], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [], "effects": ["transition type", "pitch shift", "note filter", "distortion", "chorus", "echo", "reverb"], "transition": "normal", "clicklessTransition": false, "pitchShiftSemitones": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "high-pass", "cutoffHz": 125, "linearGain": 0.0884 }, { "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 4 }], "noteSubFilters0": [{ "type": "high-pass", "cutoffHz": 125, "linearGain": 0.0884 }, { "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 4 }], "distortion": 100, "aliases": false, "panDelay": 10, "chorus": 100, "echoSustain": 29, "echoDelayBeats": 1, "reverb": 19, "fadeInSeconds": 0, "fadeOutTicks": 6, "harmonics": [43, 71, 100, 0, 0, 100, 0, 57, 0, 0, 0, 86, 29, 0, 0, 0, 0, 14, 0, 14, 14, 0, 0, 0, 0, 43, 0, 0], "unison": "piano", "stringSustain": 93, "envelopes": [] } },
+                { name: "Blessed Piano", generalMidi: false, settings: { "type": "chip", "eqFilter": [{ "type": "peak", "cutoffHz": 707.11, "linearGain": 4 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "peak", "cutoffHz": 707.11, "linearGain": 4 }], "effects": ["chord type", "pitch shift", "vibrato", "note filter", "distortion", "bitcrusher", "chorus"], "chord": "strum", "fastTwoNoteArp": false, "arpeggioSpeed": 12, "pitchShiftSemitones": 12, "vibrato": "custom", "vibratoDepth": 0.48, "vibratoDelay": 11, "vibratoSpeed": 16, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 0.0884 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 0.0884 }], "distortion": 14, "aliases": false, "bitcrusherOctave": 4, "bitcrusherQuantization": 29, "panDelay": 10, "chorus": 86, "fadeInSeconds": 0, "fadeOutTicks": 24, "wave": "triangle", "unison": "custom", "unisonVoices": 2, "unisonSpread": 6, "unisonOffset": 6.5, "unisonExpression": 0.8, "unisonSign": 1, "isUsingAdvancedLoopControls": false, "chipWaveLoopStart": 0, "chipWaveLoopEnd": 32, "chipWaveLoopMode": 0, "chipWavePlayBackwards": false, "chipWaveStartOffset": 0, "envelopes": [{ "target": "noteFilterFreq", "envelope": "twang 1", "index": 0 }, { "target": "noteVolume", "envelope": "punch" }] } },
+                { name: "Sawtooth Pluck", generalMidi: false, settings: { "type": "chip", "eqFilter": [{ "type": "low-pass", "cutoffHz": 16000, "linearGain": 0.25 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 16000, "linearGain": 0.25 }], "effects": ["transition type", "chord type", "pitch shift", "vibrato", "note filter"], "transition": "normal", "clicklessTransition": false, "chord": "arpeggio", "fastTwoNoteArp": true, "arpeggioSpeed": 12, "pitchShiftSemitones": 24, "vibrato": "light", "vibratoDepth": 0.15, "vibratoDelay": 0, "vibratoSpeed": 10, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 0.1768 }, { "type": "peak", "cutoffHz": 4000, "linearGain": 11.3137 }, { "type": "peak", "cutoffHz": 8000, "linearGain": 4 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 0.1768 }, { "type": "peak", "cutoffHz": 4000, "linearGain": 11.3137 }, { "type": "peak", "cutoffHz": 8000, "linearGain": 4 }], "panDelay": 10, "fadeInSeconds": 0, "fadeOutTicks": 12, "wave": "sawtooth", "unison": "none", "isUsingAdvancedLoopControls": false, "chipWaveLoopStart": 0, "chipWaveLoopEnd": 32, "chipWaveLoopMode": 0, "chipWavePlayBackwards": false, "chipWaveStartOffset": 0, "envelopes": [{ "target": "pitchShift", "envelope": "twang 1" }, { "target": "pitchShift", "envelope": "twang 1" }, { "target": "pitchShift", "envelope": "twang 1" }, { "target": "pitchShift", "envelope": "twang 1" }, { "target": "pitchShift", "envelope": "twang 1" }, { "target": "noteFilterFreq", "envelope": "twang 1", "index": 1 }, { "target": "noteFilterFreq", "envelope": "twang 1", "index": 0 }, { "target": "noteFilterFreq", "envelope": "swell 1", "index": 2 }] } },
+                { name: "Desolated Piano", generalMidi: false, settings: { "type": "FM", "eqFilter": [{ "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 0.5 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 0.5 }], "effects": ["pitch shift", "vibrato", "bitcrusher", "chorus", "reverb"], "pitchShiftSemitones": 24, "vibrato": "custom", "vibratoDepth": 0.6, "vibratoDelay": 1, "vibratoSpeed": 18, "vibratoType": 0, "bitcrusherOctave": 3.5, "bitcrusherQuantization": 0, "panDelay": 10, "chorus": 29, "reverb": 26, "fadeInSeconds": 0, "fadeOutTicks": 48, "algorithm": "1←(2 3 4)", "feedbackType": "1⟲", "feedbackAmplitude": 7, "operators": [{ "frequency": "~1×", "amplitude": 15, "waveform": "triangle", "pulseWidth": 5 }, { "frequency": "3×", "amplitude": 3, "waveform": "trapezoid", "pulseWidth": 5 }, { "frequency": "8×", "amplitude": 4, "waveform": "triangle", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "vibratoDepth", "envelope": "twang 2" }, { "target": "feedbackAmplitude", "envelope": "twang 2" }, { "target": "operatorAmplitude", "envelope": "decay 1", "index": 1 }, { "target": "operatorAmplitude", "envelope": "twang 1", "index": 2 }, { "target": "operatorAmplitude", "envelope": "twang 1", "index": 2 }] } },
+                { name: "Distorted Guitar 1", generalMidi: false, settings: { "type": "Picked String", "eqFilter": [{ "type": "low-pass", "cutoffHz": 4000, "linearGain": 0.5 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 4000, "linearGain": 0.5 }], "effects": ["note filter", "distortion", "chorus", "echo", "reverb"], "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "high-pass", "cutoffHz": 297.3, "linearGain": 2 }, { "type": "low-pass", "cutoffHz": 3363.59, "linearGain": 2 }, { "type": "peak", "cutoffHz": 840.9, "linearGain": 11.3137 }, { "type": "peak", "cutoffHz": 1681.79, "linearGain": 0.1768 }], "noteSubFilters0": [{ "type": "high-pass", "cutoffHz": 297.3, "linearGain": 2 }, { "type": "low-pass", "cutoffHz": 3363.59, "linearGain": 2 }, { "type": "peak", "cutoffHz": 840.9, "linearGain": 11.3137 }, { "type": "peak", "cutoffHz": 1681.79, "linearGain": 0.1768 }], "distortion": 71, "aliases": false, "panDelay": 10, "chorus": 14, "echoSustain": 43, "echoDelayBeats": 1, "reverb": 39, "fadeInSeconds": 0, "fadeOutTicks": 6, "harmonics": [86, 100, 100, 86, 86, 86, 86, 71, 71, 71, 71, 71, 71, 71, 71, 71, 71, 57, 57, 57, 57, 57, 57, 57, 57, 57, 57, 57], "unison": "none", "stringSustain": 71, "envelopes": [{ "target": "noteFilterFreq", "envelope": "note size", "index": 1 }] } },
+                { name: "Distorted Guitar 2", generalMidi: false, settings: { "type": "FM", "eqFilter": [{ "type": "high-pass", "cutoffHz": 353.55, "linearGain": 1 }, { "type": "peak", "cutoffHz": 1189.21, "linearGain": 0.125 }, { "type": "peak", "cutoffHz": 3363.59, "linearGain": 0.5 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "high-pass", "cutoffHz": 353.55, "linearGain": 1 }, { "type": "peak", "cutoffHz": 1189.21, "linearGain": 0.125 }, { "type": "peak", "cutoffHz": 3363.59, "linearGain": 0.5 }], "effects": ["note filter", "bitcrusher", "chorus", "reverb"], "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "peak", "cutoffHz": 210.22, "linearGain": 4 }, { "type": "high-pass", "cutoffHz": 125, "linearGain": 1.4142 }, { "type": "peak", "cutoffHz": 420.45, "linearGain": 11.3137 }, { "type": "low-pass", "cutoffHz": 2000, "linearGain": 2.8284 }], "noteSubFilters0": [{ "type": "peak", "cutoffHz": 210.22, "linearGain": 4 }, { "type": "high-pass", "cutoffHz": 125, "linearGain": 1.4142 }, { "type": "peak", "cutoffHz": 420.45, "linearGain": 11.3137 }, { "type": "low-pass", "cutoffHz": 2000, "linearGain": 2.8284 }], "bitcrusherOctave": 6.5, "bitcrusherQuantization": 71, "panDelay": 10, "chorus": 43, "reverb": 52, "fadeInSeconds": 0, "fadeOutTicks": 24, "algorithm": "(1 2 3)←4", "feedbackType": "1⟲", "feedbackAmplitude": 2, "operators": [{ "frequency": "2×", "amplitude": 14, "waveform": "trapezoid", "pulseWidth": 5 }, { "frequency": "~2×", "amplitude": 13, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "4×", "amplitude": 10, "waveform": "pulse width", "pulseWidth": 5 }, { "frequency": "8×", "amplitude": 3, "waveform": "triangle", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [] } },
+                { name: "Distorted Guitar 3", generalMidi: false, settings: { "type": "Picked String", "eqFilter": [{ "type": "low-pass", "cutoffHz": 13454.34, "linearGain": 0.5 }, { "type": "high-pass", "cutoffHz": 125, "linearGain": 0.5 }, { "type": "peak", "cutoffHz": 707.11, "linearGain": 2.8284 }, { "type": "peak", "cutoffHz": 500, "linearGain": 4 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 13454.34, "linearGain": 0.5 }, { "type": "high-pass", "cutoffHz": 125, "linearGain": 0.5 }, { "type": "peak", "cutoffHz": 707.11, "linearGain": 2.8284 }, { "type": "peak", "cutoffHz": 500, "linearGain": 4 }], "effects": ["pitch shift", "note filter", "distortion", "chorus", "reverb"], "pitchShiftSemitones": 24, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 840.9, "linearGain": 0.7071 }, { "type": "high-pass", "cutoffHz": 176.78, "linearGain": 0.3536 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 840.9, "linearGain": 0.7071 }, { "type": "high-pass", "cutoffHz": 176.78, "linearGain": 0.3536 }], "distortion": 100, "aliases": false, "panDelay": 10, "chorus": 14, "reverb": 6, "fadeInSeconds": 0, "fadeOutTicks": 24, "harmonics": [100, 0, 86, 0, 43, 0, 100, 43, 0, 29, 0, 100, 0, 0, 0, 71, 43, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 29], "unison": "none", "stringSustain": 0, "envelopes": [{ "target": "noteVolume", "envelope": "twang 1" }] } },
+                { name: "High Pad", generalMidi: false, settings: { "type": "FM", "eqFilter": [{ "type": "low-pass", "cutoffHz": 8000, "linearGain": 1 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 8 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 8000, "linearGain": 1 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 8 }], "effects": ["pitch shift", "vibrato", "note filter", "chorus"], "pitchShiftSemitones": 12, "vibrato": "custom", "vibratoDepth": 0.28, "vibratoDelay": 19, "vibratoSpeed": 30, "vibratoType": 0, "noteFilterType": true, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 19027.31, "linearGain": 0.7071 }], "noteSubFilters1": [{ "type": "low-pass", "cutoffHz": 19027.31, "linearGain": 0.7071 }], "panDelay": 10, "chorus": 86, "fadeInSeconds": 0.0125, "fadeOutTicks": 24, "algorithm": "1←3 2←4", "feedbackType": "1⟲ 2⟲ 3⟲", "feedbackAmplitude": 11, "operators": [{ "frequency": "4×", "amplitude": 13, "waveform": "pulse width", "pulseWidth": 3 }, { "frequency": "0.12×", "amplitude": 13, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "3×", "amplitude": 1, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "4×", "amplitude": 8, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "noteFilterAllFreqs", "envelope": "swell 1" }, { "target": "noteFilterAllFreqs", "envelope": "swell 1" }, { "target": "feedbackAmplitude", "envelope": "twang 1" }, { "target": "feedbackAmplitude", "envelope": "twang 1" }, { "target": "feedbackAmplitude", "envelope": "twang 1" }, { "target": "operatorAmplitude", "envelope": "twang 1", "index": 1 }, { "target": "noteFilterAllFreqs", "envelope": "swell 1" }] } },
+                { name: "Magical Pulse", generalMidi: false, settings: { "type": "chip", "eqFilter": [{ "type": "low-pass", "cutoffHz": 4000, "linearGain": 0.0884 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 4000, "linearGain": 0.0884 }], "effects": ["transition type", "pitch shift", "vibrato", "chorus"], "transition": "normal", "clicklessTransition": false, "pitchShiftSemitones": 24, "vibrato": "custom", "vibratoDepth": 0.56, "vibratoDelay": 27, "vibratoSpeed": 14, "vibratoType": 0, "panDelay": 10, "chorus": 57, "fadeInSeconds": 0, "fadeOutTicks": 6, "wave": "sawtooth", "unison": "custom", "unisonVoices": 2, "unisonSpread": 0.03, "unisonOffset": -0.02, "unisonExpression": 0.85, "unisonSign": 0.7, "isUsingAdvancedLoopControls": false, "chipWaveLoopStart": 0, "chipWaveLoopEnd": 32, "chipWaveLoopMode": 0, "chipWavePlayBackwards": false, "chipWaveStartOffset": 0, "envelopes": [{ "target": "noteVolume", "envelope": "swell 3" }] } },
+                { name: "Distorted Lead", generalMidi: false, settings: { "type": "FM", "eqFilter": [], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [], "effects": ["transition type", "distortion", "bitcrusher", "chorus"], "transition": "normal", "clicklessTransition": false, "distortion": 29, "aliases": false, "bitcrusherOctave": 2, "bitcrusherQuantization": 0, "panDelay": 10, "chorus": 100, "fadeInSeconds": 0, "fadeOutTicks": 6, "algorithm": "1←(2 3 4)", "feedbackType": "1⟲", "feedbackAmplitude": 0, "operators": [{ "frequency": "1×", "amplitude": 11, "waveform": "trapezoid", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 7, "waveform": "pulse width", "pulseWidth": 7 }, { "frequency": "1×", "amplitude": 8, "waveform": "ramp", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 5, "waveform": "triangle", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [] } },
+                { name: "FM Punch Bass", generalMidi: false, settings: { "type": "FM", "eqFilter": [{ "type": "low-pass", "cutoffHz": 1414.21, "linearGain": 2.8284 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 1414.21, "linearGain": 2.8284 }], "effects": ["note filter"], "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 1414.21, "linearGain": 2.8284 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 1414.21, "linearGain": 2.8284 }], "panDelay": 10, "fadeInSeconds": 0, "fadeOutTicks": -1, "algorithm": "1←(2 3 4)", "feedbackType": "1⟲", "feedbackAmplitude": 4, "operators": [{ "frequency": "1×", "amplitude": 7, "waveform": "pulse width", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 4, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "ramp", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "triangle", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "noteFilterFreq", "envelope": "twang 1", "index": 0 }, { "target": "feedbackAmplitude", "envelope": "punch" }, { "target": "noteVolume", "envelope": "twang 2" }] } },
+                { name: "Rough Glistening Piano", generalMidi: false, settings: { "type": "harmonics", "eqFilter": [{ "type": "peak", "cutoffHz": 210.22, "linearGain": 1.4142 }, { "type": "high-pass", "cutoffHz": 125, "linearGain": 0.1768 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "peak", "cutoffHz": 210.22, "linearGain": 1.4142 }, { "type": "high-pass", "cutoffHz": 125, "linearGain": 0.1768 }], "effects": ["chord type", "note filter", "chorus", "echo", "reverb"], "chord": "strum", "fastTwoNoteArp": false, "arpeggioSpeed": 12, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 0.5 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 0.5 }], "panDelay": 10, "chorus": 29, "echoSustain": 43, "echoDelayBeats": 1, "reverb": 23, "fadeInSeconds": 0, "fadeOutTicks": 48, "harmonics": [100, 71, 43, 29, 29, 14, 14, 43, 0, 43, 0, 57, 71, 0, 71, 43, 0, 0, 57, 0, 57, 0, 71, 0, 71, 0, 57, 0], "unison": "honky tonk", "envelopes": [{ "target": "noteFilterFreq", "envelope": "twang 2", "index": 0 }] } },
+                { name: "Soft Glistening Piano", generalMidi: false, settings: { "type": "harmonics", "eqFilter": [{ "type": "high-pass", "cutoffHz": 210.22, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 707.11, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 2000, "linearGain": 0.3536 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "high-pass", "cutoffHz": 210.22, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 707.11, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 2000, "linearGain": 0.3536 }], "effects": ["chord type", "detune", "note filter", "chorus", "reverb"], "chord": "simultaneous", "fastTwoNoteArp": false, "arpeggioSpeed": 12, "detuneCents": -20, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 0.5 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 0.5 }], "panDelay": 10, "chorus": 29, "reverb": 97, "fadeInSeconds": 0.135, "fadeOutTicks": 48, "harmonics": [100, 0, 0, 29, 29, 14, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0, 43, 14, 0, 0, 0, 0], "unison": "honky tonk", "envelopes": [{ "target": "noteFilterFreq", "envelope": "twang 2", "index": 0 }] } },
+                { name: "Jingle Bells", generalMidi: false, settings: { "type": "harmonics", "eqFilter": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.3536 }, { "type": "high-pass", "cutoffHz": 707.11, "linearGain": 2 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.3536 }, { "type": "high-pass", "cutoffHz": 707.11, "linearGain": 2 }], "effects": ["chord type", "pitch shift", "detune", "note filter", "bitcrusher", "chorus", "echo", "reverb"], "chord": "simultaneous", "fastTwoNoteArp": false, "arpeggioSpeed": 12, "pitchShiftSemitones": 24, "detuneCents": 8, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 16000, "linearGain": 2 }, { "type": "high-pass", "cutoffHz": 176.78, "linearGain": 0.5 }, { "type": "peak", "cutoffHz": 2378.41, "linearGain": 0.7071 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 2.8284 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 16000, "linearGain": 2 }, { "type": "high-pass", "cutoffHz": 176.78, "linearGain": 0.5 }, { "type": "peak", "cutoffHz": 2378.41, "linearGain": 0.7071 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 2.8284 }], "bitcrusherOctave": 5, "bitcrusherQuantization": 0, "panDelay": 10, "chorus": 29, "echoSustain": 57, "echoDelayBeats": 1.667, "reverb": 77, "fadeInSeconds": 0, "fadeOutTicks": 12, "harmonics": [100, 29, 57, 71, 0, 0, 0, 0, 0, 0, 0, 14, 43, 14, 0, 0, 0, 0, 0, 0, 14, 0, 14, 14, 0, 0, 0, 0], "unison": "none", "envelopes": [{ "target": "noteVolume", "envelope": "twang 2" }] } },
+                { name: "Odd Snare", generalMidi: false, settings: { "type": "FM", "eqFilter": [], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [], "effects": ["pitch shift", "detune", "note filter", "distortion", "bitcrusher", "chorus", "echo", "reverb"], "pitchShiftSemitones": 24, "detuneCents": 200, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 176.78, "linearGain": 2.8284 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 176.78, "linearGain": 2.8284 }], "distortion": 29, "aliases": false, "bitcrusherOctave": 4.5, "bitcrusherQuantization": 43, "panDelay": 10, "chorus": 29, "echoSustain": 43, "echoDelayBeats": 0.083, "reverb": 3, "fadeInSeconds": 0, "fadeOutTicks": 12, "algorithm": "(1 2)←3←4", "feedbackType": "2⟲ 3⟲ 4⟲", "feedbackAmplitude": 15, "operators": [{ "frequency": "16×", "amplitude": 15, "waveform": "pulse width", "pulseWidth": 5 }, { "frequency": "0.12×", "amplitude": 12, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "2×", "amplitude": 11, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "13×", "amplitude": 6, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "operatorAmplitude", "envelope": "twang 3", "index": 0 }, { "target": "noteFilterFreq", "envelope": "twang 1", "index": 0 }, { "target": "pitchShift", "envelope": "twang 3" }, { "target": "operatorFrequency", "envelope": "twang 1", "index": 0 }, { "target": "noteFilterFreq", "envelope": "swell 1", "index": 1 }, { "target": "operatorFrequency", "envelope": "twang 1", "index": 0 }, { "target": "operatorFrequency", "envelope": "twang 1", "index": 0 }] } },
+                { name: "Otherworldly Kick", generalMidi: false, settings: { "type": "FM", "eqFilter": [], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [], "effects": ["pitch shift", "vibrato", "distortion", "bitcrusher", "chorus"], "pitchShiftSemitones": 12, "vibrato": "custom", "vibratoDepth": 0.92, "vibratoDelay": 18, "vibratoSpeed": 30, "vibratoType": 0, "distortion": 29, "aliases": false, "bitcrusherOctave": 6, "bitcrusherQuantization": 57, "panDelay": 10, "chorus": 14, "fadeInSeconds": 0, "fadeOutTicks": 24, "algorithm": "1←(2 3 4)", "feedbackType": "1⟲", "feedbackAmplitude": 0, "operators": [{ "frequency": "20×", "amplitude": 15, "waveform": "triangle", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "operatorFrequency", "envelope": "twang 1", "index": 0 }, { "target": "noteVolume", "envelope": "twang 3" }, { "target": "pitchShift", "envelope": "twang 1" }, { "target": "pitchShift", "envelope": "twang 1" }, { "target": "operatorFrequency", "envelope": "twang 1", "index": 0 }] } },
+                { name: "Bitcrushed Piano", generalMidi: false, settings: { "type": "chip", "eqFilter": [{ "type": "high-pass", "cutoffHz": 594.6, "linearGain": 1.4142 }, { "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 500, "linearGain": 1.4142 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "high-pass", "cutoffHz": 594.6, "linearGain": 1.4142 }, { "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 500, "linearGain": 1.4142 }], "effects": ["transition type", "chord type", "pitch shift", "vibrato", "note filter", "bitcrusher", "chorus", "echo", "reverb"], "transition": "normal", "clicklessTransition": false, "chord": "strum", "fastTwoNoteArp": false, "arpeggioSpeed": 12, "pitchShiftSemitones": 24, "vibrato": "custom", "vibratoDepth": 0.72, "vibratoDelay": 19, "vibratoSpeed": 30, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 4756.83, "linearGain": 0.0884 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 4756.83, "linearGain": 0.0884 }], "bitcrusherOctave": 3, "bitcrusherQuantization": 29, "panDelay": 10, "chorus": 29, "echoSustain": 29, "echoDelayBeats": 0.75, "reverb": 23, "fadeInSeconds": 0, "fadeOutTicks": 12, "wave": "triangle", "unison": "custom", "unisonVoices": 2, "unisonSpread": 0.000211, "unisonOffset": -0.3, "unisonExpression": 0.8, "unisonSign": 1, "isUsingAdvancedLoopControls": false, "chipWaveLoopStart": 0, "chipWaveLoopEnd": 32, "chipWaveLoopMode": 0, "chipWavePlayBackwards": false, "chipWaveStartOffset": 0, "envelopes": [{ "target": "noteFilterFreq", "envelope": "twang 1", "index": 0 }] } },
+                { name: "Boop Pad", generalMidi: false, settings: { "type": "custom chip", "eqFilter": [{ "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 0.1768 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 0.1768 }], "effects": ["transition type", "note filter", "reverb"], "transition": "interrupt", "clicklessTransition": false, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 16000, "linearGain": 0.0884 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 16000, "linearGain": 0.0884 }], "panDelay": 10, "reverb": 48, "fadeInSeconds": 0, "fadeOutTicks": 96, "wave": "square", "unison": "custom", "unisonVoices": 2, "unisonSpread": 0.000211, "unisonOffset": -0.3, "unisonExpression": 0.8, "unisonSign": 1, "customChipWave": { "0": -1, "1": 1, "2": -1, "3": -4, "4": -6, "5": -8, "6": -11, "7": -12, "8": -15, "9": -16, "10": -18, "11": -19, "12": -21, "13": -22, "14": -24, "15": -24, "16": -24, "17": -24, "18": -23, "19": -22, "20": -21, "21": -19, "22": -17, "23": -16, "24": -14, "25": -13, "26": -10, "27": -8, "28": -6, "29": -4, "30": -2, "31": -1, "32": 2, "33": 3, "34": 5, "35": 7, "36": 10, "37": 12, "38": 14, "39": 16, "40": 18, "41": 19, "42": 20, "43": 21, "44": 23, "45": 23, "46": 24, "47": 24, "48": 24, "49": 24, "50": 24, "51": 24, "52": 24, "53": 24, "54": 24, "55": 24, "56": 24, "57": 24, "58": 23, "59": 22, "60": 21, "61": 19, "62": 16, "63": 14 }, "customChipWaveIntegral": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "10": 0, "11": 0, "12": 0, "13": 0, "14": 0, "15": 0, "16": 0, "17": 0, "18": 0, "19": 0, "20": 0, "21": 0, "22": 0, "23": 0, "24": 0, "25": 0, "26": 0, "27": 0, "28": 0, "29": 0, "30": 0, "31": 0, "32": 0, "33": 0, "34": 0, "35": 0, "36": 0, "37": 0, "38": 0, "39": 0, "40": 0, "41": 0, "42": 0, "43": 0, "44": 0, "45": 0, "46": 0, "47": 0, "48": 0, "49": 0, "50": 0, "51": 0, "52": 0, "53": 0, "54": 0, "55": 0, "56": 0, "57": 0, "58": 0, "59": 0, "60": 0, "61": 0, "62": 0, "63": 0, "64": 0 }, "envelopes": [{ "target": "noteVolume", "envelope": "twang 2" }, { "target": "noteFilterFreq", "envelope": "twang 2", "index": 0 }] } },
+                { name: "Spectrum Pad", generalMidi: false, settings: { "type": "spectrum", "eqFilter": [{ "type": "low-pass", "cutoffHz": 2196.8, "linearGain": 1 }], "eqFilterType": true, "eqSimpleCut": 6, "eqSimplePeak": 2, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters1": [], "effects": ["vibrato", "distortion", "bitcrusher", "reverb"], "vibrato": "delayed", "vibratoDepth": 0.3, "vibratoDelay": 18.5, "vibratoSpeed": 10, "vibratoType": 0, "distortion": 29, "aliases": false, "bitcrusherOctave": 4.5, "bitcrusherQuantization": 43, "panDelay": 10, "reverb": 26, "fadeInSeconds": 0, "fadeOutTicks": -1, "spectrum": [100, 0, 0, 0, 0, 0, 0, 71, 0, 0, 0, 57, 0, 0, 57, 0, 43, 0, 43, 0, 0, 29, 0, 29, 0, 14, 14, 14, 0, 0], "envelopes": [] } },
+                { name: "Countdown Pulse", generalMidi: false, settings: { "type": "PWM", "eqFilter": [{ "type": "peak", "cutoffHz": 2828.43, "linearGain": 2 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "peak", "cutoffHz": 2828.43, "linearGain": 2 }], "effects": ["transition type", "pitch shift", "detune", "chorus", "echo", "reverb"], "transition": "normal", "clicklessTransition": false, "pitchShiftSemitones": 16, "detuneCents": 196, "panDelay": 10, "chorus": 14, "echoSustain": 29, "echoDelayBeats": 0.5, "reverb": 13, "fadeInSeconds": 0, "fadeOutTicks": 48, "pulseWidth": 42, "decimalOffset": 0, "unison": "none", "envelopes": [{ "target": "pitchShift", "envelope": "twang 1" }, { "target": "pitchShift", "envelope": "twang 1" }] } },
+                { name: "Ambient Pulse 1", generalMidi: false, settings: { "type": "FM", "eqFilter": [{ "type": "high-pass", "cutoffHz": 250, "linearGain": 2.8284 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 353.55, "linearGain": 0.1768 }, { "type": "peak", "cutoffHz": 2000, "linearGain": 0.3536 }, { "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.25 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "high-pass", "cutoffHz": 250, "linearGain": 2.8284 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 353.55, "linearGain": 0.1768 }, { "type": "peak", "cutoffHz": 2000, "linearGain": 0.3536 }, { "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.25 }], "effects": ["note filter", "echo", "reverb"], "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 2378.41, "linearGain": 2.8284 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 2378.41, "linearGain": 2.8284 }], "panDelay": 10, "echoSustain": 29, "echoDelayBeats": 1.333, "reverb": 35, "fadeInSeconds": 0, "fadeOutTicks": 96, "algorithm": "(1 2)←(3 4)", "feedbackType": "4⟲", "feedbackAmplitude": 9, "operators": [{ "frequency": "1×", "amplitude": 13, "waveform": "triangle", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 13, "waveform": "pulse width", "pulseWidth": 6 }, { "frequency": "3×", "amplitude": 0, "waveform": "triangle", "pulseWidth": 5 }, { "frequency": "~2×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "operatorAmplitude", "envelope": "flare 1", "index": 2 }] } },
+                { name: "Saturn Pad", generalMidi: false, settings: { "type": "Picked String", "eqFilter": [{ "type": "low-pass", "cutoffHz": 2828.43, "linearGain": 1 }, { "type": "peak", "cutoffHz": 707.11, "linearGain": 1.4142 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 2828.43, "linearGain": 1 }, { "type": "peak", "cutoffHz": 707.11, "linearGain": 1.4142 }], "effects": ["note filter", "reverb"], "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 2828.43, "linearGain": 0.5 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 2828.43, "linearGain": 0.5 }], "panDelay": 10, "reverb": 26, "fadeInSeconds": 0, "fadeOutTicks": 24, "harmonics": [0, 100, 100, 100, 0, 0, 0, 0, 43, 43, 0, 86, 0, 100, 0, 29, 0, 0, 0, 0, 71, 57, 0, 0, 86, 0, 0, 43], "unison": "shimmer", "stringSustain": 93, "envelopes": [{ "target": "noteFilterAllFreqs", "envelope": "tremolo3" }, { "target": "noteFilterAllFreqs", "envelope": "twang 3" }] } },
+                { name: "Build-Up Pad", generalMidi: false, settings: { "type": "FM", "eqFilter": [{ "type": "high-pass", "cutoffHz": 250, "linearGain": 2.8284 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 353.55, "linearGain": 0.1768 }, { "type": "peak", "cutoffHz": 2000, "linearGain": 0.3536 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "high-pass", "cutoffHz": 250, "linearGain": 2.8284 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 353.55, "linearGain": 0.1768 }, { "type": "peak", "cutoffHz": 2000, "linearGain": 0.3536 }], "effects": ["note filter", "reverb"], "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 16000, "linearGain": 0.3536 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 16000, "linearGain": 0.3536 }], "panDelay": 10, "reverb": 32, "fadeInSeconds": 0, "fadeOutTicks": 96, "algorithm": "(1 2)←(3 4)", "feedbackType": "4⟲", "feedbackAmplitude": 9, "operators": [{ "frequency": "1×", "amplitude": 13, "waveform": "triangle", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 13, "waveform": "pulse width", "pulseWidth": 6 }, { "frequency": "3×", "amplitude": 0, "waveform": "triangle", "pulseWidth": 5 }, { "frequency": "~2×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "operatorAmplitude", "envelope": "flare 1", "index": 2 }] } },
+                { name: "Ambient Pulse 2", generalMidi: false, settings: { "type": "harmonics", "eqFilter": [{ "type": "low-pass", "cutoffHz": 1189.21, "linearGain": 0.7071 }, { "type": "high-pass", "cutoffHz": 594.6, "linearGain": 1.4142 }, { "type": "peak", "cutoffHz": 420.45, "linearGain": 8 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 1189.21, "linearGain": 0.7071 }, { "type": "high-pass", "cutoffHz": 594.6, "linearGain": 1.4142 }, { "type": "peak", "cutoffHz": 420.45, "linearGain": 8 }], "effects": ["chord type", "note filter", "reverb"], "chord": "simultaneous", "fastTwoNoteArp": false, "arpeggioSpeed": 12, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 1681.79, "linearGain": 1 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 1681.79, "linearGain": 1 }], "panDelay": 10, "reverb": 32, "fadeInSeconds": 0, "fadeOutTicks": 72, "harmonics": [57, 57, 71, 57, 43, 43, 43, 71, 43, 43, 43, 57, 71, 86, 100, 86, 57, 57, 43, 43, 43, 57, 43, 29, 43, 57, 57, 43], "unison": "custom", "unisonVoices": 2, "unisonSpread": 0.0018, "unisonOffset": 0, "unisonExpression": 0.85, "unisonSign": 1.6, "envelopes": [{ "target": "noteFilterAllFreqs", "envelope": "tremolo5" }] } },
+                { name: "Hyper Synth Saw", generalMidi: false, settings: { "type": "chip", "eqFilter": [{ "type": "peak", "cutoffHz": 19027.31, "linearGain": 11.3137 }, { "type": "peak", "cutoffHz": 1681.79, "linearGain": 1.4142 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "peak", "cutoffHz": 19027.31, "linearGain": 11.3137 }, { "type": "peak", "cutoffHz": 1681.79, "linearGain": 1.4142 }], "effects": ["chord type", "detune", "vibrato", "distortion", "chorus", "echo", "reverb"], "chord": "arpeggio", "fastTwoNoteArp": false, "arpeggioSpeed": 12, "detuneCents": 16, "vibrato": "delayed", "vibratoDepth": 0.3, "vibratoDelay": 18.5, "vibratoSpeed": 10, "vibratoType": 0, "distortion": 14, "aliases": false, "panDelay": 10, "chorus": 86, "echoSustain": 43, "echoDelayBeats": 1, "reverb": 58, "fadeInSeconds": 0, "fadeOutTicks": 96, "wave": "sawtooth", "unison": "custom", "unisonVoices": 2, "unisonSpread": 0.0018, "unisonOffset": 0, "unisonExpression": 0.85, "unisonSign": 1.6, "isUsingAdvancedLoopControls": false, "chipWaveLoopStart": 0, "chipWaveLoopEnd": 32, "chipWaveLoopMode": 0, "chipWavePlayBackwards": false, "chipWaveStartOffset": 0, "envelopes": [] } },
+                { name: "Mechanical Blip", generalMidi: false, settings: { "type": "chip", "eqFilter": [{ "type": "low-pass", "cutoffHz": 19027.31, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 2000, "linearGain": 0.25 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 0.3536 }, { "type": "high-pass", "cutoffHz": 125, "linearGain": 0.3536 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 19027.31, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 2000, "linearGain": 0.25 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 0.3536 }, { "type": "high-pass", "cutoffHz": 125, "linearGain": 0.3536 }], "effects": ["transition type", "detune", "note filter", "bitcrusher", "chorus", "echo", "reverb"], "transition": "normal", "clicklessTransition": false, "detuneCents": 16, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 500, "linearGain": 4 }, { "type": "high-pass", "cutoffHz": 176.78, "linearGain": 11.3137 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 500, "linearGain": 4 }, { "type": "high-pass", "cutoffHz": 176.78, "linearGain": 11.3137 }], "noteSubFilters1": [{ "type": "low-pass", "cutoffHz": 19027.31, "linearGain": 0.7071 }], "bitcrusherOctave": 4.5, "bitcrusherQuantization": 43, "panDelay": 10, "chorus": 43, "echoSustain": 57, "echoDelayBeats": 1.5, "reverb": 23, "fadeInSeconds": 0, "fadeOutTicks": -1, "wave": "rounded", "unison": "none", "isUsingAdvancedLoopControls": false, "chipWaveLoopStart": 0, "chipWaveLoopEnd": 64, "chipWaveLoopMode": 0, "chipWavePlayBackwards": false, "chipWaveStartOffset": 0, "envelopes": [] } },
+                { name: "Another Piano", generalMidi: false, settings: { "type": "PWM", "eqFilter": [{ "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 9513.66, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 2378.41, "linearGain": 2 }, { "type": "peak", "cutoffHz": 3363.59, "linearGain": 1.4142 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 1 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 9513.66, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 2378.41, "linearGain": 2 }, { "type": "peak", "cutoffHz": 3363.59, "linearGain": 1.4142 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 1 }], "effects": ["detune", "note filter", "reverb"], "detuneCents": 16, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.125 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.125 }], "panDelay": 10, "reverb": 26, "fadeInSeconds": 0, "fadeOutTicks": 24, "pulseWidth": 44, "decimalOffset": 0, "unison": "none", "envelopes": [{ "target": "noteFilterAllFreqs", "envelope": "punch" }, { "target": "noteVolume", "envelope": "twang 2" }, { "target": "unison", "envelope": "twang 1" }, { "target": "unison", "envelope": "twang 1" }, { "target": "unison", "envelope": "twang 1" }, { "target": "unison", "envelope": "twang 1" }, { "target": "unison", "envelope": "twang 1" }] } },
+            ]) },
+        { name: "Midbox Dubstep", presets: toNameMap([
+                { name: "Dubstep Bwayyyy", generalMidi: false, settings: { "type": "PWM", "eqFilter": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.1768 }, { "type": "peak", "cutoffHz": 297.3, "linearGain": 1 }, { "type": "peak", "cutoffHz": 594.6, "linearGain": 0.7071 }, { "type": "peak", "cutoffHz": 420.45, "linearGain": 0.5 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.1768 }, { "type": "peak", "cutoffHz": 297.3, "linearGain": 1 }, { "type": "peak", "cutoffHz": 594.6, "linearGain": 0.7071 }, { "type": "peak", "cutoffHz": 420.45, "linearGain": 0.5 }], "effects": ["transition type", "vibrato", "note filter", "distortion", "chorus", "reverb"], "transition": "continue", "clicklessTransition": false, "vibrato": "custom", "vibratoDepth": 0.44, "vibratoDelay": 23, "vibratoSpeed": 26, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 2000, "linearGain": 11.3137 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 2000, "linearGain": 11.3137 }], "distortion": 100, "aliases": false, "panDelay": 10, "chorus": 71, "reverb": 32, "fadeInSeconds": 0, "fadeOutTicks": 12, "pulseWidth": 30, "decimalOffset": 0, "unison": "none", "envelopes": [{ "target": "noteFilterFreq", "envelope": "swell 3", "index": 0 }, { "target": "noteFilterFreq", "envelope": "swell 2", "index": 0 }] } },
+                { name: "Dubstep Bass Hum", generalMidi: false, settings: { "type": "PWM", "eqFilter": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.1768 }, { "type": "peak", "cutoffHz": 297.3, "linearGain": 1 }, { "type": "peak", "cutoffHz": 1189.21, "linearGain": 2 }, { "type": "peak", "cutoffHz": 420.45, "linearGain": 0.5 }, { "type": "high-pass", "cutoffHz": 105.11, "linearGain": 0.5 }, { "type": "peak", "cutoffHz": 16000, "linearGain": 2 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.1768 }, { "type": "peak", "cutoffHz": 297.3, "linearGain": 1 }, { "type": "peak", "cutoffHz": 1189.21, "linearGain": 2 }, { "type": "peak", "cutoffHz": 420.45, "linearGain": 0.5 }, { "type": "high-pass", "cutoffHz": 105.11, "linearGain": 0.5 }, { "type": "peak", "cutoffHz": 16000, "linearGain": 2 }], "effects": ["transition type", "pitch shift", "vibrato", "note filter", "distortion", "bitcrusher", "chorus", "reverb"], "transition": "normal", "clicklessTransition": false, "pitchShiftSemitones": 0, "vibrato": "custom", "vibratoDepth": 0.44, "vibratoDelay": 23, "vibratoSpeed": 26, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 1414.21, "linearGain": 11.3137 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 1414.21, "linearGain": 11.3137 }], "distortion": 29, "aliases": false, "bitcrusherOctave": 2, "bitcrusherQuantization": 14, "panDelay": 10, "chorus": 43, "reverb": 32, "fadeInSeconds": 0, "fadeOutTicks": 24, "pulseWidth": 10, "envelopes": [{ "target": "noteFilterFreq", "envelope": "flare 1", "index": 0 }, { "target": "noteFilterFreq", "envelope": "flare 3", "index": 0 }] } },
+                { name: "Dubstep Yaa", generalMidi: false, settings: { "type": "PWM", "eqFilter": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 297.3, "linearGain": 1 }, { "type": "peak", "cutoffHz": 1189.21, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 594.6, "linearGain": 0.3536 }, { "type": "high-pass", "cutoffHz": 105.11, "linearGain": 0.3536 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 297.3, "linearGain": 1 }, { "type": "peak", "cutoffHz": 1189.21, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 594.6, "linearGain": 0.3536 }, { "type": "high-pass", "cutoffHz": 105.11, "linearGain": 0.3536 }], "effects": ["transition type", "pitch shift", "vibrato", "note filter", "bitcrusher", "chorus", "reverb"], "transition": "normal", "clicklessTransition": false, "pitchShiftSemitones": 0, "vibrato": "custom", "vibratoDepth": 0.44, "vibratoDelay": 23, "vibratoSpeed": 26, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 1414.21, "linearGain": 11.3137 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 1414.21, "linearGain": 11.3137 }], "bitcrusherOctave": 2.5, "bitcrusherQuantization": 29, "panDelay": 10, "chorus": 86, "reverb": 10, "fadeInSeconds": 0, "fadeOutTicks": 24, "pulseWidth": 8, "decimalOffset": 0, "unison": "none", "envelopes": [{ "target": "noteFilterFreq", "envelope": "swell 1", "index": 0 }] } },
+                { name: "Dubstep Yeoww", generalMidi: false, settings: { "type": "PWM", "eqFilter": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 297.3, "linearGain": 1 }, { "type": "peak", "cutoffHz": 1189.21, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 594.6, "linearGain": 0.3536 }, { "type": "high-pass", "cutoffHz": 105.11, "linearGain": 0.3536 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 297.3, "linearGain": 1 }, { "type": "peak", "cutoffHz": 1189.21, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 594.6, "linearGain": 0.3536 }, { "type": "high-pass", "cutoffHz": 105.11, "linearGain": 0.3536 }], "effects": ["transition type", "chord type", "vibrato", "note filter", "distortion", "bitcrusher", "chorus", "reverb"], "transition": "normal", "clicklessTransition": false, "chord": "simultaneous", "fastTwoNoteArp": false, "arpeggioSpeed": 12, "vibrato": "custom", "vibratoDepth": 0.44, "vibratoDelay": 23, "vibratoSpeed": 26, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 3363.59, "linearGain": 11.3137 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 3363.59, "linearGain": 11.3137 }], "distortion": 100, "aliases": false, "bitcrusherOctave": 4, "bitcrusherQuantization": 0, "panDelay": 10, "chorus": 86, "reverb": 35, "fadeInSeconds": 0, "fadeOutTicks": 24, "pulseWidth": 40, "decimalOffset": 0, "unison": "none", "envelopes": [{ "target": "noteFilterFreq", "envelope": "twang 3", "index": 0 }, { "target": "pulseWidth", "envelope": "tremolo6" }] } },
+                { name: "Dubstep Lead", generalMidi: false, settings: { "type": "FM", "eqFilter": [{ "type": "peak", "cutoffHz": 1189.21, "linearGain": 0.0884 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "peak", "cutoffHz": 1189.21, "linearGain": 0.0884 }], "effects": ["transition type", "pitch shift", "note filter", "distortion", "bitcrusher"], "transition": "normal", "clicklessTransition": false, "pitchShiftSemitones": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "peak", "cutoffHz": 594.6, "linearGain": 5.6569 }, { "type": "low-pass", "cutoffHz": 1000, "linearGain": 2 }], "noteSubFilters0": [{ "type": "peak", "cutoffHz": 594.6, "linearGain": 5.6569 }, { "type": "low-pass", "cutoffHz": 1000, "linearGain": 2 }], "distortion": 29, "aliases": false, "bitcrusherOctave": 6.5, "bitcrusherQuantization": 86, "panDelay": 10, "fadeInSeconds": 0, "fadeOutTicks": -1, "algorithm": "1←(2 3 4)", "feedbackType": "1⟲", "feedbackAmplitude": 15, "operators": [{ "frequency": "1×", "amplitude": 15, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 15, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 15, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "noteFilterFreq", "envelope": "note size", "index": 0 }, { "target": "noteFilterFreq", "envelope": "note size", "index": 1 }] } },
+                { name: "Dubstep Dyaii", generalMidi: false, settings: { "type": "Picked String", "eqFilter": [{ "type": "high-pass", "cutoffHz": 125, "linearGain": 0.5 }, { "type": "low-pass", "cutoffHz": 3363.59, "linearGain": 0.5 }, { "type": "peak", "cutoffHz": 11313.71, "linearGain": 2.8284 }, { "type": "peak", "cutoffHz": 1000, "linearGain": 0.0884 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "high-pass", "cutoffHz": 125, "linearGain": 0.5 }, { "type": "low-pass", "cutoffHz": 3363.59, "linearGain": 0.5 }, { "type": "peak", "cutoffHz": 11313.71, "linearGain": 2.8284 }, { "type": "peak", "cutoffHz": 1000, "linearGain": 0.0884 }], "effects": ["transition type", "vibrato", "note filter", "distortion", "bitcrusher", "chorus", "reverb"], "transition": "slide", "clicklessTransition": false, "vibrato": "custom", "vibratoDepth": 0.44, "vibratoDelay": 23, "vibratoSpeed": 26, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 707.11, "linearGain": 8 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 11.3137 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 707.11, "linearGain": 8 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 11.3137 }], "distortion": 29, "aliases": false, "bitcrusherOctave": 3, "bitcrusherQuantization": 71, "panDelay": 10, "chorus": 71, "reverb": 32, "fadeInSeconds": 0, "fadeOutTicks": 12, "harmonics": [100, 0, 71, 86, 0, 0, 100, 86, 86, 71, 57, 57, 29, 14, 57, 71, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "unison": "none", "stringSustain": 100, "envelopes": [{ "target": "noteFilterAllFreqs", "envelope": "note size" }, { "target": "noteFilterAllFreqs", "envelope": "twang 3" }] } },
+                { name: "Dubstep Alarm", generalMidi: false, settings: { "type": "FM", "eqFilter": [{ "type": "peak", "cutoffHz": 2000, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 0.5 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "peak", "cutoffHz": 2000, "linearGain": 0.0884 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 0.5 }], "effects": ["transition type", "pitch shift", "note filter", "distortion", "bitcrusher"], "transition": "normal", "clicklessTransition": false, "pitchShiftSemitones": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "high-pass", "cutoffHz": 1414.21, "linearGain": 11.3137 }], "noteSubFilters0": [{ "type": "high-pass", "cutoffHz": 1414.21, "linearGain": 11.3137 }], "distortion": 29, "aliases": false, "bitcrusherOctave": 6.5, "bitcrusherQuantization": 100, "panDelay": 10, "fadeInSeconds": 0, "fadeOutTicks": -1, "algorithm": "1←(2 3 4)", "feedbackType": "1⟲", "feedbackAmplitude": 6, "operators": [{ "frequency": "1×", "amplitude": 15, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 15, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "noteFilterFreq", "envelope": "note size", "index": 0 }] } },
+            ]) },
+        { name: "Midbox Noise Presets", presets: toNameMap([
+                { name: "Hollow Retro Riser", isNoise: true, generalMidi: false, settings: { "type": "noise", "eqFilter": [{ "type": "low-pass", "cutoffHz": 16000, "linearGain": 0.3536 }], "eqFilterType": true, "eqSimpleCut": 8, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters1": [], "effects": ["bitcrusher", "chorus", "echo", "reverb"], "bitcrusherOctave": 4, "bitcrusherQuantization": 43, "panDelay": 10, "chorus": 29, "echoSustain": 57, "echoDelayBeats": 0.5, "reverb": 29, "fadeInSeconds": 0, "fadeOutTicks": -3, "wave": "hollow", "unison": "none", "envelopes": [] } },
+            ]) },
+            
+           { name: "AB 0.8 to 1.2 Presets", presets: toNameMap([
+                { name: "Demonic Bell", generalMidi: false, settings: { "type": "Picked String", "eqFilter": [{ "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.7071 }, { "type": "high-pass", "cutoffHz": 353.55, "linearGain": 0.7071 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 0.0884 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 0.7071 }, { "type": "high-pass", "cutoffHz": 353.55, "linearGain": 0.7071 }, { "type": "peak", "cutoffHz": 1414.21, "linearGain": 0.0884 }], "effects": ["detune", "distortion", "bitcrusher", "echo", "reverb"], "detuneCents": -52, "distortion": 29, "aliases": false, "bitcrusherOctave": 4.5, "bitcrusherQuantization": 29, "panDelay": 10, "echoSustain": 43, "echoDelayBeats": 1, "reverb": 68, "fadeInSeconds": 0, "fadeOutTicks": 96, "harmonics": [43, 71, 71, 100, 86, 100, 43, 86, 71, 57, 86, 29, 14, 71, 14, 14, 57, 14, 14, 43, 14, 14, 43, 14, 14, 43, 14, 14], "unison": "shimmer", "stringSustain": 64, "envelopes": [] } },
+                { name: "Spacey Triangle", generalMidi: false, settings: { "type": "chip", "eqFilter": [{ "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 11.3137 }, { "type": "high-pass", "cutoffHz": 176.78, "linearGain": 4 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 11.3137 }, { "type": "high-pass", "cutoffHz": 176.78, "linearGain": 4 }], "effects": ["transition type", "vibrato", "distortion", "bitcrusher", "chorus", "echo", "reverb"], "transition": "normal", "clicklessTransition": false, "vibrato": "shaky", "vibratoDepth": 0.1, "vibratoDelay": 0, "vibratoSpeed": 10, "vibratoType": 1, "distortion": 29, "aliases": false, "bitcrusherOctave": 5.5, "bitcrusherQuantization": 14, "panDelay": 10, "chorus": 86, "echoSustain": 43, "echoDelayBeats": 1, "reverb": 26, "fadeInSeconds": 0, "fadeOutTicks": 96, "wave": "triangle", "unison": "dirty", "isUsingAdvancedLoopControls": false, "chipWaveLoopStart": 0, "chipWaveLoopEnd": 32, "chipWaveLoopMode": 0, "chipWavePlayBackwards": false, "chipWaveStartOffset": 0, "envelopes": [] } },
+                { name: "Harmonic Piano", generalMidi: false, settings: { "type": "harmonics", "eqFilter": [{ "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 353.55, "linearGain": 0.125 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 1 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 0.3536 }, { "type": "peak", "cutoffHz": 353.55, "linearGain": 0.125 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 1 }], "effects": ["transition type"], "transition": "interrupt", "clicklessTransition": false, "panDelay": 10, "fadeInSeconds": 0, "fadeOutTicks": -1, "harmonics": [100, 57, 57, 57, 14, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "unison": "none", "envelopes": [] } },
+                { name: "Organic Synth", generalMidi: false, settings: { "type": "FM", "eqFilter": [{ "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 0.1768 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 0.1768 }], "effects": ["chord type", "reverb"], "chord": "simultaneous", "fastTwoNoteArp": false, "arpeggioSpeed": 12, "panDelay": 10, "reverb": 71, "fadeInSeconds": 0.0263, "fadeOutTicks": 96, "algorithm": "(1 2 3)←4", "feedbackType": "1⟲ 2⟲ 3⟲", "feedbackAmplitude": 2, "operators": [{ "frequency": "1×", "amplitude": 15, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "5×", "amplitude": 3, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "8×", "amplitude": 7, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "operatorAmplitude", "envelope": "twang 1", "index": 3 }, { "target": "noteVolume", "envelope": "twang 2" }] } },
+                { name: "Nokia Ringtone", generalMidi: false, settings: { "type": "FM", "eqFilter": [], "effects": ["transition type", "chord type"], "transition": "interrupt", "chord": "custom interval", "fadeInSeconds": 0, "fadeOutTicks": -1, "algorithm": "(1 2)←(3 4)", "feedbackType": "1→2", "feedbackAmplitude": 0, "operators": [{ "frequency": "1×", "amplitude": 2 }, { "frequency": "1×", "amplitude": 15 }, { "frequency": "1×", "amplitude": 15 }, { "frequency": "1×", "amplitude": 15 }], "envelopes": [] } },
+            ]) },
+        { name: "AB 1.3+ Presets", presets: toNameMap([
+                { name: "Supersaw Pluck", generalMidi: false, settings: { "type": "supersaw", "eqFilter": [], "eqFilterType": false, "eqSimpleCut": 9, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [], "eqSubFilters1": [], "effects": ["chord type", "note filter", "chorus", "echo", "reverb"], "chord": "simultaneous", "fastTwoNoteArp": true, "arpeggioSpeed": 12, "noteFilterType": true, "noteSimpleCut": 7, "noteSimplePeak": 1, "noteFilter": [{ "type": "low-pass", "cutoffHz": 3828.43, "linearGain": 0.5 }], "noteSubFilters1": [{ "type": "low-pass", "cutoffHz": 3828.43, "linearGain": 0.5 }], "panDelay": 10, "chorus": 14, "echoSustain": 29, "echoDelayBeats": 1, "reverb": 0, "fadeInSeconds": 0, "fadeOutTicks": 48, "pulseWidth": 40, "decimalOffset": 0, "dynamism": 67, "spread": 50, "shape": 0, "envelopes": [{ "target": "noteFilterAllFreqs", "envelope": "twang 1" }] } },
+                { name: "Credits Bass", generalMidi: false, settings: { "type": "chip", "eqFilter": [], "eqFilterType": false, "eqSimpleCut": 8, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "effects": ["transition type", "chord type", "note filter"], "transition": "interrupt", "clicklessTransition": false, "chord": "arpeggio", "fastTwoNoteArp": true, "arpeggioSpeed": 9, "noteFilterType": true, "noteSimpleCut": 8, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 16000, "linearGain": 0.3536 }], "noteSubFilters1": [{ "type": "low-pass", "cutoffHz": 16000, "linearGain": 0.3536 }], "panDelay": 10, "fadeInSeconds": 0, "fadeOutTicks": -1, "wave": "alto sax", "unison": "none", "isUsingAdvancedLoopControls": false, "chipWaveLoopStart": 0, "chipWaveLoopEnd": 2, "chipWaveLoopMode": 0, "chipWavePlayBackwards": false, "chipWaveStartOffset": 0, "envelopes": [{ "target": "noteFilterAllFreqs", "envelope": "decay 1" }] } },
+                { name: "FM Violin", generalMidi: false, settings: { "type": "FM6op", "eqFilter": [], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [], "effects": ["transition type", "vibrato", "distortion", "chorus", "echo"], "transition": "normal", "clicklessTransition": false, "vibrato": "light", "vibratoDepth": 0.15, "vibratoDelay": 0, "vibratoSpeed": 10, "vibratoType": 0, "distortion": 43, "aliases": false, "panDelay": 10, "chorus": 14, "echoSustain": 14, "echoDelayBeats": 1, "fadeInSeconds": 0, "fadeOutTicks": 6, "algorithm": "Custom", "feedbackType": "Custom", "feedbackAmplitude": 4, "customAlgorithm": { "mods": [[6, 2, 3, 4, 5], [], [], [], [], []], "carrierCount": 2 }, "customFeedback": { "mods": [[1], [], [], [], [], []] }, "operators": [{ "frequency": "1×", "amplitude": 15, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "2×", "amplitude": 12, "waveform": "rounded", "pulseWidth": 5 }, { "frequency": "6×", "amplitude": 6, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "0.5×", "amplitude": 11, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "16×", "amplitude": 5, "waveform": "triangle", "pulseWidth": 5 }, { "frequency": "4×", "amplitude": 7, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "noteVolume", "envelope": "twang 3" }, { "target": "noteVolume", "envelope": "swell 2" }] } },
+                { name: "Shamisen 2", generalMidi: false, settings: { "type": "FM6op", "eqFilter": [], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [], "effects": ["chord type", "note filter", "reverb"], "chord": "strum", "fastTwoNoteArp": true, "arpeggioSpeed": 12, "noteFilterType": true, "noteSimpleCut": 8, "noteSimplePeak": 1, "noteFilter": [{ "type": "low-pass", "cutoffHz": 6000, "linearGain": 0.5 }], "noteSubFilters1": [{ "type": "low-pass", "cutoffHz": 6000, "linearGain": 0.5 }], "panDelay": 10, "reverb": 0, "fadeInSeconds": 0, "fadeOutTicks": 48, "algorithm": "Custom", "feedbackType": "Custom", "feedbackAmplitude": 4, "customAlgorithm": { "mods": [[6, 2, 3, 4, 5], [], [], [], [], []], "carrierCount": 2 }, "customFeedback": { "mods": [[1], [], [], [], [], []] }, "operators": [{ "frequency": "1×", "amplitude": 15, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "2×", "amplitude": 12, "waveform": "rounded", "pulseWidth": 5 }, { "frequency": "6×", "amplitude": 6, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "0.5×", "amplitude": 11, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "16×", "amplitude": 5, "waveform": "triangle", "pulseWidth": 5 }, { "frequency": "4×", "amplitude": 7, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "noteFilterAllFreqs", "envelope": "twang 1" }] } },
+                { name: "Picked Dist Guitar", generalMidi: false, settings: { "type": "Picked String", "eqFilter": [], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [], "effects": ["vibrato", "note filter", "distortion", "bitcrusher"], "vibrato": "custom", "vibratoDepth": 0.32, "vibratoDelay": 19, "vibratoSpeed": 10, "vibratoType": 0, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 13454.34, "linearGain": 0.7071 }, { "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.5 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 13454.34, "linearGain": 0.7071 }, { "type": "low-pass", "cutoffHz": 9513.66, "linearGain": 0.5 }], "distortion": 43, "aliases": false, "bitcrusherOctave": 5.5, "bitcrusherQuantization": 14, "panDelay": 10, "fadeInSeconds": 0, "fadeOutTicks": 12, "harmonics": [86, 86, 86, 86, 71, 57, 71, 71, 14, 14, 14, 29, 57, 43, 43, 57, 43, 29, 29, 29, 29, 29, 29, 43, 43, 43, 0, 71], "unison": "none", "stringSustain": 71, "envelopes": [{ "target": "noteFilterAllFreqs", "envelope": "twang 3" }, { "target": "noteVolume", "envelope": "punch" }] } },
+                { name: "Heavy Knock", generalMidi: false, isNoise: true, settings: { "type": "noise", "eqFilter": [], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [], "effects": ["vibrato", "note filter", "reverb"], "vibrato": "delayed", "vibratoDepth": 0.3, "vibratoDelay": 18.5, "vibratoSpeed": 10, "vibratoType": 0, "noteFilterType": true, "noteSimpleCut": 7, "noteSimplePeak": 1, "noteFilter": [{ "type": "low-pass", "cutoffHz": 3828.43, "linearGain": 0.5 }], "noteSubFilters1": [{ "type": "low-pass", "cutoffHz": 3828.43, "linearGain": 0.5 }], "panDelay": 10, "reverb": 0, "fadeInSeconds": 0, "fadeOutTicks": 48, "wave": "white", "unison": "none", "envelopes": [{ "target": "noteFilterAllFreqs", "envelope": "twang 2" }] } },
+                { name: "Future Keys", generalMidi: false, settings: { "type": "harmonics", "eqFilter": [{ "type": "high-pass", "cutoffHz": 125, "linearGain": 0.25 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 1, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "high-pass", "cutoffHz": 125, "linearGain": 0.25 }], "effects": ["chorus", "echo", "reverb", "phaser"], "phaserMix": 100, "phaserFreq": 94, "phaserFeedback": 42, "phaserStages": 97, "panDelay": 10, "chorus": 43, "echoSustain": 43, "echoDelayBeats": 0.75, "reverb": 19, "fadeInSeconds": 0, "fadeOutTicks": -1, "harmonics": [100, 100, 100, 86, 86, 86, 71, 71, 57, 29, 14, 14, 14, 0, 29, 57, 29, 0, 29, 43, 57, 57, 29, 14, 14, 29, 43, 29], "unison": "none", "envelopes": [{ "target": "phaserFreq", "envelope": "tremolo6" }, { "target": "noteVolume", "envelope": "twang -1" }] } },
+                { name: "Light Bell", generalMidi: false, settings: { "type": "Picked String", "eqFilter": [{ "type": "low-pass", "cutoffHz": 8000, "linearGain": 1 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 1 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "effects": ["reverb", "ring modulation"], "ringMod": 71, "ringModHz": 90, "rmWaveformIndex": 0, "rmPulseWidth": 0, "panDelay": 10, "reverb": 39, "fadeInSeconds": 0, "fadeOutTicks": 24, "harmonics": [43, 71, 0, 100, 0, 100, 0, 86, 0, 0, 86, 0, 14, 71, 14, 14, 57, 14, 14, 43, 14, 14, 43, 14, 14, 43, 14, 43], "unison": "shimmer", "stringSustain": 71, "envelopes": [{ "target": "noteVolume", "envelope": "twang 3" }] } },
+                { name: "Distortion Bass", generalMidi: false, settings: { "type": "Picked String", "eqFilter": [{ "type": "low-pass", "cutoffHz": 4756.83, "linearGain": 0.25 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 1.4142 }, { "type": "low-pass", "cutoffHz": 8000, "linearGain": 0.5 }, { "type": "peak", "cutoffHz": 1000, "linearGain": 0.5 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 4756.83, "linearGain": 0.25 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 1.4142 }, { "type": "low-pass", "cutoffHz": 8000, "linearGain": 0.5 }, { "type": "peak", "cutoffHz": 1000, "linearGain": 0.5 }], "effects": ["note filter", "distortion", "bitcrusher", "phaser"], "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "high-pass", "cutoffHz": 88.39, "linearGain": 1.4142 }, { "type": "low-pass", "cutoffHz": 4000, "linearGain": 0.5 }], "noteSubFilters0": [{ "type": "high-pass", "cutoffHz": 88.39, "linearGain": 1.4142 }, { "type": "low-pass", "cutoffHz": 4000, "linearGain": 0.5 }], "distortion": 43, "aliases": false, "bitcrusherOctave": 6, "bitcrusherQuantization": 0, "phaserMix": 65, "phaserFreq": 19, "phaserFeedback": 61, "phaserStages": 52, "panDelay": 10, "fadeInSeconds": 0, "fadeOutTicks": 6, "harmonics": [86, 100, 100, 86, 86, 86, 86, 71, 71, 71, 71, 71, 71, 71, 71, 71, 71, 57, 57, 57, 57, 57, 57, 57, 57, 57, 57, 71], "unison": "none", "stringSustain": 64, "envelopes": [{ "target": "noteFilterFreq", "envelope": "note size", "index": 1 }, { "target": "phaserFeedback", "envelope": "twang 3" }] } },
+                { name: "Phased Overdrive Guitar", generalMidi: false, settings: { "type": "Picked String", "eqFilter": [{ "type": "low-pass", "cutoffHz": 4756.83, "linearGain": 0.7071 }, { "type": "high-pass", "cutoffHz": 250, "linearGain": 1 }, { "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 1.4142 }, { "type": "peak", "cutoffHz": 840.9, "linearGain": 0.3536 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 4756.83, "linearGain": 0.7071 }, { "type": "high-pass", "cutoffHz": 250, "linearGain": 1 }, { "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 1.4142 }, { "type": "peak", "cutoffHz": 840.9, "linearGain": 0.3536 }], "effects": ["note filter", "distortion", "bitcrusher", "phaser"], "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "high-pass", "cutoffHz": 297.3, "linearGain": 2 }, { "type": "low-pass", "cutoffHz": 2378.41, "linearGain": 0.7071 }], "noteSubFilters0": [{ "type": "high-pass", "cutoffHz": 297.3, "linearGain": 2 }, { "type": "low-pass", "cutoffHz": 2378.41, "linearGain": 0.7071 }], "distortion": 71, "aliases": false, "bitcrusherOctave": 6, "bitcrusherQuantization": 0, "phaserMix": 100, "phaserFreq": 19, "phaserFeedback": 61, "phaserStages": 52, "panDelay": 10, "fadeInSeconds": 0, "fadeOutTicks": 12, "harmonics": [86, 100, 100, 86, 86, 86, 86, 71, 71, 71, 71, 71, 71, 71, 71, 71, 71, 57, 57, 57, 57, 57, 57, 57, 57, 57, 57, 71], "unison": "none", "stringSustain": 64, "envelopes": [{ "target": "noteFilterFreq", "envelope": "note size", "index": 1 }, { "target": "phaserFeedback", "envelope": "twang 2" }] } },
+                { name: "Phased Picked Guitar", generalMidi: false, settings: { "type": "Picked String", "eqFilter": [{ "type": "low-pass", "cutoffHz": 4756.83, "linearGain": 0.7071 }, { "type": "high-pass", "cutoffHz": 250, "linearGain": 1 }, { "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 1.4142 }, { "type": "peak", "cutoffHz": 840.9, "linearGain": 0.3536 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 4756.83, "linearGain": 0.7071 }, { "type": "high-pass", "cutoffHz": 250, "linearGain": 1 }, { "type": "low-pass", "cutoffHz": 6727.17, "linearGain": 1.4142 }, { "type": "peak", "cutoffHz": 840.9, "linearGain": 0.3536 }], "effects": ["note filter", "distortion", "bitcrusher", "chorus", "echo", "phaser"], "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "high-pass", "cutoffHz": 297.3, "linearGain": 2 }, { "type": "low-pass", "cutoffHz": 2378.41, "linearGain": 0.7071 }], "noteSubFilters0": [{ "type": "high-pass", "cutoffHz": 297.3, "linearGain": 2 }, { "type": "low-pass", "cutoffHz": 2378.41, "linearGain": 0.7071 }], "distortion": 29, "aliases": false, "bitcrusherOctave": 6, "bitcrusherQuantization": 0, "phaserMix": 77, "phaserFreq": 19, "phaserFeedback": 61, "phaserStages": 52, "panDelay": 10, "chorus": 43, "echoSustain": 43, "echoDelayBeats": 1, "fadeInSeconds": 0, "fadeOutTicks": 12, "harmonics": [86, 100, 100, 86, 86, 86, 86, 71, 71, 71, 71, 71, 71, 71, 71, 71, 71, 57, 57, 57, 57, 57, 57, 57, 57, 57, 57, 71], "unison": "none", "stringSustain": 64, "envelopes": [{ "target": "noteFilterFreq", "envelope": "note size", "index": 1 }, { "target": "phaserMix", "envelope": "twang -1" }] } },
+            ]) },
+        { name: "AB's Spooky Presets", presets: toNameMap([
+                { name: "Ghost House", generalMidi: false, settings: { "type": "FM", "eqFilter": [], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [], "effects": ["transition type", "vibrato", "bitcrusher"], "transition": "normal", "clicklessTransition": false, "vibrato": "heavy", "vibratoDepth": 0.45, "vibratoDelay": 0, "vibratoSpeed": 10, "vibratoType": 0, "bitcrusherOctave": 3.5, "bitcrusherQuantization": 43, "panDelay": 10, "fadeInSeconds": 0, "fadeOutTicks": -3, "algorithm": "1←(2 3←4)", "feedbackType": "1⟲", "feedbackAmplitude": 0, "operators": [{ "frequency": "1×", "amplitude": 15, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 4, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 6, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 7, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }, { "frequency": "1×", "amplitude": 0, "waveform": "sine", "pulseWidth": 5 }], "envelopes": [{ "target": "noteVolume", "envelope": "punch" }] } },
+                { name: "Chipwave Music Box", generalMidi: false, settings: { "type": "custom chip", "eqFilter": [], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [], "effects": ["vibrato", "note filter", "bitcrusher", "chorus", "echo"], "vibrato": "shaky", "vibratoDepth": 0.1, "vibratoDelay": 0, "vibratoSpeed": 10, "vibratoType": 1, "noteFilterType": false, "noteSimpleCut": 10, "noteSimplePeak": 0, "noteFilter": [{ "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 4 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 2.8284 }], "noteSubFilters0": [{ "type": "low-pass", "cutoffHz": 5656.85, "linearGain": 4 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 2.8284 }], "bitcrusherOctave": 4.5, "bitcrusherQuantization": 14, "panDelay": 10, "chorus": 14, "echoSustain": 29, "echoDelayBeats": 1, "fadeInSeconds": 0, "fadeOutTicks": 12, "wave": "square", "unison": "none", "customChipWave": { "0": 24, "1": 24, "2": 24, "3": 23, "4": 23, "5": 22, "6": 21, "7": 19, "8": 17, "9": 14, "10": 11, "11": 7, "12": 3, "13": -1, "14": -5, "15": -8, "16": -10, "17": -12, "18": -14, "19": -16, "20": -17, "21": -18, "22": -19, "23": -20, "24": -21, "25": -22, "26": -23, "27": -23, "28": -24, "29": -24, "30": -24, "31": -24, "32": -24, "33": -24, "34": -24, "35": -24, "36": -23, "37": -23, "38": -22, "39": -21, "40": -20, "41": -19, "42": -18, "43": -17, "44": -16, "45": -14, "46": -12, "47": -10, "48": -8, "49": -5, "50": -1, "51": 3, "52": 7, "53": 11, "54": 14, "55": 17, "56": 19, "57": 21, "58": 22, "59": 23, "60": 23, "61": 24, "62": 24, "63": 24 }, "customChipWaveIntegral": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "10": 0, "11": 0, "12": 0, "13": 0, "14": 0, "15": 0, "16": 0, "17": 0, "18": 0, "19": 0, "20": 0, "21": 0, "22": 0, "23": 0, "24": 0, "25": 0, "26": 0, "27": 0, "28": 0, "29": 0, "30": 0, "31": 0, "32": 0, "33": 0, "34": 0, "35": 0, "36": 0, "37": 0, "38": 0, "39": 0, "40": 0, "41": 0, "42": 0, "43": 0, "44": 0, "45": 0, "46": 0, "47": 0, "48": 0, "49": 0, "50": 0, "51": 0, "52": 0, "53": 0, "54": 0, "55": 0, "56": 0, "57": 0, "58": 0, "59": 0, "60": 0, "61": 0, "62": 0, "63": 0, "64": 0 }, "envelopes": [{ "target": "noteFilterFreq", "envelope": "decay 3", "index": 1 }, { "target": "noteVolume", "envelope": "punch" }, { "target": "noteVolume", "envelope": "decay 3" }] } },
+                { name: "Chipwave Spooky Pad", generalMidi: false, settings: { "type": "custom chip", "eqFilter": [{ "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 2.8284 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 2.8284 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 2.8284 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 2.8284 }], "effects": ["vibrato", "bitcrusher", "chorus", "echo", "phaser"], "vibrato": "shaky", "vibratoDepth": 0.1, "vibratoDelay": 0, "vibratoSpeed": 10, "vibratoType": 1, "bitcrusherOctave": 5.5, "bitcrusherQuantization": 14, "phaserMix": 100, "phaserFreq": 16, "phaserFeedback": 23, "phaserStages": 32, "panDelay": 10, "chorus": 71, "echoSustain": 43, "echoDelayBeats": 1, "fadeInSeconds": 0.0125, "fadeOutTicks": 24, "wave": "square", "unison": "none", "customChipWave": { "0": 24, "1": 24, "2": 24, "3": 23, "4": 23, "5": 22, "6": 21, "7": 19, "8": 17, "9": 14, "10": 11, "11": 7, "12": 3, "13": -1, "14": -5, "15": -8, "16": -10, "17": -12, "18": -14, "19": -16, "20": -17, "21": -18, "22": -19, "23": -20, "24": -21, "25": -22, "26": -23, "27": -23, "28": -24, "29": -24, "30": -24, "31": -24, "32": -24, "33": -24, "34": -24, "35": -24, "36": -23, "37": -23, "38": -22, "39": -21, "40": -20, "41": -19, "42": -18, "43": -17, "44": -16, "45": -14, "46": -12, "47": -10, "48": -8, "49": -5, "50": -1, "51": 3, "52": 7, "53": 11, "54": 14, "55": 17, "56": 19, "57": 21, "58": 22, "59": 23, "60": 23, "61": 24, "62": 24, "63": 24 }, "customChipWaveIntegral": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "10": 0, "11": 0, "12": 0, "13": 0, "14": 0, "15": 0, "16": 0, "17": 0, "18": 0, "19": 0, "20": 0, "21": 0, "22": 0, "23": 0, "24": 0, "25": 0, "26": 0, "27": 0, "28": 0, "29": 0, "30": 0, "31": 0, "32": 0, "33": 0, "34": 0, "35": 0, "36": 0, "37": 0, "38": 0, "39": 0, "40": 0, "41": 0, "42": 0, "43": 0, "44": 0, "45": 0, "46": 0, "47": 0, "48": 0, "49": 0, "50": 0, "51": 0, "52": 0, "53": 0, "54": 0, "55": 0, "56": 0, "57": 0, "58": 0, "59": 0, "60": 0, "61": 0, "62": 0, "63": 0, "64": 0 }, "envelopes": [{ "target": "noteVolume", "envelope": "twang 3" }] } },
+            ]) },
         {
-            name: "Fruity Samples", presets: toNameMap([
+            name: "StudioBox Samples", presets: toNameMap([
                 { name: "bluh", generalMidi: false, settings: {"type":"harmonics","volume":25 ,"eqFilter":[{"type":"low-pass","cutoffHz":19027.31,"linearGain":0.7071}],"eqFilterType":true,"eqSimpleCut":10,"eqSimplePeak":0,"envelopeSpeed":12,"eqSubFilters1":[],"effects":["panning","pitch shift","note filter","chorus","echo","reverb"],"pitchShiftSemitones":6,"noteFilterType":false,"noteSimpleCut":10,"noteSimplePeak":0,"noteFilter":[{"type":"low-pass","cutoffHz":13454.34,"linearGain":11.3137},{"type":"high-pass","cutoffHz":2000,"linearGain":0.0884},{"type":"peak","cutoffHz":353.55,"linearGain":11.3137}],"noteSubFilters0":[{"type":"low-pass","cutoffHz":13454.34,"linearGain":11.3137},{"type":"high-pass","cutoffHz":2000,"linearGain":0.0884},{"type":"peak","cutoffHz":353.55,"linearGain":11.3137}],"noteSubFilters1":[{"type":"low-pass","cutoffHz":4000,"linearGain":11.3137}],"pan":-12,"panDelay":0,"chorus":100,"echoSustain":43,"echoDelayBeats":0.917,"reverb":77,"fadeInSeconds":0,"fadeOutTicks":48,"harmonics":[0,0,0,86,0,0,0,100,0,0,0,0,0,0,0,86,0,0,0,0,0,0,0,0,0,0,0,0],"unison":"none","envelopes":[{"target":"noteFilterAllFreqs","envelope":"rise","inverse":false,"perEnvelopeSpeed":8.5,"perEnvelopeLowerBound":2,"perEnvelopeUpperBound":0,"discrete":false},{"target":"noteVolume","envelope":"linear","inverse":false,"perEnvelopeSpeed":64,"perEnvelopeLowerBound":0,"perEnvelopeUpperBound":1,"discrete":false},{"target":"pitchShift","envelope":"punch","inverse":false,"perEnvelopeSpeed":1,"perEnvelopeLowerBound":0,"perEnvelopeUpperBound":1,"discrete":false}],"isDrum":false} },
                 { name: "scifi-uoh", generalMidi: false, settings: {"type":"harmonics","volume":17,"eqFilter":[{"type":"peak","cutoffHz":594.6,"linearGain":4},{"type":"peak","cutoffHz":2000,"linearGain":0.0884},{"type":"low-pass","cutoffHz":8000,"linearGain":0.0884},{"type":"high-pass","cutoffHz":250,"linearGain":0.0884},{"type":"high-pass","cutoffHz":176.78,"linearGain":11.3137}],"eqFilterType":false,"eqSimpleCut":10,"eqSimplePeak":0,"envelopeSpeed":12,"eqSubFilters1":[],"effects":["panning","pitch shift","note filter","chorus","echo","reverb"],"pitchShiftSemitones":7,"noteFilterType":true,"noteSimpleCut":10,"noteSimplePeak":5,"noteFilter":[{"type":"low-pass","cutoffHz":7980.25,"linearGain":4}],"noteSubFilters0":[{"type":"low-pass","cutoffHz":7980.25,"linearGain":4}],"noteSubFilters1":[{"type":"low-pass","cutoffHz":7980.25,"linearGain":4}],"pan":0,"panDelay":0,"chorus":100,"echoSustain":71,"echoDelayBeats":1.167,"reverb":77,"fadeInSeconds":0,"fadeOutTicks":48,"harmonics":[0,0,0,86,29,86,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"unison":"none","envelopes":[{"target":"pitchShift","envelope":"linear","inverse":true,"perEnvelopeSpeed":19,"perEnvelopeLowerBound":0,"perEnvelopeUpperBound":1,"discrete":false},{"target":"noteVolume","envelope":"decay","inverse":false,"perEnvelopeSpeed":5,"perEnvelopeLowerBound":0,"perEnvelopeUpperBound":1,"discrete":false}],"isDrum":false} },
                 { name: "climatic chip", generalMidi: false, settings:{"type":"chip","volume":0,"eqFilter":[{"type":"low-pass","cutoffHz":9656.85,"linearGain":0.5}],"eqFilterType":true,"eqSimpleCut":9,"eqSimplePeak":1,"envelopeSpeed":12,"eqSubFilters1":[],"effects":["panning","note filter","chorus","echo","reverb"],"noteFilterType":false,"noteSimpleCut":10,"noteSimplePeak":0,"noteFilter":[{"type":"low-pass","cutoffHz":13454.34,"linearGain":2.8284}],"pan":0,"panDelay":0,"chorus":86,"echoSustain":57,"echoDelayBeats":1.083,"reverb":16,"fadeInSeconds":0,"fadeOutTicks":-24,"wave":"trapezoid","unison":"none","isUsingAdvancedLoopControls":false,"chipWaveLoopStart":0,"chipWaveLoopEnd":32,"chipWaveLoopMode":0,"chipWavePlayBackwards":false,"chipWaveStartOffset":0,"envelopes":[{"target":"noteFilterAllFreqs","envelope":"swell","inverse":true,"perEnvelopeSpeed":2.25,"perEnvelopeLowerBound":0,"perEnvelopeUpperBound":1,"discrete":false}],"isDrum":false}  },
@@ -3205,7 +3749,7 @@ function rawChipToIntegrated2(raw) {
     ColorConfig.colorLookup = new Map();
     ColorConfig.usesColorFormula = false;
     ColorConfig.defaultTheme = "FruityBox Standard";
-    ColorConfig.themes = {
+ ColorConfig.themes = {
         "dark classic": ``,
         "dark competition": `
 				:root {
@@ -3795,6 +4339,4683 @@ function rawChipToIntegrated2(raw) {
 			--disabled-note-secondary:  #447;
 		}
 	`,
+	        "Skeuomorphic": `
+		:root {
+			--page-margin: #020202;
+			--editor-background: #1e1e1e;
+			--hover-preview: white;
+			--playhead: rgba(255, 255, 255, 0.9);
+			--primary-text: white;
+			--secondary-text: #848484;
+			--inverted-text: black;
+			--text-selection: rgba(119,68,255,0.99);
+			--box-selection-fill: #044b94;
+			--loop-accent: #74f;
+			--link-accent: #98f;
+			--ui-widget-background: #444;
+			--ui-widget-focus: #555;
+			--pitch-background: #393e4f;
+			--tonic: #725491;
+			--fifth-note: #54547a;
+			--third-note: #3b4b71;
+			--white-piano-key: #eee;
+			--black-piano-key: #666;
+			--white-piano-key-text: #131200;
+			--black-piano-key-text: #fff;
+			--use-color-formula: false;
+			--pitch-channel-limit: 10;
+			--track-editor-bg-pitch: linear-gradient(#4b5164, #3e3f48);
+			--track-editor-bg-pitch-dim: linear-gradient(#3e3f48, #212530);
+			--track-editor-bg-noise: linear-gradient(#3d3535,#161313);
+			--track-editor-bg-noise-dim: linear-gradient(#161313,#0e0c0c);
+			--track-editor-bg-mod: linear-gradient(#283560,#0a101f);
+			--track-editor-bg-mod-dim: linear-gradient(#05080f,#0a101f);
+			--multiplicative-mod-slider: #606c9f;
+			--overwriting-mod-slider: #6850b5;
+			--indicator-primary: #9c64f7;
+			--indicator-secondary: #393e4f;
+			--select2-opt-group: #333;
+			--input-box-outline: #222;
+			--mute-button-normal: #dda85d;
+			--mute-button-mod: #886eae;
+			--mod-label-primary: #282840;
+			--mod-label-secondary-text: rgb(87, 86, 120);
+			--mod-label-primary-text: white;
+
+			--pitch1-secondary-channel: #bb1111;
+			--pitch1-primary-channel:   #ff5959;
+			--pitch1-secondary-note:    #7c0404;
+			--pitch1-primary-note:      #ffb6b6;
+		
+			--pitch2-secondary-channel: #bb5b11;
+			--pitch2-primary-channel:   #ffa159;
+			--pitch2-secondary-note:    #7c3804;
+			--pitch2-primary-note:      #ffd5b6;
+		
+			--pitch3-secondary-channel: #bba411;
+			--pitch3-primary-channel:   #ffe959;
+			--pitch3-secondary-note:    #7c6c04;
+			--pitch3-primary-note:      #fff5b6;
+		
+			--pitch4-secondary-channel: #88bb11;
+			--pitch4-primary-channel:   #cdff59;
+			--pitch4-secondary-note:    #587c04;
+			--pitch4-primary-note:      #e9ffb6;
+		
+			--pitch5-secondary-channel: #3ebb11;
+			--pitch5-primary-channel:   #85ff59;
+			--pitch5-secondary-note:    #247c04;
+			--pitch5-primary-note:      #c9ffb6;
+		
+			--pitch6-secondary-channel: #11bb2e;
+			--pitch6-primary-channel:   #59ff75;
+			--pitch6-secondary-note:    #047c18;
+			--pitch6-primary-note:      #b6ffc2;
+		
+			--pitch7-secondary-channel: #11bb77;
+			--pitch7-primary-channel:   #59ffbd;
+			--pitch7-secondary-note:    #047c4c;
+			--pitch7-primary-note:      #b6ffe2;
+		
+			--pitch8-secondary-channel: #11b5bb;
+			--pitch8-primary-channel:   #59f9ff;
+			--pitch8-secondary-note:    #04777c;
+			--pitch8-primary-note:      #b6fcff;
+		
+			--pitch9-secondary-channel: #116bbb;
+			--pitch9-primary-channel:   #59b1ff;
+			--pitch9-secondary-note:    #04437c;
+			--pitch9-primary-note:      #b6dcff;
+		
+			--pitch10-secondary-channel:#1826aa;
+			--pitch10-primary-channel:  #5161f6;
+			--pitch10-secondary-note:   #091370;
+			--pitch10-primary-note:     #adb4fd;
+		
+			--pitch11-secondary-channel:#4918aa;
+			--pitch11-primary-channel:  #8951f6;
+			--pitch11-secondary-note:   #2c0970;
+			--pitch11-primary-note:     #c8adfd;
+		
+			--pitch12-secondary-channel:#8818aa;
+			--pitch12-primary-channel:  #d051f6;
+			--pitch12-secondary-note:   #580970;
+			--pitch12-primary-note:     #ebadfd;
+		
+			--pitch13-secondary-channel:#aa188c;
+			--pitch13-primary-channel:  #f651d4;
+			--pitch13-secondary-note:   #70095b;
+			--pitch13-primary-note:     #fdadec;
+		
+			--pitch14-secondary-channel:#aa184d;
+			--pitch14-primary-channel:  #f6518d;
+			--pitch14-secondary-note:   #70092e;
+			--pitch14-primary-note:     #fdadca; 
+		
+			--noise1-secondary-channel: #6F6F6F;
+			--noise1-primary-channel:   #AAAAAA;
+			--noise1-secondary-note:    #A7A7A7;
+			--noise1-primary-note:      #E0E0E0;
+			--noise2-secondary-channel: #996633;
+			--noise2-primary-channel:   #DDAA77;
+			--noise2-secondary-note:    #CC9966;
+			--noise2-primary-note:      #F0D0BB;
+			--noise3-secondary-channel: #4A6D8F;
+			--noise3-primary-channel:   #77AADD;
+			--noise3-secondary-note:    #6F9FCF;
+			--noise3-primary-note:      #BBD7FF;
+			--noise4-secondary-channel: #7A4F9A;
+			--noise4-primary-channel:   #AF82D2;
+			--noise4-secondary-note:    #9E71C1;
+			--noise4-primary-note:      #D4C1EA;
+			--noise5-secondary-channel: #607837;
+			--noise5-primary-channel:   #A2BB77;
+			--noise5-secondary-note:    #91AA66;
+			--noise5-primary-note:      #C5E2B2;
+		--mod1-secondary-channel:   #339955;
+				--mod1-primary-channel:     #77fc55;
+				--mod1-secondary-note:      #77ff8a;
+				--mod1-primary-note:        #cdffee;
+				--mod2-secondary-channel:   #993355;
+				--mod2-primary-channel:     #f04960;
+				--mod2-secondary-note:      #f057a0;
+				--mod2-primary-note:        #ffb8de;
+				--mod3-secondary-channel:   #553399;
+				--mod3-primary-channel:     #8855fc;
+				--mod3-secondary-note:      #aa64ff;
+				--mod3-primary-note:	    #f8ddff;
+				--mod4-secondary-channel:   #a86436;
+				--mod4-primary-channel:     #c8a825;
+				--mod4-secondary-note:      #e8ba46;
+				--mod4-primary-note:        #fff6d3;
+			--disabled-note-primary:    #91879f;
+			--disabled-note-secondary:  #6a677a;
+		}
+		 
+		.channelBox {
+			--pitch1-primary-channel:  linear-gradient(#ff7777, #ff5959);
+			--pitch2-primary-channel:  linear-gradient(#ffaf71, #ffa159);
+			--pitch3-primary-channel:  linear-gradient(#ffee7c, #ffe959);
+			--pitch4-primary-channel:  linear-gradient(#d3fa7a, #cdff59);
+			--pitch5-primary-channel:  linear-gradient(#a4ff83, #85ff59);
+			--pitch6-primary-channel:  linear-gradient(#8aff9e, #59ff75);
+			--pitch7-primary-channel:  linear-gradient(#81ffcc, #59ffbd);
+			--pitch8-primary-channel:  linear-gradient(#59f9ff, #59f9ff);
+			--pitch9-primary-channel:  linear-gradient(#87c7ff, #59b1ff);
+			--pitch10-primary-channel: linear-gradient(#7a87ff, #5161f6);
+			--pitch11-primary-channel: linear-gradient(#a476ff, #8951f6);
+			--pitch12-primary-channel: linear-gradient(#df75ff, #d051f6);
+			--pitch13-primary-channel: linear-gradient(#ff75e3, #f651d4);
+			--pitch14-primary-channel: linear-gradient(#ff71a5, #f6518d);
+		
+			border-radius: 5px;
+			box-shadow: 0px 2px 2px 1px rgba(0, 0, 0, 0.2), 0px 0px 1px 1px rgba(0, 0, 0, 0.7), inset 0px -10px 20px 1px rgba(0, 0, 0, 0.1), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.1);
+		}
+		.channelBox {
+			border-radius: 5px;
+			box-shadow: 0px 2px 2px 1px rgba(0, 0, 0, 0.2), 0px 0px 1px 1px rgba(0, 0, 0, 0.7), inset 0px -10px 20px 1px rgba(0, 0, 0, 0.1), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.1);
+		}
+		
+		.channelBoxLabel {
+			--pitch1-primary-channel:   #ff5959;
+			--pitch2-primary-channel:   #ffa159;
+			--pitch3-primary-channel:   #ffe959;
+			--pitch4-primary-channel:   #cdff59;
+			--pitch5-primary-channel:   #85ff59;
+			--pitch6-primary-channel:   #59ff75;
+			--pitch7-primary-channel:   #59ffbd;
+			--pitch8-primary-channel:   #59f9ff;
+			--pitch9-primary-channel:   #59b1ff;
+			--pitch10-primary-channel:  #5161f6;
+			--pitch11-primary-channel:  #8951f6;
+			--pitch12-primary-channel:  #d051f6;
+			--pitch13-primary-channel:  #f651d4;
+			--pitch14-primary-channel:  #f6518d;
+		}
+		
+		body {
+			background-image: url('./skeuobg.png') !important;
+			background-repeat: no-repeat !important;
+			background-size: contain;
+			font-family: Arial, Helvetica, sans-serif;
+		}
+		
+		#beepboxEditorContainer, .track-area, .beepboxEditor, #text-content, div.noSelection {
+			background-color: #fff0 !important;
+		} 
+		
+		#pitchEditorBackground {
+			opacity: 0.5 !important;
+			filter: brightness(150%);
+		}
+		
+		svg#firstImage {
+			background-image: url('./skeuobg2.png') !important;
+		}
+		
+		#oscilascopeAll {
+			margin-left: auto;
+			margin-right: auto;
+			position: static;
+		}
+		 
+		.beepboxEditor,
+		.beepboxEditor select
+		{
+			text-shadow: 0px -1px 0px rgba(0, 0, 0, 0.5);
+		}
+		 
+		.beepboxEditor .piano-button {
+			text-shadow: none;
+		}
+		 
+		.beepboxEditor .prompt
+		{
+			background: radial-gradient(farthest-corner at 50% 0px, #2a2a2a, #1a1a1a) !important;
+		}
+		 
+		#beepboxEditorContainer {
+			background-color: rgba(0, 0, 0, 0) !important;
+		}
+		 
+		.beepboxEditor .trackAndMuteContainer {
+			text-shadow: none;
+		}
+		 
+		.beepboxEditor .loopEditor
+		{
+			--editor-background: rgba(0, 0, 0, 0.0) !important;
+		}
+		 
+		.beepboxEditor .muteEditor
+		{
+			--editor-background: #1e1e1e !important;
+		}
+		 
+		.beepboxEditor .pattern-area
+		{
+			--editor-background: rgba(0, 0, 0, 1) !important;
+		}
+		 
+		.beepboxEditor .trackContainer svg
+		{
+			--editor-background: #111 !important;
+		}
+		 
+		.beepboxEditor .muteEditor > :last-child {
+			--editor-background: rgba(0, 0, 0, 0) !important;
+		}
+		 
+		.beepboxEditor #octaveScrollBarContainer {
+			background-color: rgba(0, 0, 0, 0.3);
+		}
+		 
+		.beepboxEditor {
+			--track-editor-bg-pitch-dim: #1e1f28;
+		}
+		 
+		.beepboxEditor .muteButtonText {
+			transform: translate(0px, 1px) !important;
+			color: #777 !important;
+		}
+		 
+		.beepboxEditor .instrument-bar {
+			--text-color-lit: #eee;
+			--text-color-dim: #777;
+		}
+		 
+		.beepboxEditor .instrument-bar .selected-instrument {
+			color: rgba(255, 255, 255, 1) !important;
+			text-shadow: 0px 0px 4px var(--text-color-lit);
+		}
+		 
+		.beepboxEditor .instrument-bar .deactivated {
+			color: rgba(0, 0, 0, 1) !important;
+			text-shadow: 0px 1px 0px rgba(255, 255, 255, 0.2);
+		}
+		 
+		.beepboxEditor .instrument-bar > :not(.last-button) {
+			border-color: var(--background-color-lit) !important;
+		}
+		 
+		.beepboxEditor .instrument-bar .selected-instrument {
+			border-color: rgba(255, 255, 255, 1) !important;
+		}
+		 
+		.beepboxEditor select
+		{
+			background: #444 !important;
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px -10px 20px 1px rgba(0, 0, 0, 0.4),
+				inset 0px 1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor select:focus
+		{
+			background: #333 !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px 10px 20px 1px rgba(0, 0, 0, 0.4),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor .select2-selection__rendered,
+		.beepboxEditor button,
+		.beepboxEditor .instrument-bar button,
+		.beepboxEditor .eq-filter-type-bar button .deactivated,
+		.beepboxEditor .note-filter-type-bar button .deactivated
+		{
+			background: linear-gradient(#444, #333) !important;
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor .select2-container--open .select2-selection__rendered,
+		.beepboxEditor button:focus,
+		.beepboxEditor .instrument-bar .selected-instrument,
+		.beepboxEditor .eq-filter-type-bar button:not(.deactivated),
+		.beepboxEditor .note-filter-type-bar button:not(.deactivated)
+		{
+			background: linear-gradient(#333, #444) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor .filterEditor svg,
+		.beepboxEditor .fadeInOut svg,
+		.beepboxEditor .harmonics svg,
+		.beepboxEditor .spectrum svg
+		{
+			background: rgba(0, 0, 0, 0.3) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-webkit-slider-thumb
+		{
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+				inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-webkit-slider-runnable-track
+		{
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+			border-radius: 4px;
+		}
+		 
+		.beepboxEditor input[type="range"]:focus::-webkit-slider-runnable-track
+		{
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-ms-thumb
+		{
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+				inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-ms-track
+		{
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+			border-radius: 4px;
+		}
+		 
+		.beepboxEditor input[type="range"]:focus::-ms-track
+		{
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-moz-range-thumb
+		{
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+				inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-moz-range-track
+		{
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+			border-radius: 4px;
+		}
+		 
+		.beepboxEditor input[type="range"]:focus::-moz-range-track
+		{
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="text"],
+		.beepboxEditor input[type="number"]
+		{
+			border: none !important;
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="checkbox"]
+		{
+			appearance: none;
+			background: rgba(0, 0, 0, 0.3);
+			color: currentColor;
+			border-radius: 1px;
+			width: 1em !important;
+			height: 1em !important;
+			box-shadow:
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="checkbox"]:checked
+		{
+			display: flex;
+			justify-content: center;
+		}
+		 
+		.beepboxEditor input[type="checkbox"]:checked:after
+		{
+			width: 1em;
+			height: 1em;
+			text-align: center;
+			font-size: 0.8em;
+			content: "✓";
+			color: currentColor;
+			text-shadow: 0px 0px 2px rgba(255, 255, 255, 0.5);
+		}
+		`,
+        "woodland": `
+		:root {
+			--page-margin: #1d1b16;
+			--editor-background: #1d1b16;
+			--hover-preview: white;
+			--playhead: rgba(255, 255, 255, 0.9);
+			--primary-text: #ffe6d1;
+			--secondary-text: #f0c4a1;
+			--inverted-text: black;
+			--text-selection: #c58f1cfc;
+			--box-selection-fill: #942d04;
+			--loop-accent: #a69186;
+			--link-accent: #c4b044;
+			--ui-widget-background: #3c3931;
+			--ui-widget-focus: #514240;
+			--pitch-background: #342e29;
+			--tonic: #514129;
+			--fifth-note: #735346;
+			--third-note: #593439;
+			--white-piano-key: #a69186;
+			--black-piano-key: #423a34;
+			--white-piano-key-text: #1f0d03;
+			--black-piano-key-text: #ffe6d1;
+			--use-color-formula: false;
+			--pitch-channel-limit: 10;
+			--track-editor-bg-pitch: linear-gradient(#644b4b, #483e3e);
+			--track-editor-bg-pitch-dim: linear-gradient(#483e3e, #302121);
+			--track-editor-bg-noise: linear-gradient(#3d3535,#161313);
+			--track-editor-bg-noise-dim: linear-gradient(#161313,#0e0c0c);
+			--track-editor-bg-mod: linear-gradient(#603e28,#1f100a);
+			--track-editor-bg-mod-dim: linear-gradient(#0f0705,#1f0d0a);
+			--multiplicative-mod-slider: #966d3f;
+			--overwriting-mod-slider: #b58650;
+			--indicator-primary: #b58650;
+			--indicator-secondary: #4f4139;
+			--select2-opt-group: #3b0000;
+			--input-box-outline: #200000;
+			--mute-button-normal: #dda85d;
+			--mute-button-mod: #adae6e;
+			--mod-label-primary: #422a0f;
+			--mod-label-secondary-text: rgb(87, 86, 120);
+			--mod-label-primary-text: white;
+			--octave-scrollbar: #281f1a;
+
+			--pitch1-secondary-channel: #bb1111;
+			--pitch1-primary-channel:   #ff5959;
+			--pitch1-secondary-note:    #7c0404;
+			--pitch1-primary-note:      #ffb6b6;
+		
+			--pitch2-secondary-channel: #bb5b11;
+			--pitch2-primary-channel:   #ffa159;
+			--pitch2-secondary-note:    #7c3804;
+			--pitch2-primary-note:      #ffd5b6;
+		
+			--pitch3-secondary-channel: #bba411;
+			--pitch3-primary-channel:   #ffe959;
+			--pitch3-secondary-note:    #7c6c04;
+			--pitch3-primary-note:      #fff5b6;
+		
+			--pitch4-secondary-channel: #88bb11;
+			--pitch4-primary-channel:   #cdff59;
+			--pitch4-secondary-note:    #587c04;
+			--pitch4-primary-note:      #e9ffb6;
+		
+			--pitch5-secondary-channel: #3ebb11;
+			--pitch5-primary-channel:   #85ff59;
+			--pitch5-secondary-note:    #247c04;
+			--pitch5-primary-note:      #c9ffb6;
+		
+			--pitch6-secondary-channel: #11bb2e;
+			--pitch6-primary-channel:   #59ff75;
+			--pitch6-secondary-note:    #047c18;
+			--pitch6-primary-note:      #b6ffc2;
+		
+			--pitch7-secondary-channel: #11bb77;
+			--pitch7-primary-channel:   #59ffbd;
+			--pitch7-secondary-note:    #047c4c;
+			--pitch7-primary-note:      #b6ffe2;
+		
+			--pitch8-secondary-channel: #11b5bb;
+			--pitch8-primary-channel:   #59f9ff;
+			--pitch8-secondary-note:    #04777c;
+			--pitch8-primary-note:      #b6fcff;
+		
+			--pitch9-secondary-channel: #116bbb;
+			--pitch9-primary-channel:   #59b1ff;
+			--pitch9-secondary-note:    #04437c;
+			--pitch9-primary-note:      #b6dcff;
+		
+			--pitch10-secondary-channel:#1826aa;
+			--pitch10-primary-channel:  #5161f6;
+			--pitch10-secondary-note:   #091370;
+			--pitch10-primary-note:     #adb4fd;
+		
+			--pitch11-secondary-channel:#4918aa;
+			--pitch11-primary-channel:  #8951f6;
+			--pitch11-secondary-note:   #2c0970;
+			--pitch11-primary-note:     #c8adfd;
+		
+			--pitch12-secondary-channel:#8818aa;
+			--pitch12-primary-channel:  #d051f6;
+			--pitch12-secondary-note:   #580970;
+			--pitch12-primary-note:     #ebadfd;
+		
+			--pitch13-secondary-channel:#aa188c;
+			--pitch13-primary-channel:  #f651d4;
+			--pitch13-secondary-note:   #70095b;
+			--pitch13-primary-note:     #fdadec;
+		
+			--pitch14-secondary-channel:#aa184d;
+			--pitch14-primary-channel:  #f6518d;
+			--pitch14-secondary-note:   #70092e;
+			--pitch14-primary-note:     #fdadca; 
+		
+			--noise1-secondary-channel: #6F6F6F;
+			--noise1-primary-channel:   #AAAAAA;
+			--noise1-secondary-note:    #A7A7A7;
+			--noise1-primary-note:      #E0E0E0;
+			--noise2-secondary-channel: #996633;
+			--noise2-primary-channel:   #DDAA77;
+			--noise2-secondary-note:    #CC9966;
+			--noise2-primary-note:      #F0D0BB;
+			--noise3-secondary-channel: #4A6D8F;
+			--noise3-primary-channel:   #77AADD;
+			--noise3-secondary-note:    #6F9FCF;
+			--noise3-primary-note:      #BBD7FF;
+			--noise4-secondary-channel: #7A4F9A;
+			--noise4-primary-channel:   #AF82D2;
+			--noise4-secondary-note:    #9E71C1;
+			--noise4-primary-note:      #D4C1EA;
+			--noise5-secondary-channel: #607837;
+			--noise5-primary-channel:   #A2BB77;
+			--noise5-secondary-note:    #91AA66;
+			--noise5-primary-note:      #C5E2B2;
+		--mod1-secondary-channel:   #339955;
+				--mod1-primary-channel:     #77fc55;
+				--mod1-secondary-note:      #77ff8a;
+				--mod1-primary-note:        #cdffee;
+				--mod2-secondary-channel:   #993355;
+				--mod2-primary-channel:     #f04960;
+				--mod2-secondary-note:      #f057a0;
+				--mod2-primary-note:        #ffb8de;
+				--mod3-secondary-channel:   #553399;
+				--mod3-primary-channel:     #8855fc;
+				--mod3-secondary-note:      #aa64ff;
+				--mod3-primary-note:	    #f8ddff;
+				--mod4-secondary-channel:   #a86436;
+				--mod4-primary-channel:     #c8a825;
+				--mod4-secondary-note:      #e8ba46;
+				--mod4-primary-note:        #fff6d3;
+			--disabled-note-primary:    #91879f;
+			--disabled-note-secondary:  #6a677a;
+		}
+		 
+		.channelBox {
+			--pitch1-primary-channel:  linear-gradient(#ff7777, #ff5959);
+			--pitch2-primary-channel:  linear-gradient(#ffaf71, #ffa159);
+			--pitch3-primary-channel:  linear-gradient(#ffee7c, #ffe959);
+			--pitch4-primary-channel:  linear-gradient(#d3fa7a, #cdff59);
+			--pitch5-primary-channel:  linear-gradient(#a4ff83, #85ff59);
+			--pitch6-primary-channel:  linear-gradient(#8aff9e, #59ff75);
+			--pitch7-primary-channel:  linear-gradient(#81ffcc, #59ffbd);
+			--pitch8-primary-channel:  linear-gradient(#59f9ff, #59f9ff);
+			--pitch9-primary-channel:  linear-gradient(#87c7ff, #59b1ff);
+			--pitch10-primary-channel: linear-gradient(#7a87ff, #5161f6);
+			--pitch11-primary-channel: linear-gradient(#a476ff, #8951f6);
+			--pitch12-primary-channel: linear-gradient(#df75ff, #d051f6);
+			--pitch13-primary-channel: linear-gradient(#ff75e3, #f651d4);
+			--pitch14-primary-channel: linear-gradient(#ff71a5, #f6518d);
+		
+			border-radius: 5px;
+			box-shadow: 0px 2px 2px 1px rgba(0, 0, 0, 0.2), 0px 0px 1px 1px rgba(0, 0, 0, 0.7), inset 0px -10px 20px 1px rgba(0, 0, 0, 0.1), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.1);
+		}
+		.channelBox {
+			border-radius: 5px;
+			box-shadow: 0px 2px 2px 1px rgba(0, 0, 0, 0.2), 0px 0px 1px 1px rgba(0, 0, 0, 0.7), inset 0px -10px 20px 1px rgba(0, 0, 0, 0.1), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.1);
+		}
+		
+		.channelBoxLabel {
+			--pitch1-primary-channel:   #ff5959;
+			--pitch2-primary-channel:   #ffa159;
+			--pitch3-primary-channel:   #ffe959;
+			--pitch4-primary-channel:   #cdff59;
+			--pitch5-primary-channel:   #85ff59;
+			--pitch6-primary-channel:   #59ff75;
+			--pitch7-primary-channel:   #59ffbd;
+			--pitch8-primary-channel:   #59f9ff;
+			--pitch9-primary-channel:   #59b1ff;
+			--pitch10-primary-channel:  #5161f6;
+			--pitch11-primary-channel:  #8951f6;
+			--pitch12-primary-channel:  #d051f6;
+			--pitch13-primary-channel:  #f651d4;
+			--pitch14-primary-channel:  #f6518d;
+		}
+		
+		body {
+			font-family: Arial, Helvetica, sans-serif;
+		}
+		
+		#beepboxEditorContainer, .track-area, .beepboxEditor, #text-content, div.noSelection {
+			background-color: #fff0 !important;
+		} 
+		
+		#pitchEditorBackground {
+			opacity: 0.5 !important;
+			filter: brightness(150%);
+		}
+		
+		#oscilascopeAll {
+			margin-left: auto;
+			margin-right: auto;
+			position: static;
+		}
+		 
+		.beepboxEditor,
+		.beepboxEditor select
+		{
+			text-shadow: 0px -1px 0px rgba(0, 0, 0, 0.5);
+		}
+		 
+		.beepboxEditor .piano-button {
+			text-shadow: none;
+		}
+		 
+		.beepboxEditor .prompt
+		{
+			background: radial-gradient(farthest-corner at 50% 0px, #1d0700, #110400) !important;
+		}
+		 
+		#beepboxEditorContainer {
+			background-color: rgba(0, 0, 0, 0) !important;
+		}
+		 
+		.beepboxEditor .trackAndMuteContainer {
+			text-shadow: none;
+		}
+		 
+		.beepboxEditor .loopEditor
+		{
+			--editor-background: rgba(0, 0, 0, 0.0) !important;
+		}
+		 
+		.beepboxEditor .pattern-area
+		{
+			--editor-background: rgba(0, 0, 0, 1) !important;
+		}
+		 
+		.beepboxEditor .trackContainer svg
+		{
+			--editor-background: #33190a !important;
+		}
+		 
+		.beepboxEditor .muteEditor > :last-child {
+			--editor-background: rgba(0, 0, 0, 0) !important;
+		}
+		 
+		.beepboxEditor #octaveScrollBarContainer {
+			background-color: rgba(0, 0, 0, 0.3);
+		}
+		 
+		.beepboxEditor {
+			--track-editor-bg-pitch-dim: #1e1f28;
+		}
+		 
+		.beepboxEditor .muteButtonText {
+			transform: translate(0px, 1px) !important;
+			color: #777 !important;
+		}
+		 
+		.beepboxEditor .instrument-bar {
+			--text-color-lit: #eee;
+			--text-color-dim: #777;
+		}
+		 
+		.beepboxEditor .instrument-bar .selected-instrument {
+			color: rgba(255, 255, 255, 1) !important;
+			text-shadow: 0px 0px 4px var(--text-color-lit);
+		}
+		 
+		.beepboxEditor .instrument-bar .deactivated {
+			color: rgba(0, 0, 0, 1) !important;
+			text-shadow: 0px 1px 0px rgba(255, 255, 255, 0.2);
+		}
+		 
+		.beepboxEditor .instrument-bar > :not(.last-button) {
+			border-color: var(--background-color-lit) !important;
+		}
+		 
+		.beepboxEditor .instrument-bar .selected-instrument {
+			border-color: rgba(255, 255, 255, 1) !important;
+		}
+		 
+		.beepboxEditor select
+		{
+			background: #3c3931 !important;
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px -10px 20px 1px rgba(31, 11, 2, 0.4),
+				inset 0px 1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor select:focus
+		{
+			background: #201e1b !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px 10px 20px 1px rgba(0, 0, 0, 0.4),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor .select2-selection__rendered,
+		.beepboxEditor button,
+		.beepboxEditor .instrument-bar button,
+		.beepboxEditor .eq-filter-type-bar button .deactivated,
+		.beepboxEditor .note-filter-type-bar button .deactivated
+		{
+			background: linear-gradient(#3c3931, #201e1b) !important;
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor .select2-container--open .select2-selection__rendered,
+		.beepboxEditor button:focus,
+		.beepboxEditor .instrument-bar .selected-instrument,
+		.beepboxEditor .eq-filter-type-bar button:not(.deactivated),
+		.beepboxEditor .note-filter-type-bar button:not(.deactivated)
+		{
+			background: linear-gradient(#201e1b, #3c3931) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor .filterEditor svg,
+		.beepboxEditor .fadeInOut svg,
+		.beepboxEditor .harmonics svg,
+		.beepboxEditor .spectrum svg
+		{
+			background: rgba(0, 0, 0, 0.3) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-webkit-slider-thumb
+		{
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 183, 162, 0.3),
+				inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-webkit-slider-runnable-track
+		{
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+			border-radius: 4px;
+		}
+		 
+		.beepboxEditor input[type="range"]:focus::-webkit-slider-runnable-track
+		{
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-ms-thumb
+		{
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 183, 162, 1),
+				inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-ms-track
+		{
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+			border-radius: 4px;
+		}
+		 
+		.beepboxEditor input[type="range"]:focus::-ms-track
+		{
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-moz-range-thumb
+		{
+			box-shadow:
+				0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+				0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+				inset 0px 1px 0px 0px rgba(255, 183, 162, 1),
+				inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+			;
+		}
+		 
+		.beepboxEditor input[type="range"]::-moz-range-track
+		{
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+			border-radius: 4px;
+		}
+		 
+		.beepboxEditor input[type="range"]:focus::-moz-range-track
+		{
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+				0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="text"],
+		.beepboxEditor input[type="number"]
+		{
+			border: none !important;
+			background: rgba(0, 0, 0, 0.2) !important;
+			box-shadow:
+				0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+				inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="checkbox"]
+		{
+			appearance: none;
+			background: rgba(0, 0, 0, 0.3);
+			color: currentColor;
+			border-radius: 1px;
+			width: 1em !important;
+			height: 1em !important;
+			box-shadow:
+				inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+				inset 0px -1px 0px 0px rgba(255, 183, 162, 0.3)
+			;
+		}
+		 
+		.beepboxEditor input[type="checkbox"]:checked
+		{
+			display: flex;
+			justify-content: center;
+		}
+		 
+		.beepboxEditor input[type="checkbox"]:checked:after
+		{
+			width: 1em;
+			height: 1em;
+			text-align: center;
+			font-size: 0.8em;
+			content: "✓";
+			color: currentColor;
+			text-shadow: 0px 0px 2px rgba(255, 255, 255, 0.5);
+		}
+		`,
+				"2012 Video Tutorial": `
+			:root {
+				--page-margin: black;
+				--editor-background: black;
+				--hover-preview: white;
+				--playhead: white;
+				--primary-text: white;
+				--secondary-text: #999;
+				--inverted-text: black;
+				--text-selection: rgba(119,68,255,0.99);
+				--box-selection-fill: rgba(255,255,255,0.2);
+				--loop-accent: #74f;
+				--link-accent: #98f;
+				--ui-widget-background: #444;
+				--ui-widget-focus: #777;
+				--pitch-background: #444;
+				--tonic: #864;
+				--fifth-note: #468;
+				--third-note: #486;
+				--white-piano-key: #bbb;
+				--black-piano-key: #444;
+				--white-piano-key-text: #131200;
+				--black-piano-key-text: #fff;
+					--use-color-formula: false;
+			--pitch-channel-limit: 10;
+					--track-editor-bg-pitch: #444;
+					--track-editor-bg-pitch-dim: #333;
+					--track-editor-bg-noise: #444;
+					--track-editor-bg-noise-dim: #333;
+					--track-editor-bg-mod: #234;
+					--track-editor-bg-mod-dim: #123;
+					--multiplicative-mod-slider: #456;
+					--overwriting-mod-slider: #654;
+					--indicator-primary: #74f;
+					--indicator-secondary: #444;
+					--select2-opt-group: #585858;
+					--input-box-outline: #333;
+					--mute-button-normal: #ffa033;
+					--mute-button-mod: #9a6bff;
+				--pitch1-secondary-channel: #0099A1;
+				--pitch1-primary-channel:   #25F3FF;
+				--pitch1-secondary-note:    #00BDC7;
+				--pitch1-primary-note:      #92F9FF;
+				--pitch2-secondary-channel: #A1A100;
+				--pitch2-primary-channel:   #FFFF25;
+				--pitch2-secondary-note:    #C7C700;
+				--pitch2-primary-note:      #FFFF92;
+				--pitch3-secondary-channel: #C75000;
+				--pitch3-primary-channel:   #FF9752;
+				--pitch3-secondary-note:    #FF771C;
+				--pitch3-primary-note:      #FFCDAB;
+				--pitch4-secondary-channel: #00A100;
+				--pitch4-primary-channel:   #50FF50;
+				--pitch4-secondary-note:    #00C700;
+				--pitch4-primary-note:      #A0FFA0;
+				--pitch5-secondary-channel: #D020D0;
+				--pitch5-primary-channel:   #FF90FF;
+				--pitch5-secondary-note:    #E040E0;
+				--pitch5-primary-note:      #FFC0FF;
+				--pitch6-secondary-channel: #7777B0;
+				--pitch6-primary-channel:   #A0A0FF;
+				--pitch6-secondary-note:    #8888D0;
+				--pitch6-primary-note:      #D0D0FF;
+				--pitch7-secondary-channel: #8AA100;
+				--pitch7-primary-channel:   #DEFF25;
+				--pitch7-secondary-note:    #AAC700;
+				--pitch7-primary-note:      #E6FF92;
+				--pitch8-secondary-channel: #DF0019;
+				--pitch8-primary-channel:   #FF98A4;
+				--pitch8-secondary-note:    #FF4E63;
+				--pitch8-primary-note:      #FFB2BB;
+				--pitch9-secondary-channel: #00A170;
+				--pitch9-primary-channel:   #50FFC9;
+				--pitch9-secondary-note:    #00C78A;
+				--pitch9-primary-note:      #83FFD9;
+				--pitch10-secondary-channel:#A11FFF;
+				--pitch10-primary-channel:  #CE8BFF;
+				--pitch10-secondary-note:   #B757FF;
+				--pitch10-primary-note:     #DFACFF;
+				--noise1-secondary-channel: #6F6F6F;
+				--noise1-primary-channel:   #AAAAAA;
+				--noise1-secondary-note:    #A7A7A7;
+				--noise1-primary-note:      #E0E0E0;
+				--noise2-secondary-channel: #996633;
+				--noise2-primary-channel:   #DDAA77;
+				--noise2-secondary-note:    #CC9966;
+				--noise2-primary-note:      #F0D0BB;
+				--noise3-secondary-channel: #4A6D8F;
+				--noise3-primary-channel:   #77AADD;
+				--noise3-secondary-note:    #6F9FCF;
+				--noise3-primary-note:      #BBD7FF;
+				--noise4-secondary-channel: #7A4F9A;
+				--noise4-primary-channel:   #AF82D2;
+				--noise4-secondary-note:    #9E71C1;
+				--noise4-primary-note:      #D4C1EA;
+				--noise5-secondary-channel: #607837;
+				--noise5-primary-channel:   #A2BB77;
+				--noise5-secondary-note:    #91AA66;
+				--noise5-primary-note:      #C5E2B2;
+          --mod1-secondary-channel:   #339955;
+					--mod1-primary-channel:     #77fc55;
+					--mod1-secondary-note:      #77ff8a;
+					--mod1-primary-note:        #cdffee;
+					--mod2-secondary-channel:   #993355;
+					--mod2-primary-channel:     #f04960;
+					--mod2-secondary-note:      #f057a0;
+					--mod2-primary-note:        #ffb8de;
+					--mod3-secondary-channel:   #553399;
+					--mod3-primary-channel:     #8855fc;
+					--mod3-secondary-note:      #aa64ff;
+					--mod3-primary-note:	    #f8ddff;
+					--mod4-secondary-channel:   #a86436;
+					--mod4-primary-channel:     #c8a825;
+					--mod4-secondary-note:      #e8ba46;
+					--mod4-primary-note:        #fff6d3;
+					--mod-label-primary:        #999;
+					--mod-label-secondary-text: #333;
+					--mod-label-primary-text:   black;
+					--disabled-note-primary:    #999;
+					--disabled-note-secondary:  #666;
+				}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  border-radius: 0;
+  background-image: url("./bandicam_watermark.png");
+					background-repeat: no-repeat;
+  					background-size: contain;
+  					background-position-x: center;
+				  	backdrop-filter: blur(1px);
+					position: fixed !important;
+}
+				 html:not(.overlay) {
+					width: 75vw;
+					padding-left: 12.5%;
+					position: relative;
+					background: black;
+				} 
+
+			`,
+			"Scratch": `
+		:root {
+			--page-margin: #4d97ff40;
+			--editor-background: #f6e5fa;
+			--hover-preview: #ff9900;
+			--playhead: #4cbf56;
+			--primary-text: #fff;
+			--secondary-text: #000;
+			--inverted-text: #fff;
+			--text-selection: rgba(255, 255, 255, 0.99);
+			--box-selection-fill: #7725ff;
+			--loop-accent: #ffab19;
+			--link-accent: #ff9900;
+			--ui-widget-background: #855cd6;
+			--ui-widget-focus: #ff661a;
+			--pitch-background: #F5F1F0;
+			--tonic: #855cd6;
+			--fifth-note: #7e7e7e;
+			--third-note: #d2bddd;
+			--use-color-formula: false;
+			--pitch-channel-limit: 10;
+			--track-editor-bg-pitch: #fff;
+			--track-editor-bg-pitch-dim: #c7c7c7;
+			--track-editor-bg-noise: #4d97ff40;
+			--track-editor-bg-noise-dim: #1c54a3b0;
+			--track-editor-bg-mod: #855cd6;
+			--track-editor-bg-mod-dim: #503389;
+			--multiplicative-mod-slider: #ff6680;
+			--overwriting-mod-slider: #ff3355;
+			--indicator-primary: #855cd6;
+			--indicator-secondary: #cecece;
+			--select2-opt-group: #5a3b98;
+			--input-box-outline: #626262;
+			--mute-button-normal: #cf63cf;
+			--mute-button-mod: #cf63cf;
+			--mod-label-primary: #ff3355;
+			--white-piano-key: #fff;
+			--black-piano-key: #000;
+			--white-piano-key-text: #000;
+			--black-piano-key-text: #fff;
+			--note-flash: #4cbf56;
+			--note-flash-secondary: #b84848;
+			--oscilloscope-line-L: #d587e6;
+			--oscilloscope-line-R: #b11cc7;
+			--pitch1-secondary-channel: #3373cc;
+			--pitch1-primary-channel: #4c97ff;
+			--pitch1-secondary-note: #3373cc;
+			--pitch1-primary-note: #4c97ff;
+			--pitch2-secondary-channel: #774dcb;
+			--pitch2-primary-channel: #9966ff;
+			--pitch2-secondary-note: #774dcb;
+			--pitch2-primary-note: #9966ff;
+			--pitch3-secondary-channel: #bd42bd;
+			--pitch3-primary-channel: #cf63cf;
+			--pitch3-secondary-note: #bd42bd;
+			--pitch3-primary-note: #cf63cf;
+			--pitch4-secondary-channel: #cc9900;
+			--pitch4-primary-channel: #ffbf00;
+			--pitch4-secondary-note: #cc9900;
+			--pitch4-primary-note: #ffbf00;
+			--pitch5-secondary-channel: #cf8b17;
+			--pitch5-primary-channel: #ffab19;
+			--pitch5-secondary-note: #cf8b17;
+			--pitch5-primary-note: #ffab19;
+			--pitch6-secondary-channel: #2e8eb8;
+			--pitch6-primary-channel: #5cb1d6;
+			--pitch6-secondary-note: #2e8eb8;
+			--pitch6-primary-note: #5cb1d6;
+			--pitch7-secondary-channel: #389438;
+			--pitch7-primary-channel: #59c059;
+			--pitch7-secondary-note: #389438;
+			--pitch7-primary-note: #59c059;
+			--pitch8-secondary-channel: #db6e00;
+			--pitch8-primary-channel: #ff8c1a;
+			--pitch8-secondary-note: #db6e00;
+			--pitch8-primary-note: #ff8c1a;
+			--pitch9-secondary-channel: #ff3355;
+			--pitch9-primary-channel: #ff6680;
+			--pitch9-secondary-note: #ff3355;
+			--pitch9-primary-note: #ff6680;
+			--pitch10-secondary-channel: #0b8e69;
+			--pitch10-primary-channel: #0fbd8c;
+			--pitch10-secondary-note: #0b8e69;
+			--pitch10-primary-note: #0fbd8c;
+			--noise1-secondary-channel: #ef3d23;
+			--noise1-primary-channel: #fcf9ce;
+			--noise1-secondary-note: #ef3d23;
+			--noise1-primary-note: #fcf9ce;
+			--noise2-secondary-channel: #dd002b;
+			--noise2-primary-channel: #f73d61;
+			--noise2-secondary-note: #dd002b;
+			--noise2-primary-note: #f73d61;
+			--noise3-secondary-channel: #d0e9ea;
+			--noise3-primary-channel: #f3ffff;
+			--noise3-secondary-note: #d0e9ea;
+			--noise3-primary-note: #f3ffff;
+			--noise4-secondary-channel: #ed9b24;
+			--noise4-primary-channel: #ffc941;
+			--noise4-secondary-note: #ed9b24;
+			--noise4-primary-note: #ffc941;
+			--noise5-secondary-channel: #663b00;
+			--noise5-primary-channel: #ffe9cc;
+			--noise5-secondary-note: #663b00;
+			--noise5-primary-note: #ffe9cc;
+			--mod1-secondary-channel: #001026;
+			--mod1-primary-channel: #ffab19;
+			--mod1-secondary-note: #001026;
+			--mod1-primary-note: #ffab19;
+			--mod2-secondary-channel: #603813;
+			--mod2-primary-channel: #ffc93e;
+			--mod2-secondary-note: #603813;
+			--mod2-primary-note: #ffc93e;
+			--mod3-secondary-channel: #1b75bb;
+			--mod3-primary-channel: #e6e7e8;
+			--mod3-secondary-note: #1b75bb;
+			--mod3-primary-note: #e6e7e8;
+			--mod4-secondary-channel: #404041;
+			--mod4-primary-channel: #f05a28;
+			--mod4-secondary-note: #404041;
+			--mod4-primary-note: #f05a28;
+			--disabled-note-primary: #ff6680;
+			--disabled-note-secondary: #ff3355;
+		  }
+		  * {
+		  --play-symbol:url("./Greenflag.png"); 
+		  --pause-symbol:url("./stopsign.png");
+		  --stop-symbol:url("./stopsign.png");
+		  }
+
+		div.promptContainerBG {
+			background-color: var(--editor-background) !important;
+			backdrop-filter: unset !important;
+			opacity: 0.5 !important;
+		}
+
+		  button.playButton::before {
+
+			background-image: url("./Greenflag.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px;
+			color: #fff0;
+		}
+
+		button.pauseButton::before {
+			background-image: url("./stopsign.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px;
+			color: #fff0;
+		}
+
+		button.stopButton::before {
+ 
+			background-image: url("./stopsign.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px;
+			color: #fff0;
+		}
+
+		  #text-content > section > h1 {
+			margin: auto;
+			content: url("./AbyssBox Scratch Logo3.png");
+		  }
+		  .beepboxEditor,
+		  #beepboxEditorContainer {
+			background-color: rgb(255, 255, 255) !important;
+			border-radius: 6px;
+			box-shadow: 0px 0px 0px 4px rgba(158, 158, 158, 0.91);
+		  }
+		  .beepboxEditor .loopEditor {
+			--editor-background: #4d97ff40 !important;
+			border-radius: 3px;
+		  }
+		 .beepboxEditor .muteEditor {
+			--editor-background: #4d97ff40 !important;
+			border-radius: 0px;
+			height: 158px;
+		  }
+		  .beepboxEditor .pattern-area {
+			--editor-background: #4d97ff40 !important;
+			border-radius: 3px;
+		  }
+		 .beepboxEditor .trackContainer svg {
+		  	--editor-background: #3100FF !important;
+		  }
+		  .beepboxEditor .muteEditor > :last-child {
+			 --editor-background: #4d97ff40 !important;
+		  }
+		  .beepboxEditor #octaveScrollBarContainer {
+			background-color: #4d97ff40;
+		  }
+		  .beepboxEditor .muteButtonText {
+			transform: translate(0px, 1px) !important;
+			color: #777 !important;
+		  }
+		  .beepboxEditor .instrument-bar {
+			--text-color-lit: #fff !important;
+			--text-color-dim: #4c4c4c !important;
+		  }
+		  .beepboxEditor .instrument-bar .selected-instrument {
+			color: rgb(0, 0, 0) !important;
+			text-shadow: 0px 0px 4px var(--text-color-lit);
+		  }
+		  .beepboxEditor .instrument-bar .deactivated {
+			color: rgba(0, 0, 0, 1) !important;
+			text-shadow: 0px 1px 0px rgba(255, 255, 255, 0.2);
+		  }
+		  .beepboxEditor .instrument-bar > :not(.last-button) {
+			border-color: var(--background-color-lit) !important;
+		  }
+		  .beepboxEditor .instrument-bar .selected-instrument {
+			border-color: rgba(255, 255, 255, 1) !important;
+		  }
+		  .beepboxEditor button, button {
+			color: #fff;
+			background: #3c236f;
+		  }
+		  .beepboxEditor .instrument-bar .selected-instrument,
+		  .beepboxEditor .filterEditor svg,
+		  .beepboxEditor .fadeInOut svg,
+		  .beepboxEditor .harmonics svg,
+		  .beepboxEditor .spectrum svg {
+			background: rgb(255, 255, 255) !important;
+			box-shadow:
+			  0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+			  inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+			  inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3);
+		  }
+		  .beepboxEditor input[type="range"]::-webkit-slider-thumb {
+			background: #000000 !important;
+		  }
+		  .beepboxEditor input[type="range"]::-moz-range-thumb {
+			background: #000000 !important;
+		  }
+		  .beepboxEditor input[type="range"]::-webkit-slider-runnable-track {
+			background: rgb(127, 127, 127) !important;
+		  }
+		  .beepboxEditor input[type="range"]::-moz-range-track {
+			background: rgb(127, 127, 127) !important;
+		  }
+		  .beepboxEditor input[type="range"]::-webkit-slider-runnable-track::focus {
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+			  0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+			  inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+			  inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3);
+		  }
+		  .beepboxEditor input[type="range"]::-moz-range-track::focus {
+			background: rgba(255, 255, 255, 0.2) !important;
+			box-shadow:
+			  0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+			  inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+			  inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3);
+		  }
+		  .beepboxEditor input[type="text"],
+		  .beepboxEditor input[type="number"] {
+			font-size: inherit !important;
+			font-weight: bold !important;
+			font-family: inherit !important;
+			background: #ff8c1a !important;
+			text-align: center !important;
+			border: 1px solid var(--input-box-outline);
+			color: #fff !important;
+			box-shadow: 0px 0px 0px 1px rgb(134, 134, 134) !important;
+		  }
+		  .beepboxEditor .prompt {
+			--primary-text: #fff;
+			--secondary-text: #fff;
+			--ui-widget-background: #351f5f;
+			color: #fff !important;
+			background: #855cd6 !important;
+		  }
+		  .beepboxEditor .trackContainer {
+			--editor-background: #fff;
+		  }
+		  #text-content {
+			color: #fff;
+			background: #855cd6;
+		  }
+		  body:not(#secondImage) {
+			background-image: url("./scratch-bg.png"); 
+		  }
+		  body:not(#secondImage) input {
+			--primary-text: #000;
+		  }
+		  body:not(#secondImage) h1 {
+			color: #000;
+		  }
+		  button.copyButton,
+		  button.pasteButton,
+		  button.exportInstrumentButton,
+		  button.importInstrumentButton, 
+		  button.addEnvelope,
+		  div.editor-controls div button,
+		  div.selectRow button,
+		  div.effects-menu button,
+		  div.effects-menu::before,
+		  div.selectContainer select,
+		  div.selectContainer::after,
+		  span#select2-pitchPresetSelect-container {
+			color: white !important;
+		  }
+		  div#text-content {
+			padding-top: 15px;
+		  }
+		  div#beepboxEditorContainer{
+			padding-bottom: 15px;
+		  }
+		  div.channelBox {
+			border-radius: 5px;
+		  }
+		  div.curChannelBox {
+			border-radius: 5px;
+		  }
+		   
+		  div.loopEditor {
+			border-radius: 0px !important;
+		  }
+		`,
+		        "Half-Life": `
+			:root { 		
+			--page-margin: #0c1012; 		
+			--editor-background: #0c1012; 		
+			--hover-preview: white; 		
+			--playhead: rgba(255, 255, 255, 0.9); 		
+			--primary-text: #ffee00; 		
+			--secondary-text: #ffee00; 		
+			--inverted-text:  #000000;	 		
+			--text-selection: rgba(119,68,255,0.99); 		
+			--box-selection-fill: #ff6f00; 		
+			--loop-accent: #ff6f00; 		
+			--link-accent: #ff6f00; 		
+			--ui-widget-background: #36454F;		
+			--ui-widget-focus: #36454F; 		
+			--pitch-background: #5e2103; 		
+			--tonic: #ff6f00; 		
+			--fifth-note: #963c00; 		
+			--third-note: #b76f23;
+			--white-piano-key: #ccbca5; 		
+			--black-piano-key: #40382f; 		
+			--use-color-formula: true; 		
+			--track-editor-bg-pitch: #7d5100; 		
+			--track-editor-bg-pitch-dim: #3b2c10; 		
+			--track-editor-bg-noise: #730a00; 		
+			--track-editor-bg-noise-dim: #360e0b; 		
+			--track-editor-bg-mod: #856f00; 		
+			--track-editor-bg-mod-dim: #3b3205; 		
+			--multiplicative-mod-slider: #9f8460; 		
+			--overwriting-mod-slider: #9e7534; 		
+			--indicator-primary: #b38949; 		
+			--indicator-secondary: #543d1d; 		
+			--select2-opt-group: #4f3b19; 		
+			--input-box-outline: #1a0b04; 		
+			--mute-button-normal: #ddac5d;	 		
+			--mute-button-mod: #ba3d36; 		
+			--mod-label-primary: #542f16; 		
+			--mod-label-secondary-text: rgb(120, 87, 86); 
+			--mod-label-primary-text: gray; 
+			--progress-bar: #ff6f00;
+
+			--pitch-secondary-channel-hue: 0; 		
+			--pitch-secondary-channel-hue-scale: 0; 		
+			--pitch-secondary-channel-sat: 43; 		
+			--pitch-secondary-channel-sat-scale: 0.1; 		
+			--pitch-secondary-channel-lum: 60; 		
+			--pitch-secondary-channel-lum-scale: 0.05; 
+		
+			--pitch-primary-channel-hue: 154; 		
+			--pitch-primary-channel-hue-scale: 6.1; 		
+			--pitch-primary-channel-sat: 75; 		
+			--pitch-primary-channel-sat-scale: 0.1; 		
+			--pitch-primary-channel-lum: 60; 		
+			--pitch-primary-channel-lum-scale: 0.05; 	
+	
+			--pitch-secondary-note-hue: 154; 		
+			--pitch-secondary-note-hue-scale: 6.1; 		
+			--pitch-secondary-note-sat: 93.9; 		
+			--pitch-secondary-note-sat-scale: 0.1; 		
+			--pitch-secondary-note-lum: 20; 		
+			--pitch-secondary-note-lum-scale: 0.05; 
+		
+			--pitch-primary-note-hue: 154; 		
+			--pitch-primary-note-hue-scale: 6.1; 		
+			--pitch-primary-note-sat: 65; 		
+			--pitch-primary-note-sat-scale: 0.05; 		
+			--pitch-primary-note-lum: 60; 		
+			--pitch-primary-note-lum-scale: 0.05; 
+		
+			--noise-secondary-channel-hue: 0; 		
+			--noise-secondary-channel-hue-scale: 2; 		
+			--noise-secondary-channel-sat: 65; 		
+			--noise-secondary-channel-sat-scale: 0; 		
+			--noise-secondary-channel-lum: 60; 		
+			--noise-secondary-channel-lum-scale: 0; 
+		
+			--noise-primary-channel-hue: 0; 		
+			--noise-primary-channel-hue-scale: 1; 		
+			--noise-primary-channel-sat: 100; 		
+			--noise-primary-channel-sat-scale: 1; 		
+			--noise-primary-channel-lum: 63.5; 		
+			--noise-primary-channel-lum-scale: 0; 
+		
+			--noise-secondary-note-hue: 24; 		
+			--noise-secondary-note-hue-scale: 2; 		
+			--noise-secondary-note-sat: 100; 		
+			--noise-secondary-note-sat-scale: 0; 		
+			--noise-secondary-note-lum: 25; 		
+			--noise-secondary-note-lum-scale: 0; 	
+	
+			--noise-primary-note-hue: 24; 		
+			--noise-primary-note-hue-scale: 2; 		
+			--noise-primary-note-sat: 75; 		
+			--noise-primary-note-sat-scale: 1; 		
+			--noise-primary-note-lum: 60; 		
+			--noise-primary-note-lum-scale: 1; 	
+	
+			--mod-secondary-channel-hue: 55; 		
+			--mod-secondary-channel-hue-scale: 1.5; 		
+			--mod-secondary-channel-sat: 100; 		
+			--mod-secondary-channel-sat-scale: 0; 		
+			--mod-secondary-channel-lum: 20; 		
+			--mod-secondary-channel-lum-scale: 0; 
+		
+			--mod-primary-channel-hue: 55; 		
+			--mod-primary-channel-hue-scale: 1.5; 		
+			--mod-primary-channel-sat: 96; 		
+			--mod-primary-channel-sat-scale: 0; 		
+			--mod-primary-channel-lum: 50; 		
+			--mod-primary-channel-lum-scale: 0; 
+		
+			--mod-secondary-note-hue: 55; 		
+			--mod-secondary-note-hue-scale: 1.5; 		
+			--mod-secondary-note-sat: 92; 		
+			--mod-secondary-note-sat-scale: 0; 		
+			--mod-secondary-note-lum: 45; 		
+			--mod-secondary-note-lum-scale: 0; 
+		
+			--mod-primary-note-hue: 55; 		
+			--mod-primary-note-hue-scale: 1.5; 		
+			--mod-primary-note-sat: 96; 		
+			--mod-primary-note-sat-scale: 0; 		
+			--mod-primary-note-lum: 85; 		
+			--mod-primary-note-lum-scale: 0; 
+			--note-flash: #ffffff;
+			--note-flash-secondary: #ffffff77;	
+				}
+		/* replaces hotdog (in a hacky way) with an image of gordon freeman but really wide*/
+		#Hotdog {
+		display: none;
+		}
+		.instructions-column > section:first-of-type > p:first-of-type:after {
+		display: block;
+		content: url("./wide-gordon.png");
+		width: inherit;
+		height: contain;
+		text-align: center;
+		margin-top: 25px;
+		}
+		/* sets background image */
+		body {
+		background-image: url("./lambda.png") !important;
+		background-size: cover !important;
+		background-position: center !important;
+		background-repeat: no-repeat !important;
+			}
+			/* make editor background transparent */
+		#beepboxEditorContainer, .beepboxEditor, #text-content {
+		}
+
+			@font-face {
+		   font-family: "trebuc";
+		   src:
+ 		   url("./trebuc.otf") format("opentype") tech(color-COLRv1),
+			}
+
+			html {
+ 		   font-family: 'trebuc';
+			}
+			div.channelBoxLabel {
+				font-family: 'trebuc' !important;
+			}
+
+			#modTitle::before {
+				content: "λbyssBox" !important;
+			}
+
+			`,
+			        "Frutiger Aero": `
+			:root {		
+			--page-margin: #fff; 		
+			--editor-background: #2e538c;		
+			--hover-preview: white; 		
+			--playhead: rgba(255, 255, 255, 0.9); 		
+			--primary-text: white; 		
+			--secondary-text: #ceddff;		
+			--inverted-text: white;	 		
+			--text-selection: rgba(119,68,255,0.99); 		
+			--box-selection-fill: #0a091e; 		
+			--loop-accent: #6fafe8; 		
+			--link-accent: #a2b0ff; 		
+			--ui-widget-background: #84aef0; 		
+			--ui-widget-focus: #2b5376; 		
+			--pitch-background: #4671b5; 		
+			--tonic: #fff; 		
+			--fifth-note: #620297; 
+			--third-note: #bf2c78;		
+			--white-piano-key: #dbe5ec;		
+			--black-piano-key: #2f3a40;
+			--white-piano-key-text: #131200;		
+			--black-piano-key-text: #fff;					
+			--use-color-formula: true; 		
+			--track-editor-bg-pitch: linear-gradient(rgba(39, 130, 176, 1),rgba(12, 43, 62, 1)); 		
+			--track-editor-bg-pitch-dim: linear-gradient(rgba(12, 43, 62, 0.43),rgba(5, 21, 31, 0.76)); 		
+			--track-editor-bg-noise: linear-gradient(rgba(45, 74, 161, 1),rgba(8, 32, 79, 1)); 		
+			--track-editor-bg-noise-dim: linear-gradient(rgba(8, 32, 79, 0.43), rgba(3, 16, 41, 0.78)); 		
+			--track-editor-bg-mod: linear-gradient(rgba(70, 41, 158, 1), rgba(38, 20, 94, 1)); 		
+			--track-editor-bg-mod-dim: linear-gradient(rgba(38, 20, 94, 0.43),rgba(17, 6, 48, 0.76)); 		
+			--multiplicative-mod-slider: #60769f; 		
+			--overwriting-mod-slider: #343b9e; 		
+			--indicator-primary: #499ab3; 		
+			--indicator-secondary: #9db9c4; 		
+			--select2-opt-group: #185f8a; 		
+			--input-box-outline: #18041a; 		
+			--mute-button-normal: #97d4f9; 		
+			--mute-button-mod: #8a5fff;		
+			--mod-label-primary: #341a7b; 		
+			--mod-label-secondary-text: rgb(86, 93, 120);
+			--mod-label-primary-text: gray; 
+			--progress-bar: #84aef0;
+			--empty-sample-bar: #26477a;
+
+			--pitch-secondary-channel-hue: 110; 		
+			--pitch-secondary-channel-hue-scale: 0; 		
+			--pitch-secondary-channel-sat: 63; 		
+			--pitch-secondary-channel-sat-scale: 0.1; 		
+			--pitch-secondary-channel-lum: 50; 		
+			--pitch-secondary-channel-lum-scale: 0.05; 
+		
+			--pitch-primary-channel-hue: 120; 		
+			--pitch-primary-channel-hue-scale: 6.1; 		
+			--pitch-primary-channel-sat: 75; 		
+			--pitch-primary-channel-sat-scale: 0.1; 		
+			--pitch-primary-channel-lum: 67.5; 		
+			--pitch-primary-channel-lum-scale: 0.05; 	
+	
+			--pitch-secondary-note-hue: 110; 		
+			--pitch-secondary-note-hue-scale: 6.1; 		
+			--pitch-secondary-note-sat: 63.9; 		
+			--pitch-secondary-note-sat-scale: 0.1; 		
+			--pitch-secondary-note-lum: 55; 		
+			--pitch-secondary-note-lum-scale: 0.05; 
+		
+			--pitch-primary-note-hue: 120; 		
+			--pitch-primary-note-hue-scale: 6.1; 		
+			--pitch-primary-note-sat: 100; 		
+			--pitch-primary-note-sat-scale: 0.05; 		
+			--pitch-primary-note-lum: 85.6; 		
+			--pitch-primary-note-lum-scale: 0.025; 
+		
+			--noise-secondary-channel-hue: 90; 		
+			--noise-secondary-channel-hue-scale: 2; 		
+			--noise-secondary-channel-sat: 65; 		
+			--noise-secondary-channel-sat-scale: 0; 		
+			--noise-secondary-channel-lum: 42; 		
+			--noise-secondary-channel-lum-scale: 0; 
+		
+			--noise-primary-channel-hue: 80; 		
+			--noise-primary-channel-hue-scale: 1; 		
+			--noise-primary-channel-sat: 100; 		
+			--noise-primary-channel-sat-scale: 1; 		
+			--noise-primary-channel-lum: 63.5; 		
+			--noise-primary-channel-lum-scale: 0; 
+		
+			--noise-secondary-note-hue: 90; 		
+			--noise-secondary-note-hue-scale: 2; 		
+			--noise-secondary-note-sat: 60; 		
+			--noise-secondary-note-sat-scale: 0; 		
+			--noise-secondary-note-lum: 35; 		
+			--noise-secondary-note-lum-scale: 0; 	
+	
+			--noise-primary-note-hue: 80; 		
+			--noise-primary-note-hue-scale: 2; 		
+			--noise-primary-note-sat: 100; 		
+			--noise-primary-note-sat-scale: 1; 		
+			--noise-primary-note-lum: 60; 		
+			--noise-primary-note-lum-scale: 1; 	
+	
+			--mod-secondary-channel-hue: 55; 		
+			--mod-secondary-channel-hue-scale: 1.5; 		
+			--mod-secondary-channel-sat: 100; 		
+			--mod-secondary-channel-sat-scale: 0; 		
+			--mod-secondary-channel-lum: 20; 		
+			--mod-secondary-channel-lum-scale: 0; 
+		
+			--mod-primary-channel-hue: 55; 		
+			--mod-primary-channel-hue-scale: 1.5; 		
+			--mod-primary-channel-sat: 96; 		
+			--mod-primary-channel-sat-scale: 0; 		
+			--mod-primary-channel-lum: 50; 		
+			--mod-primary-channel-lum-scale: 0; 
+		
+			--mod-secondary-note-hue: 55; 		
+			--mod-secondary-note-hue-scale: 1.5; 		
+			--mod-secondary-note-sat: 62; 		
+			--mod-secondary-note-sat-scale: 0; 		
+			--mod-secondary-note-lum: 45; 		
+			--mod-secondary-note-lum-scale: 0; 
+		
+			--mod-primary-note-hue: 55; 		
+			--mod-primary-note-hue-scale: 1.5; 		
+			--mod-primary-note-sat: 96; 		
+			--mod-primary-note-sat-scale: 0; 		
+			--mod-primary-note-lum: 85; 		
+			--mod-primary-note-lum-scale: 0; 	
+
+			--note-flash: #ffffff;
+			--note-flash-secondary: #ffffff77;
+			--sample-failed: #bf2c78;
+
+		}
+		div.promptContainerBG {
+			background-color: var(--editor-background) !important;
+			backdrop-filter: unset !important;
+			opacity: 0 !important;
+		} 
+
+		div.mute-button::before {
+			background: #fff0 !important;
+			background-image: url("./vistaSpeakerIcon.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px !important;
+			color: #fff0;
+
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		div.mute-button.muted::before {
+			background: #fff0 !important;
+			background-image: url("./vistaSpeakerIconMuted.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px !important;
+			color: #fff0;
+
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		#text-content > section > h1 > font {
+			display: none;
+			}
+			#text-content > section > h1 {
+			margin: auto;
+			content: url("./AbyssBoxFrutigerAeroThemeLogo.png");
+			}
+
+		button.mobileEffectsButton.deactivated {
+		box-shadow: none !important;
+		}
+
+		button.mobileInstButton.deactivated {
+		box-shadow: none !important;
+		}
+
+		button.mobileEnvelopesButton.deactivated {
+		box-shadow: none !important;
+		}
+
+		select.trackSelectBox {
+			border-image: none !important;
+		}
+
+			@font-face {
+		   font-family: "Frutiger";
+		   src:
+ 		   url("./FrutigerLight.ttf") format("truetype") tech(color-COLRv1),
+			}
+
+			canvas#oscilascopeAll {
+				background: #2e538c !important; 
+				border: 2px solid rgba(132, 174, 240, 0) !important;
+			}
+
+			.beepboxEditor .play-pause-area div:last-child {
+				position: relative;
+				width: 144px;
+				height: 32px;
+			  }
+			  .beepboxEditor .play-pause-area div:last-child::before {
+				content: "";
+				display: block;
+				width: calc(144px + 4px);
+				height: calc(32px + 4px);
+				box-shadow: 0px -1px 1px 0px rgba(0, 0, 0, 0.5), inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5), inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3);
+				position: absolute;
+				z-index: 1;
+			  }
+
+			div.prompt.noSelection{
+				background: linear-gradient(rgba(132, 174, 240, 0.5), rgba(42, 61, 106, 0.5)) !important; 
+				opacity: 55;
+				backdrop-filter: blur(14px);
+			}  
+
+			svg#firstImage {
+				opacity: 50%;
+				--editor-background: #84aef0;
+			}
+
+			body {
+			background-image: url("./frutigerbg3.jpg") !important;
+			background-position: top;
+			background-attachment: fixed;
+			background-repeat: no-repeat;
+			background-size: cover;
+			image-rendering: optimizeQuality !important;
+			}
+
+			#beepboxEditorContainer {
+				background: linear-gradient(rgba(238, 243, 255, 0.5), rgba(57, 94, 179, 0.5)) !important;
+				border-style: solid;
+  				border-color: lightblue;
+				padding-bottom: 5px;
+				backdrop-filter: blur(8px);
+				box-shadow: inset 0 0 2000px rgba(255, 255, 255, .5);
+				--inverted-text: black;
+			}
+			#text-content {
+				background: linear-gradient(#395eb380, #03112f80);
+				border-style: solid;
+  				border-color: lightblue;
+				  backdrop-filter: blur(14px);
+				  box-shadow: inset 0 0 2000px rgba(255, 255, 255, .5);
+			}
+
+				div.playback-bar-controls button.playButton, 
+				div.playback-bar-controls button.pauseButton, 
+				div.playback-bar-controls button.recordButton, 
+				div.playback-bar-controls button.stopButton, 
+				div.playback-bar-controls button.prevBarButton, 
+				div.playback-bar-controls button.nextBarButton, 
+				div.selectRow button.copyButton, 
+				div.selectRow button.pasteButton, 
+				div.editor-controls button.exportInstrumentButton, 
+				div.editor-controls button.importInstrumentButton,
+				div.editor-controls div button.add-envelope,
+				div.editor-controls div button.delete-envelope, 
+				.beepboxEditor .select2-selection__rendered,
+				.beepboxEditor .instrument-bar button,
+				.beepboxEditor .eq-filter-type-bar button .deactivated,
+				.beepboxEditor .note-filter-type-bar button .deactivated,
+				.beepboxEditor select  { 
+					box-shadow: 0px 1px 3px 0px rgb(0, 0, 0), inset 0px -12px 14px 0px rgba(0, 0, 0, 0.3), inset 0px -7px 4px 0px rgba(79, 99, 204, 0.71), inset 0px -15px 0px 0px rgba(0, 0, 0, 0.2), inset 0px 1px 2px 1px #ffffff54;
+					--ui-widget-background: linear-gradient(rgba(182, 207, 255, 0.8), rgba(98, 142, 242, 0.8)) !important;
+				}
+
+				.beepboxEditor select:focus
+				{
+					border-image-source: none;
+					--ui-widget-background: linear-gradient(#2a3d6a, #2a3d6a) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px 10px 20px 1px rgba(0, 0, 0, 0.4),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+
+				.beepboxEditor button, button
+				{
+					--ui-widget-background: linear-gradient(#84aef0, #2a3d6a) !important;
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				.beepboxEditor .select2-container--open .select2-selection__rendered,
+				.beepboxEditor button:focus,
+				button:focus,
+				.beepboxEditor .instrument-bar .selected-instrument,
+				.beepboxEditor .eq-filter-type-bar button:not(.deactivated),
+				.beepboxEditor .note-filter-type-bar button:not(.deactivated)
+				{
+					--ui-widget-background: linear-gradient(#333, #444) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor .filterEditor svg,
+				.beepboxEditor .fadeInOut svg,
+				.beepboxEditor .harmonics svg,
+				.beepboxEditor .spectrum svg
+				{
+					background: rgba(0, 0, 0, 0.3) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-webkit-slider-thumb
+				{
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+						inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-webkit-slider-runnable-track
+				{
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+					border-radius: 4px;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-webkit-slider-runnable-track
+				{
+					background: rgba(255, 255, 255, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-ms-thumb
+				{
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+						inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-ms-track
+				{
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+					border-radius: 4px;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-ms-track
+				{
+					background: rgba(255, 255, 255, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-moz-range-thumb
+				{
+					height: 16px !important;
+					width: 16px !important;
+					border-radius: 40px !important;
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+						inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-moz-range-track
+				{
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+					border-radius: 4px;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-moz-range-track
+				{
+					background: rgba(255, 255, 255, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="text"],
+				.beepboxEditor input[type="number"]
+				{
+					border: none !important;
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]
+				{
+					appearance: none;
+					background: rgba(0, 0, 0, 0.3);
+					color: currentColor;
+					border-radius: 1px;
+					width: 1em !important;
+					height: 1em !important;
+					box-shadow:
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked
+				{
+					display: flex;
+					justify-content: center;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked:after
+				{
+					width: 1em;
+					height: 1em;
+					text-align: center;
+					font-size: 0.8em;
+					content: "✓";
+					color: currentColor;
+					text-shadow: 0px 0px 2px rgba(255, 255, 255, 0.5);
+				}
+
+			html {
+ 		   	font-family: 'Frutiger';
+			}
+
+			div.channelBoxLabel {
+				font-family: 'Frutiger' !important;
+			}
+
+		   div.beepboxEditor.load {
+			background: none !important;
+		   }
+
+		   div.noSelection {
+			background: none !important;
+		   }
+
+		   .beepboxEditor .loopEditor {
+			background: none !important;
+		   }
+
+		   .beepboxEditor .muteEditor {
+			background: linear-gradient(#c4f0d1, #83c139) !important;
+			border-radius: 5px;
+			box-shadow: 0px 1px 1px 0px rgb(0, 0, 0), inset 0px 3px 14px 0px rgba(0, 0, 0, 0.1), inset 0px -4px 0px 0px rgba(0, 0, 0, 0.1);
+			opacity: 65%;
+		   }
+
+		   div.muteEditor div {
+			background: none !important;
+			--track-editor-bg-pitch: #1b4079;
+			--track-editor-bg-noise: #213779;
+			--track-editor-bg-mod: #46299e;
+	
+			--track-editor-bg-pitch-dim: #0c2b3e; 		
+			--track-editor-bg-noise-dim: #08204f; 			
+			--track-editor-bg-mod-dim: #26145e; 
+
+		   }
+
+		   div.channelBox {
+			border-radius: 5px;
+		  }
+		  div.curChannelBox {
+			border-radius: 5px;
+		  }
+
+			`,
+        "Frutiger Aero Night": `
+			:root {		
+			--page-margin: #26032b; 		
+			--editor-background: #290f37;		
+			--hover-preview: white; 		
+			--playhead: rgba(255, 255, 255, 0.9); 		
+			--primary-text: white; 		
+			--secondary-text: #d7ceff;		
+			--inverted-text: #140111;	 		
+			--text-selection: rgba(119,68,255,0.99); 		
+			--box-selection-fill: #0a091e; 		
+			--loop-accent: #ab6fe8; 		
+			--link-accent: #eba2ff; 		
+			--ui-widget-background: #c03ed2; 		
+			--ui-widget-focus: #582b76; 		
+			--pitch-background: #26032b; 		
+			--tonic: #8d46b5; 		
+			--fifth-note: #0e0297; 
+			--third-note: #bf2c78;		
+			--white-piano-key: #dbe5ec;		
+			--black-piano-key: #2f3a40;
+			--white-piano-key-text: #131200;		
+			--black-piano-key-text: #fff;					
+			--use-color-formula: true; 		
+			--track-editor-bg-pitch: linear-gradient(rgba(114, 39, 176, 1),rgba(44, 12, 62, 1)); 		
+			--track-editor-bg-pitch-dim: linear-gradient(rgba(38, 12, 62, 0.4392156862745098),rgba(22, 5, 31, 0.7686274509803922)); 		
+			--track-editor-bg-noise: linear-gradient(rgba(147, 45, 161, 1),rgba(71, 8, 79, 1)); 		
+			--track-editor-bg-noise-dim: linear-gradient(rgba(67, 8, 79, 0.4392156862745098), rgba(38, 3, 41, 0.7686274509803922)); 		
+			--track-editor-bg-mod: linear-gradient(rgba(158, 41, 80, 1), rgba(94, 20, 61, 1)); 		
+			--track-editor-bg-mod-dim: linear-gradient(rgba(94, 20, 63, 0.4392156862745098),rgba(48, 6, 22, 0.7686274509803922)); 			
+			--multiplicative-mod-slider: #60769f; 		
+			--overwriting-mod-slider: #7d349e; 		
+			--indicator-primary: #9149b3; 		
+			--indicator-secondary: #b39dc4; 		
+			--select2-opt-group: #185f8a; 		
+			--input-box-outline: #18041a; 		
+			--mute-button-normal: #c597f9; 		
+			--mute-button-mod: #da5fff;		
+			--mod-label-primary: #6b1a7b; 		
+			--mod-label-secondary-text: rgb(86, 93, 120);
+			--mod-label-primary-text: gray; 
+			--progress-bar: #ec84f0;
+			--empty-sample-bar: #1d092f;
+
+			--pitch-secondary-channel-hue: 110; 		
+			--pitch-secondary-channel-hue-scale: 0; 		
+			--pitch-secondary-channel-sat: 63; 		
+			--pitch-secondary-channel-sat-scale: 0.1; 		
+			--pitch-secondary-channel-lum: 50; 		
+			--pitch-secondary-channel-lum-scale: 0.05; 
+		
+			--pitch-primary-channel-hue: 120; 		
+			--pitch-primary-channel-hue-scale: 6.1; 		
+			--pitch-primary-channel-sat: 75; 		
+			--pitch-primary-channel-sat-scale: 0.1; 		
+			--pitch-primary-channel-lum: 67.5; 		
+			--pitch-primary-channel-lum-scale: 0.05; 	
+	
+			--pitch-secondary-note-hue: 110; 		
+			--pitch-secondary-note-hue-scale: 6.1; 		
+			--pitch-secondary-note-sat: 63.9; 		
+			--pitch-secondary-note-sat-scale: 0.1; 		
+			--pitch-secondary-note-lum: 55; 		
+			--pitch-secondary-note-lum-scale: 0.05; 
+		
+			--pitch-primary-note-hue: 120; 		
+			--pitch-primary-note-hue-scale: 6.1; 		
+			--pitch-primary-note-sat: 100; 		
+			--pitch-primary-note-sat-scale: 0.05; 		
+			--pitch-primary-note-lum: 85.6; 		
+			--pitch-primary-note-lum-scale: 0.025; 
+		
+			--noise-secondary-channel-hue: 90; 		
+			--noise-secondary-channel-hue-scale: 2; 		
+			--noise-secondary-channel-sat: 65; 		
+			--noise-secondary-channel-sat-scale: 0; 		
+			--noise-secondary-channel-lum: 42; 		
+			--noise-secondary-channel-lum-scale: 0; 
+		
+			--noise-primary-channel-hue: 80; 		
+			--noise-primary-channel-hue-scale: 1; 		
+			--noise-primary-channel-sat: 100; 		
+			--noise-primary-channel-sat-scale: 1; 		
+			--noise-primary-channel-lum: 63.5; 		
+			--noise-primary-channel-lum-scale: 0; 
+		
+			--noise-secondary-note-hue: 90; 		
+			--noise-secondary-note-hue-scale: 2; 		
+			--noise-secondary-note-sat: 60; 		
+			--noise-secondary-note-sat-scale: 0; 		
+			--noise-secondary-note-lum: 35; 		
+			--noise-secondary-note-lum-scale: 0; 	
+	
+			--noise-primary-note-hue: 80; 		
+			--noise-primary-note-hue-scale: 2; 		
+			--noise-primary-note-sat: 100; 		
+			--noise-primary-note-sat-scale: 1; 		
+			--noise-primary-note-lum: 60; 		
+			--noise-primary-note-lum-scale: 1; 	
+	
+			--mod-secondary-channel-hue: 55; 		
+			--mod-secondary-channel-hue-scale: 1.5; 		
+			--mod-secondary-channel-sat: 100; 		
+			--mod-secondary-channel-sat-scale: 0; 		
+			--mod-secondary-channel-lum: 20; 		
+			--mod-secondary-channel-lum-scale: 0; 
+		
+			--mod-primary-channel-hue: 55; 		
+			--mod-primary-channel-hue-scale: 1.5; 		
+			--mod-primary-channel-sat: 96; 		
+			--mod-primary-channel-sat-scale: 0; 		
+			--mod-primary-channel-lum: 50; 		
+			--mod-primary-channel-lum-scale: 0; 
+		
+			--mod-secondary-note-hue: 55; 		
+			--mod-secondary-note-hue-scale: 1.5; 		
+			--mod-secondary-note-sat: 62; 		
+			--mod-secondary-note-sat-scale: 0; 		
+			--mod-secondary-note-lum: 45; 		
+			--mod-secondary-note-lum-scale: 0; 
+		
+			--mod-primary-note-hue: 55; 		
+			--mod-primary-note-hue-scale: 1.5; 		
+			--mod-primary-note-sat: 96; 		
+			--mod-primary-note-sat-scale: 0; 		
+			--mod-primary-note-lum: 85; 		
+			--mod-primary-note-lum-scale: 0; 	
+
+			--note-flash: #ffffff;
+			--note-flash-secondary: #ffffff77;
+			--sample-failed: #bf2c78;
+
+		}
+
+		* {
+		/*cursor: url("abyssbox_cursor.png"), auto !important;*/
+		--muted-symbol: url("./vistaSpeakerIconMuted.png");
+		--unmuted-symbol: url("./vistaSpeakerIcon.png");
+		}
+	
+
+		/* Frutiger Aero Icons */
+
+		div.promptContainerBG {
+			background-color: var(--editor-background) !important;
+			backdrop-filter: unset !important;
+			opacity: 0 !important;
+		}
+
+		div.mute-button::before {
+			background: #fff0 !important;
+			background-image: url("./vistaSpeakerIcon.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px !important;
+			color: #fff0;
+
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important; 
+		}
+
+		div.mute-button.muted::before {
+			background: #fff0 !important;
+			background-image: url("./vistaSpeakerIconMuted.png") !important;
+			background-size: 18px !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			mask-size: 800px !important;
+			color: #fff0;
+
+			image-rendering: -moz-crisp-edges !important;         /* Firefox */
+			image-rendering: -webkit-optimize-contrast !important; /* Webkit (Chrome/Safari) */
+			image-rendering: -o-crisp-edges !important;            /* Opera */
+			image-rendering: pixelated !important;                 /* Future browsers */
+			image-rendering: optimizeSpeed !important;             /* IE */
+		}
+
+		#text-content > section > h1 > font {
+			display: none;
+			}
+			#text-content > section > h1 {
+			margin: auto;
+			content: url("./AbyssBoxFrutigerAeroThemeLogo.png");
+			}
+
+		button.mobileEffectsButton.deactivated {
+		box-shadow: none !important;
+		}
+
+		button.mobileInstButton.deactivated {
+		box-shadow: none !important;
+		}
+
+		button.mobileEnvelopesButton.deactivated {
+		box-shadow: none !important;
+		}
+
+		select.trackSelectBox {
+			border-image: none !important;
+		}
+
+			@font-face {
+		   font-family: "Frutiger";
+		   src:
+ 		   url("./FrutigerLight.ttf") format("truetype") tech(color-COLRv1),
+			}
+
+			canvas#oscilascopeAll {
+				background: #2e538c !important; 
+				border: 2px solid #84aef000 !important;
+			}
+
+			.beepboxEditor .play-pause-area div:last-child {
+				position: relative;
+				width: 144px;
+				height: 32px;
+			  }
+			  .beepboxEditor .play-pause-area div:last-child::before {
+				content: "";
+				display: block;
+				width: calc(144px + 4px);
+				height: calc(32px + 4px);
+				box-shadow: 0px -1px 1px 0px rgba(0, 0, 0, 0.5), inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5), inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3);
+				position: absolute;
+				z-index: 1;
+			  }
+
+			div.prompt.noSelection{
+				background: linear-gradient(#84aef080, #2a3d6a80) !important; 
+				opacity: 77;
+				backdrop-filter: blur(14px);
+			}  
+
+			svg#firstImage {
+				opacity: 50%;
+				--editor-background: #000000;
+			}
+
+
+			body {
+			background-image: url("./frutigerbg3.png") !important;
+			background-position: top;
+			background-attachment: fixed;
+			background-repeat: no-repeat;
+			background-size: 145%;
+			image-rendering: optimizeQuality !important;
+				}
+
+			#beepboxEditorContainer {
+				background: linear-gradient(rgba(245, 171, 251, 0.5019607843137255), rgba(72, 57, 179, 0.5019607843137255)) !important;
+				border-style: solid;
+  				border-color: #050428;
+				padding-bottom: 5px;
+				--inverted-text: black;
+				backdrop-filter: blur(14px);
+				box-shadow: inset 0 0 2000px rgba(0, 0, 0, 0.5)
+			}
+			#text-content {
+				background: linear-gradient(rgba(72, 57, 179, 0.5019607843137255), rgba(34, 3, 47, 0.5019607843137255));
+				border-style: solid;
+  				border-color: #050428;
+				  backdrop-filter: blur(14px);
+				  box-shadow: inset 0 0 2000px rgba(0, 0, 0, 0.5)
+			}
+
+				div.playback-bar-controls button.playButton, 
+				div.playback-bar-controls button.pauseButton, 
+				div.playback-bar-controls button.recordButton, 
+				div.playback-bar-controls button.stopButton, 
+				div.playback-bar-controls button.prevBarButton, 
+				div.playback-bar-controls button.nextBarButton, 
+				div.selectRow button.copyButton, 
+				div.selectRow button.pasteButton, 
+				div.editor-controls button.exportInstrumentButton, 
+				div.editor-controls button.importInstrumentButton,
+				div.editor-controls div button.add-envelope,
+				div.editor-controls div button.delete-envelope, 
+				.beepboxEditor .select2-selection__rendered,
+				.beepboxEditor .instrument-bar button,
+				.beepboxEditor .eq-filter-type-bar button .deactivated,
+				.beepboxEditor .note-filter-type-bar button .deactivated,
+				.beepboxEditor select  { 
+					box-shadow: 0px 1px 3px 0px rgb(0, 0, 0), inset 0px -12px 14px 0px rgba(0, 0, 0, 0.3), inset 0px -7px 4px 0px rgba(140, 47, 202, 0.71), inset 0px -15px 0px 0px rgba(0, 0, 0, 0.2), inset 0px 1px 2px 1px #ffffff54;
+					--ui-widget-background: linear-gradient(rgba(219, 122, 238, 0.8), rgba(143, 98, 242, 0.8)) !important;
+				}
+
+				.beepboxEditor select:focus
+				{
+					border-image-source: none;
+					--ui-widget-background: linear-gradient(#db7aeecc, #8f62f2cc) !important;
+					box-shadow: 0px 1px 3px 0px rgb(0, 0, 0), inset 0px -12px 14px 0px rgba(0, 0, 0, 0.3), inset 0px -7px 4px 0px rgba(140, 47, 202, 0.71), inset 0px -15px 0px 0px rgba(0, 0, 0, 0.2), inset 0px 1px 2px 1px rgba(255, 255, 255, 0.32941176470588235)
+				}
+
+				.beepboxEditor button, button
+				{
+					--ui-widget-background: linear-gradient(#db7aeecc, #8f62f2cc) !important;
+					box-shadow: 0px 1px 3px 0px rgb(0, 0, 0), inset 0px -12px 14px 0px rgba(0, 0, 0, 0.3), inset 0px -7px 4px 0px rgba(140, 47, 202, 0.71), inset 0px -15px 0px 0px rgba(0, 0, 0, 0.2), inset 0px 1px 2px 1px rgba(255, 255, 255, 0.32941176470588235)
+				}
+				.beepboxEditor .select2-container--open .select2-selection__rendered,
+				.beepboxEditor button:focus,
+				button:focus,
+				.beepboxEditor .instrument-bar .selected-instrument,
+				.beepboxEditor .eq-filter-type-bar button:not(.deactivated),
+				.beepboxEditor .note-filter-type-bar button:not(.deactivated)
+				{
+					--ui-widget-background: linear-gradient(#333, #444) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor .filterEditor svg,
+				.beepboxEditor .fadeInOut svg,
+				.beepboxEditor .harmonics svg,
+				.beepboxEditor .spectrum svg
+				{
+					background: rgba(0, 0, 0, 0.3) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-webkit-slider-thumb
+				{
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+						inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-webkit-slider-runnable-track
+				{
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+					border-radius: 4px;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-webkit-slider-runnable-track
+				{
+					background: rgba(255, 255, 255, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-ms-thumb
+				{
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+						inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-ms-track
+				{
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+					border-radius: 4px;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-ms-track
+				{
+					background: rgba(255, 255, 255, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-moz-range-thumb
+				{
+					height: 16px !important;
+					width: 16px !important;
+					border-radius: 40px !important;
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.4),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.7),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+						inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-moz-range-track
+				{
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+					border-radius: 4px;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-moz-range-track
+				{
+					background: rgba(255, 255, 255, 0.2) !important;
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.2),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="text"],
+				.beepboxEditor input[type="number"]
+				{
+					border: none !important;
+					background: rgba(0, 0, 0, 0.2) !important;
+					box-shadow:
+						0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]
+				{
+					appearance: none;
+					background: rgba(0, 0, 0, 0.3);
+					color: currentColor;
+					border-radius: 1px;
+					width: 1em !important;
+					height: 1em !important;
+					box-shadow:
+						inset 0px 2px 3px 0px rgba(0, 0, 0, 0.7),
+						inset 0px -1px 0px 0px rgba(255, 255, 255, 0.3)
+					;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked
+				{
+					display: flex;
+					justify-content: center;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked:after
+				{
+					width: 1em;
+					height: 1em;
+					text-align: center;
+					font-size: 0.8em;
+					content: "✓";
+					color: currentColor;
+					text-shadow: 0px 0px 2px rgba(255, 255, 255, 0.5);
+				}
+
+			html {
+ 		   	font-family: 'Frutiger';
+			}
+
+			div.channelBoxLabel {
+				font-family: 'Frutiger' !important;
+			}
+
+
+		   div.beepboxEditor.load {
+			background: none !important;
+		   }
+
+		   div.noSelection {
+			background: none !important;
+		   }
+
+		   .beepboxEditor .loopEditor {
+			background: none !important;
+		   }
+
+		   .beepboxEditor .muteEditor {
+			background: linear-gradient(rgba(154, 118, 170, 1), rgba(61, 36, 72, 1)) !important;
+			border-radius: 5px;
+			box-shadow: 0px 1px 1px 0px rgb(0, 0, 0), inset 0px 3px 14px 0px rgba(0, 0, 0, 0.1), inset 0px -4px 0px 0px rgba(0, 0, 0, 0.1);
+			opacity: 65%;
+		   }
+
+		   div.muteEditor div {
+			background: none !important;
+			--track-editor-bg-pitch: #5f8fd6;
+			--track-editor-bg-noise: #5f8fd6;
+			--track-editor-bg-mod: #8a76c5;
+	
+			--track-editor-bg-pitch-dim: #2472a1; 		
+			--track-editor-bg-noise-dim: #2472a1; 			
+			--track-editor-bg-mod-dim: #4222a0; 
+
+		   }
+
+		   div.channelBox {
+			border-radius: 5px;
+		  }
+		  div.curChannelBox {
+			border-radius: 5px;
+		  }
+
+			`,
+			        "Doom 1993": `
+			:root { 		
+			--page-margin: #470000; 		
+			--editor-background: #470000; 		
+			--hover-preview: white; 		
+			--playhead: rgba(255, 255, 255, 0.9); 		
+			--primary-text: #ffffff; 		
+			--secondary-text: #ffffff; 		
+			--inverted-text:  #000000;	 		
+			--text-selection: rgba(119,68,255,0.99); 		
+			--box-selection-fill: #ff6f00; 		
+			--loop-accent: #ff0000; 		
+			--link-accent: #962727; 		
+			--ui-widget-background: #4f3b36;		
+			--ui-widget-focus: #4f3b36; 		
+			--pitch-background: #7d0000; 		
+			--tonic: #ff0000; 		
+			--fifth-note: #962727; 	
+			--third-note: #d2192a;	
+			--white-piano-key: #ccbca5; 		
+			--black-piano-key: #40382f; 		
+			--use-color-formula: true; 		
+			--track-editor-bg-pitch: #7d1f00; 		
+			--track-editor-bg-pitch-dim: #401000; 		
+			--track-editor-bg-noise: #7d0000; 		
+			--track-editor-bg-noise-dim: #400000; 		
+			--track-editor-bg-mod: #7d0028; 		
+			--track-editor-bg-mod-dim: #470017; 		
+			--multiplicative-mod-slider: #9f8460; 		
+			--overwriting-mod-slider: #9f6460; 		
+			--indicator-primary: #b38949; 		
+			--indicator-secondary: #543d1d; 		
+			--select2-opt-group: #4f3b19; 		
+			--input-box-outline: #1a0404; 		
+			--mute-button-normal: #dd5d5d;	 		
+			--mute-button-mod: #ba3d36; 		
+			--mod-label-primary: #541616; 		
+			--mod-label-secondary-text: rgb(120, 87, 86); 
+			--mod-label-primary-text: gray; 
+			--progress-bar: #ff0000;
+
+			--pitch-secondary-channel-hue: 0; 		
+			--pitch-secondary-channel-hue-scale: 0; 		
+			--pitch-secondary-channel-sat: 43; 		
+			--pitch-secondary-channel-sat-scale: 0.1; 		
+			--pitch-secondary-channel-lum: 60; 		
+			--pitch-secondary-channel-lum-scale: 0.05; 
+		
+			--pitch-primary-channel-hue: -4; 		
+			--pitch-primary-channel-hue-scale: 6.1; 		
+			--pitch-primary-channel-sat: 75; 		
+			--pitch-primary-channel-sat-scale: 0.1; 		
+			--pitch-primary-channel-lum: 60; 		
+			--pitch-primary-channel-lum-scale: 0.05; 	
+	
+			--pitch-secondary-note-hue: -4; 		
+			--pitch-secondary-note-hue-scale: 6.1; 		
+			--pitch-secondary-note-sat: 93.9; 		
+			--pitch-secondary-note-sat-scale: 0.1; 		
+			--pitch-secondary-note-lum: 20; 		
+			--pitch-secondary-note-lum-scale: 0.05; 
+		
+			--pitch-primary-note-hue: -4; 		
+			--pitch-primary-note-hue-scale: 6.1; 		
+			--pitch-primary-note-sat: 65; 		
+			--pitch-primary-note-sat-scale: 0.05; 		
+			--pitch-primary-note-lum: 60; 		
+			--pitch-primary-note-lum-scale: 0.05; 
+		
+			--noise-secondary-channel-hue: 0; 		
+			--noise-secondary-channel-hue-scale: 2; 		
+			--noise-secondary-channel-sat: 65; 		
+			--noise-secondary-channel-sat-scale: 0; 		
+			--noise-secondary-channel-lum: 60; 		
+			--noise-secondary-channel-lum-scale: 0; 
+		
+			--noise-primary-channel-hue: 0; 		
+			--noise-primary-channel-hue-scale: 1; 		
+			--noise-primary-channel-sat: 100; 		
+			--noise-primary-channel-sat-scale: 1; 		
+			--noise-primary-channel-lum: 63.5; 		
+			--noise-primary-channel-lum-scale: 0; 
+		
+			--noise-secondary-note-hue: 24; 		
+			--noise-secondary-note-hue-scale: 2; 		
+			--noise-secondary-note-sat: 100; 		
+			--noise-secondary-note-sat-scale: 0; 		
+			--noise-secondary-note-lum: 25; 		
+			--noise-secondary-note-lum-scale: 0; 	
+	
+			--noise-primary-note-hue: 24; 		
+			--noise-primary-note-hue-scale: 2; 		
+			--noise-primary-note-sat: 75; 		
+			--noise-primary-note-sat-scale: 1; 		
+			--noise-primary-note-lum: 60; 		
+			--noise-primary-note-lum-scale: 1; 	
+	
+			--mod-secondary-channel-hue: 55; 		
+			--mod-secondary-channel-hue-scale: 1.5; 		
+			--mod-secondary-channel-sat: 100; 		
+			--mod-secondary-channel-sat-scale: 0; 		
+			--mod-secondary-channel-lum: 20; 		
+			--mod-secondary-channel-lum-scale: 0; 
+		
+			--mod-primary-channel-hue: 55; 		
+			--mod-primary-channel-hue-scale: 1.5; 		
+			--mod-primary-channel-sat: 96; 		
+			--mod-primary-channel-sat-scale: 0; 		
+			--mod-primary-channel-lum: 50; 		
+			--mod-primary-channel-lum-scale: 0; 
+		
+			--mod-secondary-note-hue: 55; 		
+			--mod-secondary-note-hue-scale: 1.5; 		
+			--mod-secondary-note-sat: 92; 		
+			--mod-secondary-note-sat-scale: 0; 		
+			--mod-secondary-note-lum: 45; 		
+			--mod-secondary-note-lum-scale: 0; 
+		
+			--mod-primary-note-hue: 55; 		
+			--mod-primary-note-hue-scale: 1.5; 		
+			--mod-primary-note-sat: 96; 		
+			--mod-primary-note-sat-scale: 0; 		
+			--mod-primary-note-lum: 85; 		
+			--mod-primary-note-lum-scale: 0; 
+			
+			--note-flash: #ffffff;
+			--note-flash-secondary: #ffffff77;
+				}
+		
+		#text-content > section > h1 > font {
+		display: none;
+		}
+		#text-content > section > h1 {
+		margin: auto;
+		content: url("./AbyssBox_DOOM.png");
+		}
+		body {
+		background-image: url("./doomsky.png") !important;
+		background-size: cover;
+		background-position: center;
+		background-repeat: no-repeat;
+			}
+			/* make editor background transparent */
+		#beepboxEditorContainer, .beepboxEditor, #text-content {
+		}
+
+
+			@font-face {
+		   font-family: "doomfont";
+		   src:
+ 		   url("./doomfont.otf") format("opentype") tech(color-COLRv1),
+			}
+
+			html {
+ 		   font-family: 'doomfont';
+			}
+			div.channelBoxLabel {
+				font-family: 'doomfont' !important;
+			}
+
+			`,
+        "Undertale": `
+			:root {
+				--page-margin: #000;
+				--editor-background: #000;
+				--hover-preview: #fff;
+				--playhead: rgba(255, 255, 255, 0.9);
+				--primary-text: #fff;
+				--secondary-text: #979797;
+				--inverted-text: #000;
+				--text-selection: rgba(255, 255, 255, .99);
+				--box-selection-fill: #fff;
+				--loop-accent: #f00;
+				--link-accent: #0f0;
+				--ui-widget-background: #4d4d4d;
+				--ui-widget-focus: #000;
+				--pitch-background: #2d2d2d73;
+				--tonic: #c9c9c9;
+				--fifth-note: #400000;
+				--third-note: #073037;
+				--white-piano-key: #fff;
+				--black-piano-key: #000;
+				--white-piano-key-text: #000;
+				--black-piano-key-text: #fff;
+				--use-color-formula: false;
+			--pitch-channel-limit: 10;
+				--track-editor-bg-pitch: #8b8b8b;
+				--track-editor-bg-pitch-dim: #000;
+				--track-editor-bg-noise: #5c5c5c;
+				--track-editor-bg-noise-dim: #000;
+				--track-editor-bg-mod: #585858;
+				--track-editor-bg-mod-dim: #000;
+				--multiplicative-mod-slider: #f00;
+				--overwriting-mod-slider: #00f;
+				--indicator-primary: #f00;
+				--indicator-secondary: #919191;
+				--select2-opt-group: #5d576f;
+				--input-box-outline: #626262;
+				--mute-button-normal: #ffffff;
+				--mute-button-mod: #4f4f4f;
+				--mod-label-primary: #f00;
+				--progress-bar: #00ff00;
+
+				--pitch1-secondary-channel: #590000;
+			  --pitch1-primary-channel: #f00;
+			  --pitch1-secondary-note: #590000;
+			  --pitch1-primary-note: #f00;
+			
+			  --pitch2-secondary-channel: #00678a;
+			  --pitch2-primary-channel: #00ffef;
+			  --pitch2-secondary-note: #00678a;
+			  --pitch2-primary-note: #00ffef;
+			
+			  --pitch3-secondary-channel: #b35600;
+			  --pitch3-primary-channel: #ff7a00;
+			  --pitch3-secondary-note: #b35600;
+			  --pitch3-primary-note: #ff7a00;
+			
+			  --pitch4-secondary-channel: #002866;
+			  --pitch4-primary-channel: #001aff;
+			  --pitch4-secondary-note: #002866;
+			  --pitch4-primary-note: #001aff;
+			
+			  --pitch5-secondary-channel: #005e0b;
+			  --pitch5-primary-channel: #00ff1d;
+			  --pitch5-secondary-note: #005e0b;
+			  --pitch5-primary-note: #00ff1d;
+			
+			  --pitch6-secondary-channel: #b55d00;
+			  --pitch6-primary-channel: #fe0;
+			  --pitch6-secondary-note: #b55d00;
+			  --pitch6-primary-note: #fe0;
+			
+			  --pitch7-secondary-channel: #6a00b3;
+			  --pitch7-primary-channel: #a429f7;
+			  --pitch7-secondary-note: #6a00b3;
+			  --pitch7-primary-note: #a429f7;
+			
+			  --pitch8-secondary-channel: #02009f;
+			  --pitch8-primary-channel: #0058ff;
+			  --pitch8-secondary-note: #02009f;
+			  --pitch8-primary-note: #0058ff;
+			
+			  --pitch9-secondary-channel: #5c5c5c;
+			  --pitch9-primary-channel: #fff;
+			  --pitch9-secondary-note: #5c5c5c;
+			  --pitch9-primary-note: #fff;
+			
+			  --pitch10-secondary-channel: #5e2700;
+			  --pitch10-primary-channel: #ffb300;
+			  --pitch10-secondary-note: #5e2700;
+			  --pitch10-primary-note: #ffb300;
+			
+			  --noise1-secondary-channel: #750000;
+			  --noise1-primary-channel: #f00;
+			  --noise1-secondary-note: #750000;
+			  --noise1-primary-note: #f00;
+			
+			  --noise2-secondary-channel: #8567ff;
+			  --noise2-primary-channel: #f00;
+			  --noise2-secondary-note: #8567ff;
+			  --noise2-primary-note: #f00;
+			
+			  --noise3-secondary-channel: #8567ff;
+			  --noise3-primary-channel: #cec2ff;
+			  --noise3-secondary-note: #8567ff;
+			  --noise3-primary-note: #cec2ff;
+			
+			  --noise4-secondary-channel: #00266a;
+			  --noise4-primary-channel: #ffe100;
+			  --noise4-secondary-note: #00266a;
+			  --noise4-primary-note: #ffe100;
+			
+			  --noise5-secondary-channel: #976a00;
+			  --noise5-primary-channel: #ffe100;
+			  --noise5-secondary-note: #976a00;
+			  --noise5-primary-note: #ffe100;
+			
+			  --mod1-secondary-channel: #aaa;
+			  --mod1-primary-channel: #fff;
+			  --mod1-secondary-note: #aaa;
+			  --mod1-primary-note: #fff;
+			
+			  --mod2-secondary-channel: #950000;
+			  --mod2-primary-channel: #ff6000;
+			  --mod2-secondary-note: #950000;
+			  --mod2-primary-note: #ff6000;
+			
+			  --mod3-secondary-channel: #021300;
+			  --mod3-primary-channel: #1db917;
+			  --mod3-secondary-note: #021300;
+			  --mod3-primary-note: #1db917;
+			
+			  --mod4-secondary-channel: #a00000;
+			  --mod4-primary-channel: #ff252f;
+			  --mod4-secondary-note: #a00000;
+			  --mod4-primary-note: #ff252f;
+			
+			  --disabled-note-primary: #999;
+			  --disabled-note-secondary: #696969;
+
+			  --arrow-color: #f67c33;
+			  --icon-color: #f67c33;
+				}
+				* {
+					cursor: url("./icon-soul"), auto !important;
+					--file-page-symbol: url("./icon-file.png");
+					--edit-pencil-symbol: url("./icon-edit.png");
+					--preferences-gear-symbol: url("./icon-preferences.png");
+					--text-enabled-icon:❤️ ;
+					}
+		
+			
+					div.promptContainerBG {
+						background-color: var(--editor-background) !important;
+						backdrop-filter: unset !important;
+						opacity: 0.5 !important;
+					}
+			body {
+			background-image: url("./battlebg.png") !important;
+			background-position: center;
+			background-size: contain;
+			background-attachment: fixed;
+			background-repeat: no-repeat;
+			}
+			#text-content > section > h1 > font {
+			display: none;
+			}
+			#jummboxPlant{
+				opacity:0;
+			}
+			#text-content > section > h1 {
+			 
+			background-image: url("./AbyssBoxUtThemeLogo.png");
+ 			background-size: contain;
+ 			background-position: center;
+  			background-repeat: no-repeat;
+			}
+
+			div.selectContainer.menu.file select,
+			div.selectContainer.menu.edit select,
+			div.selectContainer.menu.preferences select {
+				border-style: solid;
+				border-color: #f67c33;
+				border-radius: 0px;
+			}
+			div.selectContainer.menu.file,
+			div.selectContainer.menu.edit,
+			div.selectContainer.menu.preferences {
+				--ui-widget-background: black;
+				--icon-color: #f67c33;
+				--arrow-color: #f67c33;
+				color: #f67c33;
+			}
+			.beepboxEditor select:focus,
+			.beepboxEditor .selectContainer:focus-within
+			{
+				border-color: #fbff4b !important;
+				--ui-widget-background: black !important;
+				--icon-color: #f00 !important;
+				--arrow-color: #fbff4b !important;
+				color: #fbff4b !important;
+
+				--file-page-symbol: url("./icon-soul.png");
+				--edit-pencil-symbol: url("./icon-soul.png");
+				--preferences-gear-symbol: url("./icon-soul.png");
+			}
+			.beepboxEditor .menu.edit::before,
+			.beepboxEditor .menu.file::before,
+			.beepboxEditor .menu.preferences::before {
+				background: var(--icon-color) !important;
+			}
+			.beepboxEditor .menu.edit::after,
+			.beepboxEditor .menu.file::after,
+			.beepboxEditor .menu.preferences::after {
+				background: var(--arrow-color) !important;
+			}
+
+			#text-content {
+				border-style: solid;
+				border-radius: 0px;
+				padding-left: 20px;
+				padding-right: 20px;
+				padding-top: 15px;
+			}
+		#beepboxEditorContainer {
+			border-style: solid;
+			border-radius: 0px;
+			padding-left: 20px;
+			padding-right: 20px;
+			padding-bottom: 15px;
+			}
+			`,
+		        "Windows Xp": `
+			:root {		
+			--page-margin: #edead9; 		
+			--editor-background: #faf9f2; 		
+			--hover-preview: black; 		
+			--playhead: #000; 		
+			--primary-text: #231f20; 		
+			--secondary-text: #231f20; 		
+			--inverted-text: black;	 		
+			--text-selection: rgba(119,68,255,0.99); 		
+			--box-selection-fill: #1e0915; 		
+			--loop-accent: #003399; 		
+			--link-accent: #003399; 		
+			--ui-widget-background: #DBD9CD; 		
+			--ui-widget-focus: #DBD9CD; 		
+			--pitch-background: #ffffff; 		
+			--tonic: #d5dbf5; 		
+			--fifth-note: #e8e8e8; 	
+			--third-note: #b6ceac;	
+			--white-piano-key: #ebe2ca; 		
+			--black-piano-key: #403a2f; 		
+			--use-color-formula: true; 		
+			--track-editor-bg-pitch: #cfcab2; 		
+			--track-editor-bg-pitch-dim: #9c9781; 		
+			--track-editor-bg-noise: #cfcab2; 		
+			--track-editor-bg-noise-dim: #9c9781; 		
+			--track-editor-bg-mod: #cfcab2; 		
+			--track-editor-bg-mod-dim: #9c9781; 		
+			--multiplicative-mod-slider: #9f6082; 		
+			--overwriting-mod-slider: #9e3470; 		
+			--indicator-primary: #b3498f; 		
+			--indicator-secondary: #541d40; 		
+			--select2-opt-group: #4f191e; 		
+			--input-box-outline: #18041a; 		
+			--mute-button-normal: #dd5d94;	 		
+			--mute-button-mod: #ba364c; 		
+			--mod-label-primary: #541625; 		
+			--mod-label-secondary-text: rgb(120, 87, 86); 
+			--mod-label-primary-text: gray;
+			--progress-bar: #00ff00;
+			--octave-scrollbar: #cfcab2;
+
+--pitch-secondary-channel-hue: 0;		
+--pitch-secondary-channel-hue-scale: 6.1;		
+--pitch-secondary-channel-sat: 43.3;		
+--pitch-secondary-channel-sat-scale: 0.1;		
+--pitch-secondary-channel-lum: 30;		
+--pitch-secondary-channel-lum-scale: 0.05;
+		
+--pitch-primary-channel-hue: 0;		
+--pitch-primary-channel-hue-scale: 6.1;		
+--pitch-primary-channel-sat: 60;		
+--pitch-primary-channel-sat-scale: 0.1;		
+--pitch-primary-channel-lum: 57.5;		
+--pitch-primary-channel-lum-scale: 0.05;
+		
+--pitch-secondary-note-hue: 0;		
+--pitch-secondary-note-hue-scale: 6.1;		
+--pitch-secondary-note-sat: 43.9;		
+--pitch-secondary-note-sat-scale: 0.1;		
+--pitch-secondary-note-lum: 35;		
+--pitch-secondary-note-lum-scale: 0.05;
+		
+--pitch-primary-note-hue: 0;		
+--pitch-primary-note-hue-scale: 6.1;		
+--pitch-primary-note-sat: 60;		
+--pitch-primary-note-sat-scale: 0.05;		
+--pitch-primary-note-lum: 65.6;		
+--pitch-primary-note-lum-scale: 0.025;
+		
+--noise-secondary-channel-hue: 0;		
+--noise-secondary-channel-hue-scale: 2;		
+--noise-secondary-channel-sat: 25;		
+--noise-secondary-channel-sat-scale: 0;		
+--noise-secondary-channel-lum: 32;		
+--noise-secondary-channel-lum-scale: 0;
+		
+--noise-primary-channel-hue: 0;		
+--noise-primary-channel-hue-scale: 2;		
+--noise-primary-channel-sat: 33;		
+--noise-primary-channel-sat-scale: 0;		
+--noise-primary-channel-lum: 53.5;		
+--noise-primary-channel-lum-scale: 0;
+		
+--noise-secondary-note-hue: 0;		
+--noise-secondary-note-hue-scale: 2;		
+--noise-secondary-note-sat: 33.5;		
+--noise-secondary-note-sat-scale: 0;		
+--noise-secondary-note-lum: 35;		
+--noise-secondary-note-lum-scale: 0;	
+--noise-primary-note-hue: 0;		
+--noise-primary-note-hue-scale: 2;		
+--noise-primary-note-sat: 46.5;		
+--noise-primary-note-sat-scale: 0;		
+--noise-primary-note-lum: 54;		
+--noise-primary-note-lum-scale: 0;	
+--mod-secondary-channel-hue: 192;		
+--mod-secondary-channel-hue-scale: 1.5;		
+--mod-secondary-channel-sat: 88;		
+--mod-secondary-channel-sat-scale: 0;		
+--mod-secondary-channel-lum: 30;		
+--mod-secondary-channel-lum-scale: 0;	
+--mod-primary-channel-hue: 192;		
+--mod-primary-channel-hue-scale: 1.5;		
+--mod-primary-channel-sat: 56;		
+--mod-primary-channel-sat-scale: 0;		
+--mod-primary-channel-lum: 60;		
+--mod-primary-channel-lum-scale: 0;	
+--mod-secondary-note-hue: 192;		
+--mod-secondary-note-hue-scale: 1.5;		
+--mod-secondary-note-sat: 42;		
+--mod-secondary-note-sat-scale: 0;		
+--mod-secondary-note-lum: 35;		
+--mod-secondary-note-lum-scale: 0;	
+--mod-primary-note-hue: 192;		
+--mod-primary-note-hue-scale: 1.5;		
+--mod-primary-note-sat: 56;		
+--mod-primary-note-sat-scale: 0;		
+--mod-primary-note-lum: 65;		
+--mod-primary-note-lum-scale: 0;	
+
+			--note-flash: #ffffff77;
+			--note-flash-secondary: #ffffff66;
+				}
+				
+				@font-face {
+					font-family: "tahoma";
+					src:
+					 url("./tahoma.otf") format("opentype") tech(color-COLRv1),
+					 image-rendering: -moz-crisp-edges !important;
+					 image-rendering: -webkit-optimize-contrast !important; 
+					 image-rendering: -o-crisp-edges !important;
+					 image-rendering: pixelated !important;
+					 image-rendering: optimizeSpeed !important;
+				}
+		
+				div.promptContainerBG {
+					display: none !important;
+				}
+
+				html {
+				font-family: 'tahoma';
+			 font-size: 150% !important;
+				}
+				div.channelBoxLabel {
+					font-family: 'tahoma' !important;
+				}
+
+				.beepboxEditor .promptContainer {
+				}
+
+				div.prompt.noSelection {
+					margin: 0px;
+					text-align: center;
+					background: var(--editor-background);
+					border-radius: 15px;
+					border: 0px solid var(--ui-widget-background) !important;
+					padding-left: 20px !important;
+					box-shadow: 6px 6px 27px 4px rgba(0, 0, 0, 0.5) !important;
+					padding-top: 6px !important;
+					padding-right: 20px !important;
+					padding-bottom: 20px !important;
+					border-image-source: url("./xpborder.png") !important;
+					border-image-slice: 34 !important;
+					border-image-width: 50px !important;
+					border-width: unset !important;
+					image-rendering: -moz-crisp-edges !important;     
+					image-rendering: -webkit-optimize-contrast !important; 
+					image-rendering: -o-crisp-edges !important;
+					image-rendering: pixelated !important;
+					image-rendering: optimizeSpeed !important; 
+				}
+
+				div.prompt.noSelection button.cancelButton {
+					opacity: 0;
+				}
+
+				div.promptTitle {
+					text-align: left !important;
+					color: white !important;
+				}
+				.layoutExt::before {
+					content: "layout.exe";
+				}
+				.layoutTitle {
+					display: none;
+				}
+				.channelExt::after {
+					content: "channelSettings.exe";
+				}
+				.channelTitle {
+					display: none;
+				}
+				.limiterExt::after {
+					content: "limiter.exe";
+				}
+				.limiterTitle {
+					display: none;
+				}
+
+				.bpmTitle {
+					display: none;
+				}
+				.bpmExt::after {
+					content: "bpb.exe";
+				}
+
+				.gerTitle {
+					display: none;
+				}
+				.gerExt::after {
+					content: "euclidianRhythm.exe";
+				}
+
+				.samplesTitle {
+					display: none;
+				}
+				.samplesExt::after {
+					content: "sampler.exe";
+					margin-bottom: 0.5em;
+
+				}
+				.samplesExt {
+					padding-bottom: 8px;
+				}
+
+				.importTitle {
+					display: none;
+				}
+				.importExt::after {
+					content: "import.exe";
+				}
+
+				.exportTitle {
+					display: none;
+				}
+				.exportExt::after {
+					content: "export.exe";
+				}
+
+				.import-instrumentTitle {
+					display: none;
+				}
+				.import-instrumentExt::after {
+					content: "importInstrument.exe";
+				}
+
+				.export-instrumentTitle {
+					display: none;
+				}
+				.export-instrumentExt::after {
+					content: "exportInstrument.exe";
+				}
+
+				.song-lengthTitle {
+					display: none;
+				}
+				.song-lengthExt::after {
+					content: "songExtender.exe";
+				}
+
+				.mnsTitle {
+					display: none;
+				}
+				.mnsExt::after {
+					content: "moveNotesSideways.exe";
+				}
+
+				.themeExt::after {
+					content: "setTheme.exe";
+				}
+				.themeTitle {
+					display: none;
+				}
+
+				.customThemeExt::after {
+					content: "customThemeEditor.exe";
+				}
+				.customThemeTitle {
+					display: none;
+				}
+
+				.nrsTitle {
+					display: none;
+				}
+				.nrsExt::after {
+					content: "setupMidiKeyboard.exe";
+				}
+
+				.beepboxEditor .promptContainer::before {
+					background: #fff0;
+				}
+
+		* {
+		cursor: url("./xpcursor.png"), auto !important;
+		--play-symbol:url("./xpPlay.png");
+		--pause-symbol:url("./xpPause.png");
+		--record-symbol:url("./xpRecord.png");
+		--stop-symbol:url("./xpStop.png");
+		--prev-bar-symbol:url("./xpBackward.png");
+		--next-bar-symbol:url("./xpForward.png");
+		--file-page-symbol: url("./xpFile.png");
+		--edit-pencil-symbol: url("./xpEdit.png");
+		--preferences-gear-symbol: url("./xpPreferences.png");
+		--muted-symbol: url("./xpSpeakerMute.png");
+		--unmuted-symbol: url("./xpSpeaker.png");
+		--volume-symbol: url("./xpSpeaker.png");
+		--zoom-in-symbol: url("./xpZoomIn.png");
+		--zoom-out-symbol: url("./xpZoomOut.png");
+		}
+
+		.beepboxEditor button,
+		button.mobilePatternButton,
+		button.mobileTrackButton,
+		button.mobileSettingsButton,
+		button.mobilePlayButton,
+		button.mobilePauseButton,
+		button.mobileNextBarButton,
+		button.mobilePrevBarButton,
+		button.playButton,
+		button.pauseButton, 
+		button.recordButton, 
+		button.stopButton,
+		button.nextBarButton, 
+		button.prevBarButton, 
+		button.copyButton, 
+		button.pasteButton, 
+		button.exportInstrumentButton, 
+		button.importInstrumentButton, 
+		.beepboxEditor select, 
+		.beepboxEditor .select2-selection__rendered {
+				cursor: url("./xphandcursor.png"), pointer !important;
+			}
+
+		div.mute-button::before {
+			background-image: url("./xpSpeaker.png") !important;
+			background-size: 120% !important;
+			background-position-x: center !important;
+			background-position-y: center !important;
+			background-repeat: no-repeat !important;
+			image-rendering: -moz-crisp-edges !important;   
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important; 
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		div.mute-button.muted::before {
+			background-image: url("./xpSpeakerMute.png") !important;
+			background-size: 120% !important;
+			background-position-x: center !important;
+			background-position-y: center !important;
+			background-repeat: no-repeat !important;
+			image-rendering: -moz-crisp-edges !important; 
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important; 
+			image-rendering: pixelated !important; 
+			image-rendering: optimizeSpeed !important; 
+		}
+
+		button.recordButton::Before {
+			background-image: url("./xpRecord.png") !important;
+			background-size: 64% !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+
+			image-rendering: -moz-crisp-edges !important;        
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+
+		}
+
+		button.stopButton::Before {
+			background-image: url("./xpStop.png") !important;
+			background-size: 64% !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		button.pauseButton::Before {
+			background-image: url("./xpPause.png") !important;
+			background-size: 64% !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		.beepboxEditor span.volume-speaker {
+			background-image: url("./xpSpeaker.png");
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+			}
+
+		div.selectContainer.menu.file::before {
+
+			background-image: url("./xpFile.png");
+			background-size: 64%;
+			background-position-x: center;
+			background-position-y: center;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important;
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		div.selectContainer.menu.edit::before {
+			background-image: url("./xpEdit.png");
+			background-size: 64%;
+			background-position-x: center;
+			background-position-y: center;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+		div.selectContainer.menu.preferences::before {
+			background-image: url("./xpPreferences.png");
+			background-size: 64%;
+			background-position-x: center;
+			background-position-y: center;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+		button.playButton::before {
+			background-image: url("./xpPlay.png") !important;
+			background-size: 64% !important;
+			background-position: center !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+		.beepboxEditor button.prevBarButton::before {
+			background-image: url("./xpBackward.png") !important;
+			background-size: 64% !important;
+			background-position: center !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		.beepboxEditor button.nextBarButton::before {
+			background-image: url("./xpForward.png") !important;
+			background-size: 64% !important;
+			background-position: center !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		.beepboxEditor .zoomInButton::before {
+			background-image: url("./xpZoomIn.png") !important;
+			background-position: center !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		.beepboxEditor .zoomOutButton::before {
+			background-image: url("./xpZoomOut.png") !important;
+			background-position: center !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+
+		.beepboxEditor input[type="range"]::-moz-range-thumb {
+			background-image: url("./scrollbar.png") !important;
+			background-position: center !important;
+			background-size: inherit !important;
+			border-radius: 0px !important;
+			width: 13px !important;
+			height: 23px !important;
+			image-rendering: -moz-crisp-edges !important;
+			image-rendering: -webkit-optimize-contrast !important; 
+			image-rendering: -o-crisp-edges !important;
+			image-rendering: pixelated !important;
+			image-rendering: optimizeSpeed !important;
+		}
+			#text-content > section > h1 > font {
+		display: none;
+		}
+		#text-content > section > h1 {
+		margin: auto;
+		content: url("./AbyssBox_XP.png");
+		}
+		body {
+		background-image: url("./xphills.png") !important;
+		background-size: cover;
+		background-position: center;
+		background-repeat: no-repeat;
+			}
+			#text-content {
+    			margin: auto;
+				margin-top: auto;
+				text-align: center;
+				background: var(--editor-background);
+				border-radius: 15px;
+				border: 0px solid var(--ui-widget-background) !important;
+				padding-left: 20px !important;
+				box-shadow: 6px 6px 27px 4px rgba(0, 0, 0, 0.5) !important;
+				padding-top: 58px !important;
+				padding-right: 20px !important;
+				padding-bottom: 20px !important;
+				border-image-source: url("./xpborder.png") !important;
+				border-image-slice: 34 !important;
+				border-image-width: 50px !important;
+				border-width: unset !important;
+				image-rendering: -moz-crisp-edges !important;
+				image-rendering: -webkit-optimize-contrast !important;
+				image-rendering: -o-crisp-edges !important;
+				image-rendering: pixelated !important;
+				image-rendering: optimizeSpeed !important;
+				margin-top: 15px;
+				}
+			#beepboxEditorContainer {
+    				border-image-source: url("./xptextbg.png");
+    				border-image-slice: 11 fill; 
+   				border-image-width: 11px; 
+				border-image-repeat: stretch;
+    				background-color: transparent; 
+    				padding: 13px; 
+				}
+
+			.pattern-area {
+			border: #fff 1px solid;
+			border-right-color: rgb(255, 255, 255);
+			border-bottom-color: rgb(255, 255, 255);
+			padding: 2px;
+			background: #f9f8f3;
+			border-right-color: #c7c7bd;
+			border-bottom-color: #c7c7bd;
+			}
+
+			.track-area {
+			--editor-background: #edead9;
+			--ui-widget-background: #edead9;
+			}
+
+			.beepboxEditor .muteEditor {
+			background: #edead9;
+			}
+
+			.settings-area {
+			border: #fff 1px solid;
+			border-right-color: rgb(255, 255, 255);
+			border-bottom-color: rgb(255, 255, 255);
+			padding: 2px;
+			background: #f9f8f3;
+			border-right-color: #c7c7bd;
+			border-bottom-color: #c7c7bd;
+			}
+
+			.beepboxEditor {
+			background: #edead9 !important;
+			}
+
+			#octaveScrollBarContainer {
+			--tonic: #9c9781;
+			}
+
+			.barScrollBar {
+			--ui-widget-background: #9c9781;
+			--editor-background: #edead9;
+			}
+
+			.songLoopButton {
+			background: #edead9;
+			}
+
+			#firstImage {
+				background-image: url("./xpsongeditorbg.png") !important;
+				background-repeat: no-repeat !important;
+				background-size: 100% 100% !important;
+			}
+
+			select {
+				cursor: url("./xphandcursor.png"), pointer !important;
+			}
+
+			.beepboxEditor input[type="range"]::-moz-range-track
+			{
+				background: rgba(222, 217, 189, 0.2) !important;
+				box-shadow:
+					0px 0px 1px 1px rgba(0, 0, 0, 0.0), 
+					inset 0px 1px 2px 0px rgb(125, 120, 95), 
+					inset 0px -1px 0px 0px rgb(255, 255, 255)
+				;
+				border-radius: 4px;
+			} /* Thanks to LeoV's Skeumorphic theme on this one */
+			
+			.beepboxEditor input[type="range"]::-moz-range-track {
+				height: 3px !important;
+			}
+			
+			.beepboxEditor select:focus {
+					border-image-source: url("./xpbuttonpressedbg.png");
+					border-image-slice: 4 fill; 
+					border-image-width: 4px; 
+					border-image-repeat: repeat;
+					background-color: transparent; 
+					padding: 6px; 
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+
+				.beepboxEditor input[type="checkbox"]
+				{
+					appearance: none;
+					background: rgba(255, 255, 255, 1);
+					color: currentColor;
+					border-radius: 0px;
+					width: 13px !important;
+					height: 13px !important;
+					background-image:url("./xpCheckmarkBlank.png");
+					background-repeat:no-repeat;
+
+					image-rendering: -moz-crisp-edges !important;
+					image-rendering: -webkit-optimize-contrast !important; 
+					image-rendering: -o-crisp-edges !important;
+					image-rendering: pixelated !important;
+					image-rendering: optimizeSpeed !important;
+					transform: scale(2) !important;
+					}
+
+				.beepboxEditor input[type="checkbox"]:checked
+				{
+					display: flex;
+					justify-content: center;
+					transform: scale(2) !important;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked:after
+				{
+					width: 13px;
+					height: 13px;
+					text-align: center;
+					content: "";
+					background-repeat:no-repeat;
+					background-image:url("./xpCheckmark.png");
+					image-rendering: -moz-crisp-edges !important;
+					image-rendering: -webkit-optimize-contrast !important; 
+					image-rendering: -o-crisp-edges !important;
+					image-rendering: pixelated !important;
+					image-rendering: optimizeSpeed !important;
+				}
+				button.envelopeDropdown, div.selectRow button:not(.copyButton,.pasteButton,.exportInstrumentButton,.importInstrumentButton) {
+					--ui-widget-background: var(--editor-background) !important;
+					border-image-source: none !important;
+				}
+
+				.beepboxEditor input[type="range"]::-webkit-slider-thumb
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]::-webkit-slider-runnable-track
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-webkit-slider-runnable-track
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]::-ms-thumb
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]::-ms-track
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-ms-track
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]::-moz-range-thumb
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]::-moz-range-track
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="range"]:focus::-moz-range-track
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="text"],
+				.beepboxEditor input[type="number"]
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+				.beepboxEditor input[type="checkbox"]:checked:after
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+	
+				div.selectRow span 
+				{
+					cursor: url("./xphandcursor.png"), pointer !important;
+				}
+				 
+
+
+			`,
+        "corporate dark": `
+			:root {
+			--page-margin: #1f1f1f;
+			--editor-background: #1f1f1f;
+			--hover-preview: white;
+			--playhead: white;
+			--primary-text: #e8e8e8;
+			--secondary-text: #8c8c8c;
+			--inverted-text: #1D1C1D;
+			--text-selection: #C249DD;
+			--box-selection-fill: rgba(0,0,0,0.2);
+			--loop-accent: #C249DD;
+			--link-accent: #0E9DD3;
+			--ui-widget-background: #303134;
+			--ui-widget-focus: #5B5957;
+			--pitch-background: #3e3f42;
+			--tonic: #303134;
+			--fifth-note: #98809D;
+			--third-note: #62738b;
+			--white-piano-key: white;
+			--black-piano-key: #1D1C1D;
+			--white-piano-key-text: #1D1C1D;
+			--black-piano-key-text: white;
+			--use-color-formula: false;
+			--track-editor-bg-pitch: #303134;
+			--track-editor-bg-pitch-dim: #1d1e20;
+			--track-editor-bg-noise: #303134;
+			--track-editor-bg-noise-dim: #1d1e20;
+			--track-editor-bg-mod: #46524a;
+			--track-editor-bg-mod-dim: #2c352f;
+			--multiplicative-mod-slider: #456;
+			--overwriting-mod-slider: #654;
+			--indicator-primary: #C249DD;
+			--indicator-secondary: #602670;
+			--select2-opt-group: #474747;
+			--input-box-outline: #F4EDE4;
+			--mute-button-normal: #DE8969;
+			--mute-button-mod: #C05B8C;
+			--pitch-channel-limit: 4;
+			--noise-channel-limit: 3;
+			--pitch1-secondary-channel: #17616B;
+			--pitch1-primary-channel:   #36C5F0;
+			--pitch1-secondary-note:    #17616B;
+			--pitch1-primary-note:      #36C5F0;
+			--pitch2-secondary-channel: #185F34;
+			--pitch2-primary-channel:   #2EB67D;
+			--pitch2-secondary-note:    #185F34;
+			--pitch2-primary-note:      #2EB67D;
+			--pitch3-secondary-channel: #755617;
+			--pitch3-primary-channel:   #ECB22E;
+			--pitch3-secondary-note:    #755617;
+			--pitch3-primary-note:      #ECB22E;
+			--pitch4-secondary-channel: #821237;
+			--pitch4-primary-channel:   #E01E5A;
+			--pitch4-secondary-note:    #821237;
+			--pitch4-primary-note:      #E01E5A;
+			--pitch5-secondary-channel: #D020D0;
+			--pitch5-primary-channel:   #FF90FF;
+			--pitch5-secondary-note:    #E040E0;
+			--pitch5-primary-note:      #FFC0FF;
+			--pitch6-secondary-channel: #7777B0;
+			--pitch6-primary-channel:   #A0A0FF;
+			--pitch6-secondary-note:    #8888D0;
+			--pitch6-primary-note:      #D0D0FF;
+			--pitch7-secondary-channel: #8AA100;
+			--pitch7-primary-channel:   #DEFF25;
+			--pitch7-secondary-note:    #AAC700;
+			--pitch7-primary-note:      #E6FF92;
+			--pitch8-secondary-channel: #DF0019;
+			--pitch8-primary-channel:   #FF98A4;
+			--pitch8-secondary-note:    #FF4E63;
+			--pitch8-primary-note:      #FFB2BB;
+			--pitch9-secondary-channel: #00A170;
+			--pitch9-primary-channel:   #50FFC9;
+			--pitch9-secondary-note:    #00C78A;
+			--pitch9-primary-note:      #83FFD9;
+			--pitch10-secondary-channel:#A11FFF;
+			--pitch10-primary-channel:  #CE8BFF;
+			--pitch10-secondary-note:   #B757FF;
+			--pitch10-primary-note:     #DFACFF;
+			--noise1-secondary-channel: #424242;
+			--noise1-primary-channel:   #AAAAAA;
+			--noise1-secondary-note:    #424242;
+			--noise1-primary-note:      #AAAAAA;
+			--noise2-secondary-channel: #5E3A2D;
+			--noise2-primary-channel:   #DE8969;
+			--noise2-secondary-note:    #5E3A2D;
+			--noise2-primary-note:      #DE8969;
+			--noise3-secondary-channel: #32595B;
+			--noise3-primary-channel:   #78D7DD;
+			--noise3-secondary-note:    #32595B;
+			--noise3-primary-note:      #78D7DD;
+			--noise4-secondary-channel: #7A4F9A;
+			--noise4-primary-channel:   #AF82D2;
+			--noise4-secondary-note:    #9E71C1;
+			--noise4-primary-note:      #D4C1EA;
+			--noise5-secondary-channel: #607837;
+			--noise5-primary-channel:   #A2BB77;
+			--noise5-secondary-note:    #91AA66;
+			--noise5-primary-note:      #C5E2B2;
+			--mod1-secondary-channel:   #339955;
+			--mod1-primary-channel:     #77fc55;
+			--mod1-secondary-note:      #77ff8a;
+			--mod1-primary-note:        #cdffee;
+			--mod2-secondary-channel:   #993355;
+			--mod2-primary-channel:     #f04960;
+			--mod2-secondary-note:      #f057a0;
+			--mod2-primary-note:        #ffb8de;
+			--mod3-secondary-channel:   #553399;
+			--mod3-primary-channel:     #8855fc;
+			--mod3-secondary-note:      #aa64ff;
+			--mod3-primary-note:	    #f8ddff;
+			--mod4-secondary-channel:   #a86436;
+			--mod4-primary-channel:     #c8a825;
+			--mod4-secondary-note:      #e8ba46;
+			--mod4-primary-note:        #fff6d3;
+			--mod-label-primary:        #999;
+			--mod-label-secondary-text: #333;
+			--mod-label-primary-text:   black;
+			--disabled-note-primary:    #999;
+			--disabled-note-secondary:  #666;
+			--mod-title: #1D1C1D;
+			}
+
+			.channelBox {
+			border-radius: 25px;
+			}
+
+			button:hover {
+			border-radius: 4px;
+			background-color: #1d1e20 !important;
+			}
+
+			select:hover {
+			border-radius: 4px !important;
+			background-color: #1d1e20 !important;
+			}
+
+			#select2-pitchPresetSelect-container:hover {
+			border-radius: 4px !important;
+			background-color: #1d1e20 !important;
+			}`,
+        "corporate light": `
+			:root {
+			--page-margin: white;
+			--editor-background: white;
+			--hover-preview: white;
+			--playhead: white;
+			--primary-text: #1D1C1D;
+			--secondary-text: #A5A19B;
+			--inverted-text: #1D1C1D;
+			--text-selection: #C249DD;
+			--box-selection-fill: rgba(0,0,0,0.2);
+			--loop-accent: #C249DD;
+			--link-accent: #0E9DD3;
+			--ui-widget-background: #F4EDE4;
+			--ui-widget-focus: white;
+			--pitch-background: #E8DED1;
+			--tonic: #E6B8A8;
+			--fifth-note: #DB99EA;
+			--third-note: #99c3ff;
+			--white-piano-key: white;
+			--black-piano-key: #1D1C1D;
+			--white-piano-key-text: #1D1C1D;
+			--black-piano-key-text: white;
+			--use-color-formula: false;
+			--track-editor-bg-pitch: #E8DED1;
+			--track-editor-bg-pitch-dim: #ecc6ba;
+			--track-editor-bg-noise: #E8DED1;
+			--track-editor-bg-noise-dim: #ecc6ba;
+			--track-editor-bg-mod: #87BB9B;
+			--track-editor-bg-mod-dim: #6baa83;
+			--multiplicative-mod-slider: #456;
+			--overwriting-mod-slider: #654;
+			--indicator-primary: #C249DD;
+			--indicator-secondary: #602670;
+			--select2-opt-group: #474747;
+			--input-box-outline: #F4EDE4;
+			--mute-button-normal: #DE8969;
+			--mute-button-mod: #C05B8C;
+			--pitch-channel-limit: 4;
+			--noise-channel-limit: 3;
+			--pitch1-secondary-channel: #17616B;
+			--pitch1-primary-channel:   #36C5F0;
+			--pitch1-secondary-note:    #17616B;
+			--pitch1-primary-note:      #36C5F0;
+			--pitch2-secondary-channel: #185F34;
+			--pitch2-primary-channel:   #2EB67D;
+			--pitch2-secondary-note:    #185F34;
+			--pitch2-primary-note:      #2EB67D;
+			--pitch3-secondary-channel: #755617;
+			--pitch3-primary-channel:   #ECB22E;
+			--pitch3-secondary-note:    #755617;
+			--pitch3-primary-note:      #ECB22E;
+			--pitch4-secondary-channel: #821237;
+			--pitch4-primary-channel:   #E01E5A;
+			--pitch4-secondary-note:    #821237;
+			--pitch4-primary-note:      #E01E5A;
+			--pitch5-secondary-channel: #D020D0;
+			--pitch5-primary-channel:   #FF90FF;
+			--pitch5-secondary-note:    #E040E0;
+			--pitch5-primary-note:      #FFC0FF;
+			--pitch6-secondary-channel: #7777B0;
+			--pitch6-primary-channel:   #A0A0FF;
+			--pitch6-secondary-note:    #8888D0;
+			--pitch6-primary-note:      #D0D0FF;
+			--pitch7-secondary-channel: #8AA100;
+			--pitch7-primary-channel:   #DEFF25;
+			--pitch7-secondary-note:    #AAC700;
+			--pitch7-primary-note:      #E6FF92;
+			--pitch8-secondary-channel: #DF0019;
+			--pitch8-primary-channel:   #FF98A4;
+			--pitch8-secondary-note:    #FF4E63;
+			--pitch8-primary-note:      #FFB2BB;
+			--pitch9-secondary-channel: #00A170;
+			--pitch9-primary-channel:   #50FFC9;
+			--pitch9-secondary-note:    #00C78A;
+			--pitch9-primary-note:      #83FFD9;
+			--pitch10-secondary-channel:#A11FFF;
+			--pitch10-primary-channel:  #CE8BFF;
+			--pitch10-secondary-note:   #B757FF;
+			--pitch10-primary-note:     #DFACFF;
+			--noise1-secondary-channel: #424242;
+			--noise1-primary-channel:   #AAAAAA;
+			--noise1-secondary-note:    #424242;
+			--noise1-primary-note:      #AAAAAA;
+			--noise2-secondary-channel: #5E3A2D;
+			--noise2-primary-channel:   #DE8969;
+			--noise2-secondary-note:    #5E3A2D;
+			--noise2-primary-note:      #DE8969;
+			--noise3-secondary-channel: #32595B;
+			--noise3-primary-channel:   #78D7DD;
+			--noise3-secondary-note:    #32595B;
+			--noise3-primary-note:      #78D7DD;
+			--noise4-secondary-channel: #7A4F9A;
+			--noise4-primary-channel:   #AF82D2;
+			--noise4-secondary-note:    #9E71C1;
+			--noise4-primary-note:      #D4C1EA;
+			--noise5-secondary-channel: #607837;
+			--noise5-primary-channel:   #A2BB77;
+			--noise5-secondary-note:    #91AA66;
+			--noise5-primary-note:      #C5E2B2;
+			--mod1-secondary-channel:   #339955;
+			--mod1-primary-channel:     #77fc55;
+			--mod1-secondary-note:      #77ff8a;
+			--mod1-primary-note:        #cdffee;
+			--mod2-secondary-channel:   #993355;
+			--mod2-primary-channel:     #f04960;
+			--mod2-secondary-note:      #f057a0;
+			--mod2-primary-note:        #ffb8de;
+			--mod3-secondary-channel:   #553399;
+			--mod3-primary-channel:     #8855fc;
+			--mod3-secondary-note:      #aa64ff;
+			--mod3-primary-note:	    #f8ddff;
+			--mod4-secondary-channel:   #a86436;
+			--mod4-primary-channel:     #c8a825;
+			--mod4-secondary-note:      #e8ba46;
+			--mod4-primary-note:        #fff6d3;
+			--mod-label-primary:        #999;
+			--mod-label-secondary-text: #333;
+			--mod-label-primary-text:   black;
+			--disabled-note-primary:    #999;
+			--disabled-note-secondary:  #666;
+			--mod-title: #1D1C1D;
+			}
+
+			.channelBox {
+			border-radius: 25px;
+			}
+
+			button:hover {
+			border-radius: 4px;
+			background-color: #dbd2c5 !important;
+			}
+
+			select:hover {
+			border-radius: 4px !important;
+			background-color: #dbd2c5 !important;
+			}
+
+			#select2-pitchPresetSelect-container:hover {
+			border-radius: 4px !important;
+			background-color: #dbd2c5 !important;
+			}`,
+        "Terminal 2.0 (AB)": `
+			:root { 
+			--page-margin: black; 
+			--editor-background: black; 
+			--hover-preview: white; 
+			--playhead: white; 
+			--primary-text: #26ff00; 
+			--secondary-text: #0d6d00; 
+			--inverted-text: #000000; 
+			--text-selection: rgba(119,68,255,0.99); 
+			--box-selection-fill: rgba(255,255,255,0.2); 
+			--loop-accent: #1eff00; 
+			--link-accent: #8dff7e; 
+			--ui-widget-background: #000000; 
+			--ui-widget-focus: #242424; 
+			--pitch-background: #0d0d0d50; 
+			--tonic: #06350090; 
+			--fifth-note: #20202090; 
+			--third-note: #2f571f8f;
+			--white-piano-key: #ffffff; 
+			--black-piano-key: #000000; 
+			--white-piano-key-text: #131200; 
+			--black-piano-key-text: #fff; 
+			--use-color-formula: false;
+			--pitch-channel-limit: 10; 
+			--track-editor-bg-pitch: #152912; 
+			--track-editor-bg-pitch-dim: #091307; 
+			--track-editor-bg-noise: #1a1a1a; 
+			--track-editor-bg-noise-dim: #333; 
+			--track-editor-bg-mod: #000000; 
+			--track-editor-bg-mod-dim: #000000; 
+			--multiplicative-mod-slider: #073c00; 
+			--overwriting-mod-slider: #0c6700; 
+			--indicator-primary: #139f00; 
+			--indicator-secondary: #1eff00; 
+			--select2-opt-group: #171717; 
+			--input-box-outline: #00ff00; 
+			--mute-button-normal: #00ff44; 
+			--mute-button-mod: #44ff00; 
+			--progress-bar: #00ff00;
+			--pitch1-secondary-channel: #0099A1; 
+			--pitch1-primary-channel: #25F3FF; 
+			--pitch1-secondary-note: #00BDC7; 
+			--pitch1-primary-note: #92F9FF; 
+			--pitch2-secondary-channel: #A1A100; 
+			--pitch2-primary-channel: #FFFF25; 
+			--pitch2-secondary-note: #C7C700; 
+			--pitch2-primary-note: #FFFF92; 
+			--pitch3-secondary-channel: #C75000; 
+			--pitch3-primary-channel: #FF9752; 
+			--pitch3-secondary-note: #FF771C; 
+			--pitch3-primary-note: #FFCDAB; 
+			--pitch4-secondary-channel: #00A100; 
+			--pitch4-primary-channel: #50FF50; 
+			--pitch4-secondary-note: #00C700; 
+			--pitch4-primary-note: #A0FFA0; 
+			--pitch5-secondary-channel: #D020D0; 
+			--pitch5-primary-channel: #FF90FF; 
+			--pitch5-secondary-note: #E040E0; 
+			--pitch5-primary-note: #FFC0FF; 
+			--pitch6-secondary-channel: #7777B0; 
+			--pitch6-primary-channel: #A0A0FF; 
+			--pitch6-secondary-note: #8888D0; 
+			--pitch6-primary-note: #D0D0FF; 
+			--pitch7-secondary-channel: #8AA100; 
+			--pitch7-primary-channel: #DEFF25; 
+			--pitch7-secondary-note: #AAC700; 
+			--pitch7-primary-note: #E6FF92; 
+			--pitch8-secondary-channel: #DF0019; 
+			--pitch8-primary-channel: #FF98A4; 
+			--pitch8-secondary-note: #FF4E63; 
+			--pitch8-primary-note: #FFB2BB; 
+			--pitch9-secondary-channel: #00A170; 
+			--pitch9-primary-channel: #50FFC9; 
+			--pitch9-secondary-note: #00C78A; 
+			--pitch9-primary-note: #83FFD9; 
+			--pitch10-secondary-channel: #A11FFF; 
+			--pitch10-primary-channel: #CE8BFF; 
+			--pitch10-secondary-note: #B757FF; 
+			--pitch10-primary-note: #DFACFF; 
+			--noise1-secondary-channel: #6F6F6F; 
+			--noise1-primary-channel: #AAAAAA; 
+			--noise1-secondary-note: #A7A7A7; 
+			--noise1-primary-note: #E0E0E0; 
+			--noise2-secondary-channel: #996633; 
+			--noise2-primary-channel: #DDAA77; 
+			--noise2-secondary-note: #CC9966; 
+			--noise2-primary-note: #F0D0BB; 
+			--noise3-secondary-channel: #4A6D8F; 
+			--noise3-primary-channel: #77AADD; 
+			--noise3-secondary-note: #6F9FCF; 
+			--noise3-primary-note: #BBD7FF; 
+			--noise4-secondary-channel: #7A4F9A; 
+			--noise4-primary-channel: #AF82D2; 
+			--noise4-secondary-note: #9E71C1; 
+			--noise4-primary-note: #D4C1EA; 
+			--noise5-secondary-channel: #607837; 
+			--noise5-primary-channel: #A2BB77; 
+			--noise5-secondary-note: #91AA66; 
+			--noise5-primary-note: #C5E2B2; 
+			--mod1-secondary-channel: #339955; 
+			--mod1-primary-channel: #77fc55; 
+			--mod1-secondary-note: #77ff8a; 
+			--mod1-primary-note: #cdffee; 
+			--mod2-secondary-channel: #993355; 
+			--mod2-primary-channel: #f04960; 
+			--mod2-secondary-note: #f057a0; 
+			--mod2-primary-note: #ffb8de; 
+			--mod3-secondary-channel: #553399; 
+			--mod3-primary-channel: #8855fc; 
+			--mod3-secondary-note: #aa64ff; 
+			--mod3-primary-note: #f8ddff; 
+			--mod4-secondary-channel: #a86436; 
+			--mod4-primary-channel: #c8a825; 
+			--mod4-secondary-note: #e8ba46; 
+			--mod4-primary-note: #fff6d3; 
+			--mod-label-primary: #164705; 
+			--mod-label-secondary-text: #333; 
+			--mod-label-primary-text: #44ff00; 
+			--disabled-note-primary: #999; 
+			--disabled-note-secondary: #666; 
+			--note-flash: #a4ff82; 
+			--note-flash-secondary: #dffbd57a; }
+			
+			 body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  border-radius: 0;
+				background-image: url("./lines2.png") !important;
+				background-size: 10%;
+			}
+
+						@font-face {
+					   font-family: "Workbench";
+					   src:
+						url("./Workbench.ttf") format("truetype") tech(color-COLRv1),
+						}
+			
+						html {
+							font-family: 'Workbench';
+						}
+			
+						div.channelBoxLabel {
+							font-family: 'Workbench' !important;
+						}
+			
+			
+						#modTitle::before {
+							content: "> AbyssBox Terminal 2.0" !important;
+						}
+			`,
+        "Protanopia": `
+:root { 
+--page-margin: #000000; 
+--editor-background: #000000; 
+--hover-preview: white; 
+--playhead: rgba(255, 255, 255, 0.9); 
+--primary-text: #ffffff; 
+--secondary-text: #e5e5e5; 
+--inverted-text: #000000; 
+--text-selection: rgba(119,68,255,0.99); 
+--box-selection-fill: #044b94; 
+--loop-accent: #ffffff; 
+--link-accent: #8915c8; 
+--ui-widget-background: #676767; 
+--ui-widget-focus: #696969; 
+--pitch-background: #302f36; 
+--tonic: #19181c; 
+--fifth-note: #1b1924; 
+--third-note: #192415;
+--white-piano-key: #a6a6a6; 
+--black-piano-key: #484848; 
+--use-color-formula: false;
+			--pitch-channel-limit: 10; 
+--track-editor-bg-pitch: #666666; 
+--track-editor-bg-pitch-dim: #383838; 
+--track-editor-bg-noise: #438240; 
+--track-editor-bg-noise-dim: #1e361d; 
+--track-editor-bg-mod: #5f419c; 
+--track-editor-bg-mod-dim: #3e2b66; 
+--multiplicative-mod-slider: #b62326; 
+--overwriting-mod-slider: #5f1214; 
+--indicator-primary: #ccffdb; 
+--indicator-secondary: #55dee6; 
+--select2-opt-group: #595959; 
+--input-box-outline: #ffffff; 
+--mute-button-normal: #f11d22; 
+--mute-button-mod: #4b57c2; 
+--mod-label-primary: #0909ff; 
+--mod-label-secondary-text: #ffffff; 
+--mod-label-primary-text: #c8ecfd; 
+				--pitch1-secondary-channel: #160740;
+				--pitch1-primary-channel:   #482d8a;
+
+				--pitch1-secondary-note:    #160740;
+				--pitch1-primary-note:      #482d8a;
+
+				--pitch2-secondary-channel: #0b555e;
+				--pitch2-primary-channel:   #126e7a;
+
+				--pitch2-secondary-note:    #0b555e;
+				--pitch2-primary-note:      #126e7a;
+
+				--pitch3-secondary-channel: #1d898c;
+				--pitch3-primary-channel:   #2fa9ad;
+
+				--pitch3-secondary-note:    #1d898c;
+				--pitch3-primary-note:      #2fa9ad;
+
+				--pitch4-secondary-channel: #3f9160;
+				--pitch4-primary-channel:   #55ad78;
+
+				--pitch4-secondary-note:    #3f9160;
+				--pitch4-primary-note:      #55ad78;
+
+				--pitch5-secondary-channel: #69b051;
+				--pitch5-primary-channel:   #97e07e;
+
+				--pitch5-secondary-note:    #69b051;
+				--pitch5-primary-note:      #97e07e;
+
+				--pitch6-secondary-channel: #bbcc8f;
+				--pitch6-primary-channel:   #d4e3ac;
+
+				--pitch6-secondary-note:    #bbcc8f;
+				--pitch6-primary-note:      #d4e3ac;
+
+				--pitch7-secondary-channel: #8f7657;
+				--pitch7-primary-channel:   #b5a28a;
+
+				--pitch7-secondary-note:    #8f7657;
+				--pitch7-primary-note:      #b5a28a;
+
+				--pitch8-secondary-channel: #804d3c;
+				--pitch8-primary-channel:   #a16a58;
+
+				--pitch8-secondary-note:    #804d3c;
+				--pitch8-primary-note:      #a16a58;
+
+				--pitch9-secondary-channel: #a62b2b;
+				--pitch9-primary-channel:   #ba3c3c;
+
+				--pitch9-secondary-note:    #a62b2b;
+				--pitch9-primary-note:      #ba3c3c;
+
+				--pitch10-secondary-channel:#ba497c;
+				--pitch10-primary-channel:  #d46195;
+
+				--pitch10-secondary-note:   #ba497c;
+				--pitch10-primary-note:     #d46195;
+
+				--noise1-secondary-channel: #6F6F6F;
+				--noise1-primary-channel:   #AAAAAA;
+
+				--noise1-secondary-note:    #A7A7A7;
+				--noise1-primary-note:      #E0E0E0;
+
+				--noise2-secondary-channel: #996633;
+				--noise2-primary-channel:   #DDAA77;
+				--noise2-secondary-note:    #CC9966;
+				--noise2-primary-note:      #F0D0BB;
+				--noise3-secondary-channel: #4A6D8F;
+				--noise3-primary-channel:   #77AADD;
+				--noise3-secondary-note:    #6F9FCF;
+				--noise3-primary-note:      #BBD7FF;
+				--noise4-secondary-channel: #7A4F9A;
+				--noise4-primary-channel:   #AF82D2;
+				--noise4-secondary-note:    #9E71C1;
+				--noise4-primary-note:      #D4C1EA;
+				--noise5-secondary-channel: #607837;
+				--noise5-primary-channel:   #A2BB77;
+				--noise5-secondary-note:    #91AA66;
+				--noise5-primary-note:      #C5E2B2;
+          				--mod1-secondary-channel:   #339955;
+					--mod1-primary-channel:     #77fc55;
+					--mod1-secondary-note:      #77ff8a;
+					--mod1-primary-note:        #cdffee;
+					--mod2-secondary-channel:   #993355;
+					--mod2-primary-channel:     #f04960;
+					--mod2-secondary-note:      #f057a0;
+					--mod2-primary-note:        #ffb8de;
+					--mod3-secondary-channel:   #553399;
+					--mod3-primary-channel:     #8855fc;
+					--mod3-secondary-note:      #aa64ff;
+					--mod3-primary-note:	    #f8ddff;
+					--mod4-secondary-channel:   #a86436;
+					--mod4-primary-channel:     #c8a825;
+					--mod4-secondary-note:      #e8ba46;
+					--mod4-primary-note:        #fff6d3;
+					--mod-label-primary:        #999;
+					--mod-label-secondary-text: #333;
+					--mod-label-primary-text:   black;
+					--disabled-note-primary:    #999;
+					--disabled-note-secondary:  #666;
+
+					
+					
+}
+
+			`,
+        "Tritanopia": `
+:root { 
+--page-margin: #000000; 
+--editor-background: #000000; 
+--hover-preview: white; 
+--playhead: rgba(255, 255, 255, 0.9); 
+--primary-text: #ffffff; 
+--secondary-text: #e5e5e5; 
+--inverted-text: #000000; 
+--text-selection: rgba(119,68,255,0.99); 
+--box-selection-fill: #044b94; 
+--loop-accent: #ffffff; 
+--link-accent: #8915c8; 
+--ui-widget-background: #676767; 
+--ui-widget-focus: #696969; 
+--pitch-background: #302f36; 
+--tonic: #19181c; 
+--fifth-note: #1b1924; 
+--third-note: #192415;
+--white-piano-key: #a6a6a6; 
+--black-piano-key: #484848; 
+--use-color-formula: false;
+			--pitch-channel-limit: 10; 
+--track-editor-bg-pitch: #666666; 
+--track-editor-bg-pitch-dim: #383838; 
+--track-editor-bg-noise: #438240; 
+--track-editor-bg-noise-dim: #1e361d; 
+--track-editor-bg-mod: #5f419c; 
+--track-editor-bg-mod-dim: #3e2b66; 
+--multiplicative-mod-slider: #b62326; 
+--overwriting-mod-slider: #5f1214; 
+--indicator-primary: #ccffdb; 
+--indicator-secondary: #55dee6; 
+--select2-opt-group: #595959; 
+--input-box-outline: #ffffff; 
+--mute-button-normal: #f11d22; 
+--mute-button-mod: #4b57c2; 
+--mod-label-primary: #0909ff; 
+--mod-label-secondary-text: #ffffff; 
+--mod-label-primary-text: #c8ecfd; 
+				--pitch1-secondary-channel: #9C0000;
+				--pitch1-primary-channel:   #FF0000;
+
+				--pitch1-secondary-note:    #9C0000;
+				--pitch1-primary-note:      #FF0000;
+
+				--pitch2-secondary-channel: #8E009C;
+				--pitch2-primary-channel:   #EB25FF;
+
+				--pitch2-secondary-note:    #8E009C;
+				--pitch2-primary-note:      #EB25FF;
+
+				--pitch3-secondary-channel: #00069C;
+				--pitch3-primary-channel:   #3D45FF;
+
+				--pitch3-secondary-note:    #00069C;
+				--pitch3-primary-note:      #3D45FF;
+
+				--pitch4-secondary-channel: #00829C;
+				--pitch4-primary-channel:   #24DBFF;
+
+				--pitch4-secondary-note:    #00829C;
+				--pitch4-primary-note:      #24DBFF;
+
+				--pitch5-secondary-channel: #009C18;
+				--pitch5-primary-channel:   #70FF86;
+
+				--pitch5-secondary-note:    #009C18;
+				--pitch5-primary-note:      #70FF86;
+
+				--pitch6-secondary-channel: #8E9C00;
+				--pitch6-primary-channel:   #DBEF16;
+
+				--pitch6-secondary-note:    #8E9C00;
+				--pitch6-primary-note:      #DBEF16;
+
+				--pitch7-secondary-channel: #9C6A00;
+				--pitch7-primary-channel:   #F7AC0E;
+
+				--pitch7-secondary-note:    #9C6A00;
+				--pitch7-primary-note:      #F7AC0E;
+
+				--pitch8-secondary-channel: #9C2300;
+				--pitch8-primary-channel:   #F53700;
+
+				--pitch8-secondary-note:    #9C2300;
+				--pitch8-primary-note:      #F53700;
+
+				--pitch9-secondary-channel: #441A0D;
+				--pitch9-primary-channel:   #9E3F22;
+
+				--pitch9-secondary-note:    #441A0D;
+				--pitch9-primary-note:      #9E3F22;
+
+				--pitch10-secondary-channel:#2C0D44;
+				--pitch10-primary-channel:  #7436A4;
+
+				--pitch10-secondary-note:   #2C0D44;
+				--pitch10-primary-note:     #7436A4;
+
+				--noise1-secondary-channel: #6F6F6F;
+				--noise1-primary-channel:   #AAAAAA;
+
+				--noise1-secondary-note:    #A7A7A7;
+				--noise1-primary-note:      #E0E0E0;
+
+				--noise2-secondary-channel: #996633;
+				--noise2-primary-channel:   #DDAA77;
+				--noise2-secondary-note:    #CC9966;
+				--noise2-primary-note:      #F0D0BB;
+				--noise3-secondary-channel: #4A6D8F;
+				--noise3-primary-channel:   #77AADD;
+				--noise3-secondary-note:    #6F9FCF;
+				--noise3-primary-note:      #BBD7FF;
+				--noise4-secondary-channel: #7A4F9A;
+				--noise4-primary-channel:   #AF82D2;
+				--noise4-secondary-note:    #9E71C1;
+				--noise4-primary-note:      #D4C1EA;
+				--noise5-secondary-channel: #607837;
+				--noise5-primary-channel:   #A2BB77;
+				--noise5-secondary-note:    #91AA66;
+				--noise5-primary-note:      #C5E2B2;
+          				--mod1-secondary-channel:   #339955;
+					--mod1-primary-channel:     #77fc55;
+					--mod1-secondary-note:      #77ff8a;
+					--mod1-primary-note:        #cdffee;
+					--mod2-secondary-channel:   #993355;
+					--mod2-primary-channel:     #f04960;
+					--mod2-secondary-note:      #f057a0;
+					--mod2-primary-note:        #ffb8de;
+					--mod3-secondary-channel:   #553399;
+					--mod3-primary-channel:     #8855fc;
+					--mod3-secondary-note:      #aa64ff;
+					--mod3-primary-note:	    #f8ddff;
+					--mod4-secondary-channel:   #a86436;
+					--mod4-primary-channel:     #c8a825;
+					--mod4-secondary-note:      #e8ba46;
+					--mod4-primary-note:        #fff6d3;
+					--mod-label-primary:        #999;
+					--mod-label-secondary-text: #333;
+					--mod-label-primary-text:   black;
+					--disabled-note-primary:    #999;
+					--disabled-note-secondary:  #666;
+					
+					
+}
+
+			`,
+        "Deuteranopia": `
+    :root {
+    --page-margin: #000;
+    --editor-background: #060606;
+    --hover-preview: #fff;
+    --playhead: rgb(255, 255, 255);
+    --primary-text: #fff;
+    --secondary-text: #fff;
+    --inverted-text: #000;
+    --text-selection: rgba(126, 126, 126, .99);
+    --box-selection-fill: #b74a4a;
+    --loop-accent: #7744FF;
+    --link-accent: #7744FF;
+    --ui-widget-background: #484848;
+    --ui-widget-focus: #3e3e3e;
+    --pitch-background: #3e3e3e;
+    --tonic: #861057;
+    --fifth-note: #7e7e7e;
+	--third-note: #486;
+    --use-color-formula: false;
+			--pitch-channel-limit: 10;
+    --track-editor-bg-pitch: #666161;
+    --track-editor-bg-pitch-dim: #3e3e3e;
+    --track-editor-bg-noise: #474747;
+    --track-editor-bg-noise-dim: #1a1a1a;
+    --track-editor-bg-mod: #474747;
+    --track-editor-bg-mod-dim: #1a1a1a;
+    --multiplicative-mod-slider: #868686;
+    --overwriting-mod-slider: #fff;
+    --indicator-primary: #fff;
+    --indicator-secondary: #535353;
+    --select2-opt-group: #5d576f;
+    --input-box-outline: #626262;
+    --mute-button-normal: #ffdc00;
+    --mute-button-mod: #0027ff;
+    --mod-label-primary: #2b2b2b;
+
+    --pitch1-secondary-channel: #0082BB;
+  --pitch1-primary-channel: #B1E8FF;
+  --pitch1-secondary-note: #0082BB;
+  --pitch1-primary-note: #B1E8FF;
+  --pitch2-secondary-channel: #005F88;
+  --pitch2-primary-channel: #00B2FF;
+  --pitch2-secondary-note: #005F88;
+  --pitch2-primary-note: #00B2FF;
+  --pitch3-secondary-channel: #0E0090;
+  --pitch3-primary-channel: #5196ff;
+  --pitch3-secondary-note: #0E0090;
+  --pitch3-primary-note: #5196ff;
+  --pitch4-secondary-channel: #001540;
+  --pitch4-primary-channel: #0041CA;
+  --pitch4-secondary-note: #001b55;
+  --pitch4-primary-note: #0041CA;
+  --pitch5-secondary-channel: #936e21;
+  --pitch5-primary-channel: #ffb300;
+  --pitch5-secondary-note: #936e21;
+  --pitch5-primary-note: #ffbe23;
+  --pitch6-secondary-channel: #ca5b00;
+  --pitch6-primary-channel: #faff52;
+  --pitch6-secondary-note: #ca5b00;
+  --pitch6-primary-note: #faff52;
+  --pitch7-secondary-channel: #75714a;
+  --pitch7-primary-channel: #fff3b8;
+  --pitch7-secondary-note: #75714a;
+  --pitch7-primary-note: #fff3b8;
+  --pitch8-secondary-channel: #9c4100;
+  --pitch8-primary-channel: #fc0;
+  --pitch8-secondary-note: #9c4100;
+  --pitch8-primary-note: #fc0;
+  --pitch9-secondary-channel: #8d4d00;
+  --pitch9-primary-channel: #ff9b20;
+  --pitch9-secondary-note: #8d4d00;
+  --pitch9-primary-note: #ff9b20;
+  --pitch10-secondary-channel: #a28f00;
+  --pitch10-primary-channel: #ffac55;
+  --pitch10-secondary-note: #a28f00;
+  --pitch10-primary-note: #ffac55;
+  --noise1-secondary-channel: #868686;
+  --noise1-primary-channel: #fff;
+  --noise1-secondary-note: #868686;
+  --noise1-primary-note: #fff;
+  --noise2-secondary-channel: #ad5600;
+  --noise2-primary-channel: #ffd300;
+  --noise2-secondary-note: #ad5600;
+  --noise2-primary-note: #ffd300;
+  --noise3-secondary-channel: #4f2f00;
+  --noise3-primary-channel: #fff3bc;
+  --noise3-secondary-note: #4f2f00;
+  --noise3-primary-note: #fff3bc;
+  --noise4-secondary-channel: #0070ff;
+  --noise4-primary-channel: #84f1ff;
+  --noise4-secondary-note: #0070ff;
+  --noise4-primary-note: #84f1ff;
+  --noise5-secondary-channel: #00c4b2;
+  --noise5-primary-channel: #4198ff;
+  --noise5-secondary-note: #00c4b2;
+  --noise5-primary-note: #4198ff;
+  --mod1-secondary-channel: #00046c;
+  --mod1-primary-channel: #00faff;
+  --mod1-secondary-note: #00046c;
+  --mod1-primary-note: #00faff;
+  --mod2-secondary-channel: #d25a00;
+  --mod2-primary-channel: #fdff00;
+  --mod2-secondary-note: #d25a00;
+  --mod2-primary-note: #fdff00;
+  --mod3-secondary-channel: #5a5a5a;
+  --mod3-primary-channel: #fff;
+  --mod3-secondary-note: #5a5a5a;
+  --mod3-primary-note: #fff;
+  --mod4-secondary-channel: #006dfb;
+  --mod4-primary-channel: #0ce7ff;
+  --mod4-secondary-note: #006dfb;
+  --mod4-primary-note: #0ce7ff;
+  --disabled-note-primary: #8d8d8d;
+  --disabled-note-secondary: #363636;
+
+  
+  
+    }
+
+			`,
+		
+		
+		
         "jummbox light": `
 				:root {
 					-webkit-text-stroke-width: 0.5px;
@@ -7825,7 +13046,7 @@ function rawChipToIntegrated2(raw) {
 			--disabled-note-secondary:  #1c1b30;
 		}
 		`,
-        "dogebox2": `
+  "dogebox2": `
 			:root {
 				--page-margin: #000015;
 				--editor-background: #000015;
@@ -9130,26 +14351,16 @@ function rawChipToIntegrated2(raw) {
 		  --disabled-note-primary: #3a3a3a;
 		  --disabled-note-secondary: #000;
 			}
-		/* replaces hotdog with an image of the girls using the same scratch sprites from the 404 page*/
-		#Hotdog {
-			display: inline !important;
-			content: url("theme_resources/AzurLaneThemeStarterSquad.png") !important;
-			width: 75%;
-			height: 75%;
-			text-align: center;
-			margin-top: 25px;
-		}
-		/* sets cursor */
 		* {
 		cursor: url("theme_resources/AzurLaneThemeMouse.png"), auto !important;
 		}
 		/* sets background image */
 		body {
-		background-image: url("theme_resources/AzurLaneThemeMemoryTaskBackground.png") !important;
-		background-size: cover;
-		background-position: center;
-		background-repeat: no-repeat;
-			}
+ background-image: url("./UltraBoxAzurLaneThemeMemoryTaskBackground.png") !important;
+ background-size: cover;
+ background-position: center;
+ background-repeat: no-repeat;
+}
 			/* make editor background transparent */
 		#beepboxEditorContainer, .beepboxEditor, #text-content {
 		background: #0400257d !important;
@@ -9159,7 +14370,7 @@ function rawChipToIntegrated2(raw) {
 		}
 		#text-content > section > h1 {
 		margin: auto;
-		content: url("theme_resources/AzurLaneThemeLogo.png");
+		content: url("./UltraBoxALThemeLogo.png");
 		}
 		.promptContainerBG::before {
 			box-shadow: inset 0 0 2000px rgba(255, 255, 255, .5);
@@ -9637,8 +14848,6 @@ html{
   -webkit-text-stroke-width: 0.3px;
   --page-margin: #EAEAEA;
   --editor-background: #EAEAEA;
---pattern-background: url("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYQurAtfrC7QXo9iadsZVc6eJzdcERpn2ClA&s");
-  
   --hover-preview: #FFFFFF;
   --playhead: #EAEAEA;
   --primary-text: #000000;
@@ -11548,6 +16757,103 @@ body::before {
   --disabled-note-secondary: #1A1A1A;
 }
 `,
+"Citrus":`
+:root {
+  --page-margin: #1B1B1B;
+  --editor-background: #1B1B1B;
+  --hover-preview: #FFD966;
+  --playhead: #FF8C00;
+  --primary-text: #FFFFFF;
+  --secondary-text: #FFD966;
+  --inverted-text: #000000;
+  --text-selection: #FFB84D;
+  --box-selection-fill: #FFCC80;
+  --loop-accent: #FF9900;
+  --link-accent: #FFCC33;
+  --ui-widget-background: #333333;
+  --ui-widget-focus: #FFB84D;
+  --pitch-background: #222222;
+  --tonic: #FF3333;
+  --fifth-note: #FF6600;
+  --white-piano-key-color: #FFFFFF;
+  --black-piano-key-color: #000000;
+  --white-piano-key: #FFDDCC;
+  --black-piano-key: #333333;
+  --use-color-formula: false;
+
+  --track-editor-bg-pitch: #FF4444;
+  --track-editor-bg-pitch-dim: #CC2222;
+  --track-editor-bg-noise: #FFAA33;
+  --track-editor-bg-noise-dim: #CC7733;
+  --track-editor-bg-mod: #33CCFF;
+  --track-editor-bg-mod-dim: #3399CC;
+  --multiplicative-mod-slider: #33FFCC;
+  --overwriting-mod-slider: #33CC99;
+  --indicator-primary: #FFCC00;
+  --indicator-secondary: #FF9933;
+  --select2-opt-group: #FF8800;
+  --input-box-outline: #FFAA33;
+  --mute-button-normal: #CCCCCC;
+  --mute-button-mod: #999999;
+
+  --pitch1-primary-channel: #FF5555;
+  --pitch1-secondary-channel: #FF8888;
+  --pitch1-primary-note: #FFAAAA;
+  --pitch1-secondary-note: #FF6666;
+
+  --pitch2-primary-channel: #FFAA33;
+  --pitch2-secondary-channel: #FFCC66;
+  --pitch2-primary-note: #FFE0AA;
+  --pitch2-secondary-note: #FFBB66;
+
+  --pitch3-primary-channel: #33CC33;
+  --pitch3-secondary-channel: #66FF66;
+  --pitch3-primary-note: #AAFFAA;
+  --pitch3-secondary-note: #55BB55;
+
+  --pitch4-primary-channel: #33CCCC;
+  --pitch4-secondary-channel: #66FFFF;
+  --pitch4-primary-note: #AAFFFF;
+  --pitch4-secondary-note: #55BBBB;
+
+  --pitch5-primary-channel: #5555FF;
+  --pitch5-secondary-channel: #8888FF;
+  --pitch5-primary-note: #AAAAFF;
+  --pitch5-secondary-note: #6666BB;
+
+  --pitch6-primary-channel: #CC33FF;
+  --pitch6-secondary-channel: #FF66FF;
+  --pitch6-primary-note: #EEAAFF;
+  --pitch6-secondary-note: #BB66BB;
+
+  --noise1-primary-channel: #FF4444;
+  --noise1-secondary-channel: #FF7777;
+  --noise1-primary-note: #FFAAAA;
+  --noise1-secondary-note: #BB5555;
+
+  --noise2-primary-channel: #FFAA44;
+  --noise2-secondary-channel: #FFCC77;
+  --noise2-primary-note: #FFE0AA;
+  --noise2-secondary-note: #BB8844;
+
+  --mod1-primary-channel: #33CCFF;
+  --mod1-secondary-channel: #66EEFF;
+  --mod1-primary-note: #99FFFF;
+  --mod1-secondary-note: #44BBBB;
+
+  --mod2-primary-channel: #33FFAA;
+  --mod2-secondary-channel: #66FFCC;
+  --mod2-primary-note: #AAFFEE;
+  --mod2-secondary-note: #44BBBB;
+
+  --mod-label-primary: #FFFFFF;
+  --mod-label-secondary-text: #AAAAAA;
+  --mod-label-primary-text: #FFDD88;
+  --disabled-note-primary: #222222;
+  --disabled-note-secondary: #111111;
+}
+
+`,
 "FruityBox Dark": `
 :root {
   -webkit-text-stroke-width: 0.6px;
@@ -11697,7 +17003,6 @@ body::before {
 
 
 "FruityBox Nano": `
- 
 :root {  
   -webkit-text-stroke-width: 0.6px;
   --page-margin: #407DA4;
@@ -11709,13 +17014,15 @@ body::before {
   --inverted-text: #200020;
   --text-selection: #C9EFFF;
   --box-selection-fill: #CAA9FF;
-  --loop-accent: #BE5983;
-  --link-accent: #6A9CFF;
+  
+  --pitch-background: #132E33cc;
+  --tonic: #6692FFcc;
+  --fifth-note: #6E91FFcc;
+  --loop-accent: #BE5983cc;
+  --link-accent: #6A9CFFcc;
   --ui-widget-background: #2D6D61;
   --ui-widget-focus: #74C3B3;
-  --pitch-background: #132E33;
-  --tonic: #6692FF;
-  --fifth-note: #6E91FF;
+
   --white-piano-key-color: #000000;
   --black-piano-key-color: #ffffff;
   --white-piano-key: #90E5FF;
@@ -11861,13 +17168,15 @@ border: 1px solid #5DC5C2  !important; outline:none;
   0% { filter: hue-rotate(0deg); }
   100% { filter: hue-rotate(360deg); }
 }
+ 
 `,
 "FruityBox Standard Blue": `
+ 
 :root {
 			--oscilloscope-line-R: #0099A1;
 			--oscilloscope-line-L: #E4FF4D;
   -webkit-text-stroke-width: 0.5px;
-  --page-margin: #586268;
+  --page-margin: #3B474F; /*in player bg*/
   --editor-background: #272929;
   --hover-preview: #B0B0B0;
   --playhead: #356A8C;
@@ -11879,7 +17188,7 @@ border: 1px solid #5DC5C2  !important; outline:none;
   --loop-accent: #356A8C;
   --link-accent: #356A8C;
   --ui-widget-background: #41494F;
-  --ui-widget-focus: #586268;
+  --ui-widget-focus: #41494F;
   --pitch-background: #3B474F;
   --pattern-background: #292C2F;
   --tonic: #2B3941;
@@ -12026,45 +17335,15 @@ select , button, .selection *, input{
 	border-radius:0px !important;
 }
  
-.beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) {
-  border:0px solid white; outline:none; transform: scale(100%,250%) translateY(15%);  
-}
-.beepboxEditor .piano-button.blackkey  {
-  margin-left:20%;
-  position:relative; z-index:2;
-box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
-}
-
-.beepboxEditor .piano-button::before {
- display:none;
- border:2px solid #3d3c3a;
-}
-
-.beepboxEditor .piano-button.blackkey  {
-  margin-left:20%;
-  align-items:left !important;
-  position:relative; z-index:2;
-box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
-}
-.beepboxEditor .piano-button.blackkey .piano-label  {
-  padding-left:25% !important;
-}
-.beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) .piano-label{
-	transform:scale(100%,40%) translateY(-4px) !important;
-}
-.beepboxEditor .piano-button.blackkey::before {
-		display: none;
-		border: 1px solid #3d3c3a !important;
-		background-clip:none;
-		
-}
+ 
 `,
 "FruityBox Standard": `
+ 
 :root {
  			--oscilloscope-line-R: #0099A1;
 			--oscilloscope-line-L: #E4FF4D;
   -webkit-text-stroke-width: 0.5px;
-  --page-margin: #586268;
+  --page-margin: #3B474F;
   --editor-background: #272929;
   --hover-preview: #B0B0B0;
   --playhead: #356A8C;
@@ -12225,32 +17504,37 @@ select , button, .selection *, input{
 .piano-label {
 	opacity:0;
 }
-.beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) {
-  border:0px solid white; outline:none; transform: scale(100%,250%) translateY(15%);  
-}
-.beepboxEditor .piano-button.blackkey  {
-  margin-left:20%;
-  position:relative; z-index:2;
-box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
-}
-
-.beepboxEditor .piano-button::before {
- display:none;
- border:2px solid #3d3c3a;
-}
-.beepboxEditor .piano-button.blackkey::before {
-		display: none;
-		border: 1px solid #3d3c3a !important;
-		background-clip:none;
-		
-}
+ 
 `,
 "FruityBox Contrast": ` 
+ 
+				 
+				.beepboxEditor input[type="range"]::-webkit-slider-thumb
+				{
+					box-shadow:
+						0px 2px 2px 1px rgba(0, 0, 0, 0.1),
+						0px 0px 1px 1px rgba(0, 0, 0, 0.2),
+						inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+						inset 0px -1px 1px 0px rgba(0, 0, 0, 0.5),
+						inset 0px -8px 3px rgba(0, 0, 0, 0.2)
+					;
+				}
+				 
+				.beepboxEditor input[type="range"]::-webkit-slider-runnable-track
+				{
+					box-shadow:
+						0px 0px 1px 1px rgba(0, 0, 0, 0.1),
+						inset 0px 1px 2px 0px rgba(0, 0, 0, 0.7)
+					;
+					border-radius: 4px;
+				}
+				 
+ 
 :root {
  			--oscilloscope-line-R: #35C7CF;
 			--oscilloscope-line-L: #FFF44D;
   -webkit-text-stroke-width: 0.5px;
-  --page-margin: #4C5458;
+  --page-margin: #171819;
   --editor-background: #212323;
   --hover-preview: #E0E0E0;
   --playhead: #5599C5;
@@ -12270,7 +17554,7 @@ box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
   --white-piano-key-color: #000000;
   --black-piano-key-color: #FFFFFF;
   --white-piano-key: #D3D5D5;
-  --black-piano-key: #1A1A1C;
+--black-piano-key: #4E4E53;
   --use-color-formula: false;
   --track-editor-bg-pitch: #363636;
   --track-editor-bg-pitch-dim: #262B2B;
@@ -12405,35 +17689,11 @@ select , button, .selection *, input{
 	border-radius:0px !important;
 }
 
-.beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) {
-  border:0px solid white; outline:none; transform: scale(100%,250%) translateY(15%);  
-}
-.beepboxEditor .piano-button.blackkey  {
-  margin-left:20%;
-  align-items:left !important;
-  position:relative; z-index:2;
-box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
-}
-.beepboxEditor .piano-button.blackkey .piano-label  {
-  padding-left:25% !important;
-}
-.beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) .piano-label{
-	transform:scale(100%,40%) translateY(-4px) !important;
-}
-.beepboxEditor .piano-button::before {
- display:none;
- border:2px solid #3d3c3a;
-}
-.beepboxEditor .piano-button.blackkey::before {
-		display: none;
-		border: 1px solid #3d3c3a !important;
-		background-clip:none;
-		
-}
+ 
 `,
 "FruityBoxLight":`
 :root {
-  --page-margin: #D7C8FF;
+  --page-margin: #F2ECFF;
   --editor-background: #F8F7FF;
   --hover-preview: #FFB6CE;
   --playhead: #9A3DD9;
@@ -12583,7 +17843,7 @@ box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
 }
 `,
 "coolred":`:root {
-  --page-margin: #BB1717;
+  --page-margin: #4E1F1F;
   --editor-background: #3D1A1A;
   --hover-preview: #FFD7D7;
   --playhead: #FF6060;
@@ -12709,7 +17969,7 @@ box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
 }`,
 "coollime":`
 :root {
-  --page-margin: #4CBB17;
+  --page-margin: #1F4E1F;
   --editor-background: #1A3D1A;
   --hover-preview: #D7FFD9;
   --playhead: #A8FF60;
@@ -12836,7 +18096,7 @@ box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
 `,
 "grayscale":`
 :root {
-  --page-margin: #444444;
+  --page-margin: #2A2A2A;
   --editor-background: #1A1A1A;
   --hover-preview: #E0E0E0;
   --playhead: #BFBFBF;
@@ -15597,23 +20857,19 @@ body::after {
   50%  { opacity: 0.3; }
   100% { opacity: 0.04; }
 }
-
 @keyframes Anim2 {
   0% { transform: scale(1.2) rotate(0deg); }
   50% { transform: scale(1.8) rotate(180deg); }
   100% { transform: scale(1.2) rotate(360deg); }
 }
-
 @keyframes steelShift {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
-
-
 `,
-        "custom": `${localStorage.getItem("customColors") || `:root {  }`}`,
-    };
+"custom": `${localStorage.getItem("customColors") || `:root {  }`}`,
+};
     ColorConfig.pageMargin = "var(--page-margin, black)";
     ColorConfig.editorBackground = "var(--editor-background, black)";
     ColorConfig.patternBackground = "var(--pattern-background)";
@@ -15952,6 +21208,14 @@ updateThemes()
     }
     document.body.removeChild(scrollBarTest);
     document.head.appendChild(HTML.style({ type: "text/css" }, `
+body::selection {
+  -webkit-text-fill-color: #ffe08a;
+  -webkit-text-stroke: 0px;    
+  background: rgba(0,0,1,0.5); 
+}
+.selectRow {
+  height: auto !important;
+}
 
 /* Note: "#" symbols need to be encoded as "%23" in SVG data urls, otherwise they are interpreted as fragment identifiers! */
 :root {
@@ -15970,7 +21234,7 @@ updateThemes()
 	--internal-select-arrows-symbol: var(--select-arrows-symbol, url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path d="M -4 -3 L 4 -3 L 0 -8 z M -4 3 L 4 3 L 0 8 z" fill="gray"/></svg>'));
 	--internal-file-page-symbol: var(--file-page-symbol, url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-5 -21 26 26"><path d="M 2 0 L 2 -16 L 10 -16 L 14 -12 L 14 0 z M 3 -1 L 13 -1 L 13 -11 L 9 -11 L 9 -15 L 3 -15 z" fill="gray"/></svg>'));
 	--internal-edit-pencil-symbol: var(--edit-pencil-symbol, url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-5 -21 26 26"><path d="M 0 0 L 1 -4 L 4 -1 z M 2 -5 L 10 -13 L 13 -10 L 5 -2 zM 11 -14 L 13 -16 L 14 -16 L 16 -14 L 16 -13 L 14 -11 z" fill="gray"/></svg>'));
-	--internal-preferences-gear-symbol: var(--preferences-gear-symbol, url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path d="M 5.78 -1.6 L 7.93 -0.94 L 7.93 0.94 L 5.78 1.6 L 4.85 3.53 L 5.68 5.61 L 4.21 6.78 L 2.36 5.52 L 0.27 5.99 L -0.85 7.94 L -2.68 7.52 L -2.84 5.28 L -4.52 3.95 L -6.73 4.28 L -7.55 2.59 L -5.9 1.07 L -5.9 -1.07 L -7.55 -2.59 L -6.73 -4.28 L -4.52 -3.95 L -2.84 -5.28 L -2.68 -7.52 L -0.85 -7.94 L 0.27 -5.99 L 2.36 -5.52 L 4.21 -6.78 L 5.68 -5.61 L 4.85 -3.53 M 2.92 0.67 L 2.92 -0.67 L 2.35 -1.87 L 1.3 -2.7 L 0 -3 L -1.3 -2.7 L -2.35 -1.87 L -2.92 -0.67 L -2.92 0.67 L -2.35 1.87 L -1.3 2.7 L -0 3 L 1.3 2.7 L 2.35 1.87 z" fill="gray"/></svg>'));
+	--internal-preferences-gear-symbol: var(--preferences-gear-symbol, url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path d="M 5.78 -1.6 L 7.93 -0.94 L 7.93 0.94 L 5.78 1.6 L 4.85 3.53 L 5.68 5.61 L 4.21 6.78 L 2.36 5.52 L 0.27 5.99 L -0.85 7.94 L -2.68 7.52 L -2.84 5.28 L -4.52 3.95 L -6.73 4.28 L -7.55 2.59 L -5.9 1.07 L -5.9 -1.07 L -7.55 -2.59 L -6.73 -4.28 L -4.52 -3.95 L -2.84 -5.28 L -2.68 -7.52 L -0.85 -7.94 L 0.27 -5.99 L 2.36 -5.52 L 4.21 -6.78 L 5.68 -5.61 L 4.85 -3.53 M 2.92 0.67 L 2.92 -0.67 L 2.35 -1.87 L 1.3 -2.7 L 0 -3 L -1.3 -2.7 L -2.35 -1.87 L -2.92 -0.67 L -2.92 0.67 L -2.35 1.87 L -1.3 2.7 L -0 3 L 1.3 2.7 L 2.35 1.87 z" fill="gray"/></svg>'));  
 	--internal-customize-dial-symbol: var(--customize-dial-symbol, url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"> \
 			<g transform="translate(0,1)" fill="gray"> \
 				<circle cx="0" cy="0" r="6.5" stroke="gray" stroke-width="1" fill="none"/> \
@@ -16679,10 +21943,7 @@ html .promptContainer {
 	color: ${ColorConfig.primaryText};
 }
 
-.promptContainer input[type=text]::selection, .promptContainer input[type=number]::selection {
-	background-color: ${ColorConfig.textSelection};
-	color: ${ColorConfig.primaryText};
-}
+ 
 
 .promptContainer input[type=checkbox] {
   transform: scale(1.5);
@@ -16771,7 +22032,6 @@ position: absolute;
 	flex-direction: column;
 	max-height:80vh; overflow: hidden scroll;
 	max-width:90vw;
-	right: 12px;
 	top: 50vh;
 	left: 50vw;
 	transform: translate(-50%,-50%);
@@ -16780,7 +22040,7 @@ position: absolute;
 }
 
 html .prompt > *:not(:first-child):not(.cancelButton) {
-	margin-top: 1.5em;
+	margin-top: 8px;
 }
 
 html .prompt h2 {
@@ -17763,11 +23023,7 @@ html .prompt.recordingSetupPrompt > label:not(:first-child):not(.cancelButton) {
 	color: ${ColorConfig.primaryText};
 }
 
-.beepboxEditor input[type=text]::selection, .beepboxEditor input[type=number]::selection {
-	background-color: ${ColorConfig.textSelection};
-	color: ${ColorConfig.primaryText};
-}
-
+ 
 .beepboxEditor input[type=checkbox] {
   transform: scale(1.5);
 }
@@ -19112,7 +24368,7 @@ li.select2-results__option[role=group] > strong:hover {
             }
             return patternObject;
         }
-        fromJsonObject(patternObject, song, channel, importedPartsPerBeat, isNoiseChannel, isModChannel, jsonFormat = "auto") {
+        fromJsonObject(patternObject, song, channel, importedPartsPerBeat, isNoiseChannel, isModChannel, jsonFormat = "auto") {  
             const format = jsonFormat.toLowerCase();
             if (song.patternInstruments) {
                 if (Array.isArray(patternObject["instruments"])) {
@@ -19153,7 +24409,7 @@ li.select2-results__option[role=group] > strong:hover {
                     let startInterval = 0;
                     let instrument = channel.instruments[this.instruments[0]];
                     let mod = Math.max(0, Config.modCount - note.pitches[0] - 1);
-                    for (let k = 0; k < noteObject["points"].length; k++) {
+                    for (let k = 0; k < noteObject["points"].length; k++) { 
                         const pointObject = noteObject["points"][k];
                         if (pointObject == undefined || pointObject["tick"] == undefined)
                             continue;
@@ -19168,7 +24424,7 @@ li.select2-results__option[role=group] > strong:hover {
                             size = Math.max(0, Math.min(volumeCap, Math.round((pointObject["volume"] | 0) * volumeCap / 100)));
                         }
                         else {
-                            size = ((pointObject["forMod"] | 0) > 0) ? Math.round(pointObject["volume"] | 0) : Math.max(0, Math.min(volumeCap, Math.round((pointObject["volume"] | 0) * volumeCap / 100)));
+                            size = ((pointObject["forMod"] | 0) > 0) ? Math.round(pointObject["volume"] | 0) : Math.max(0, Math.min(volumeCap, Math.round((pointObject["volume"] | 0) * volumeCap / 100))); 
                         }
                         if (time > song.beatsPerBar * Config.partsPerBeat)
                             continue;
@@ -19219,7 +24475,7 @@ li.select2-results__option[role=group] > strong:hover {
                     else {
                         note.continuesLastPattern = false;
                     }
-                    if ((format != "ultrabox" && format != "slarmoosbox" && format != "slarmoosbox2" ) && instrument.modulators[mod] == Config.modulators.dictionary["tempo"].index) {
+                    if ((format != "ultrabox"&& format != "slarmoosbox" && format != "fruitybox" && format != "slarmoosbox2" ) && instrument.modulators[mod] == Config.modulators.dictionary["tempo"].index) { 
                         for (const pin of note.pins) {
                             const oldMin = 30;
                             const newMin = 1;
@@ -19874,15 +25130,11 @@ li.select2-results__option[role=group] > strong:hover {
             }
             return envelopeObject;
         }
-        fromJsonObject(envelopeObject, format) {  // errordetected
+        fromJsonObject(envelopeObject, format) {  
             this.reset(); 
             let target = Config.instrumentAutomationTargets.dictionary[envelopeObject["target"]];
             if (target == null)
                 target = Config.instrumentAutomationTargets.dictionary["noteVolume"];
-                
-                
-
-            
             this.target = target.index;
             let envelope = Config.envelopes.dictionary["none"];
             let isTremolo2 = false;
@@ -20000,11 +25252,17 @@ li.select2-results__option[role=group] > strong:hover {
             }
         }
     }
-    class Instrument {
-        constructor(isNoiseChannel, isModChannel) {
+    class Instrument { 
+        constructor(isNoiseChannel, isModChannel) { 
+            this.wavenotfound=null;
             this.type = 0;
             this.preset = 0;
             this.chipWave = 2;
+            this.wave=""
+            this.phaserFreq = 0;
+            this.phaserMix = Config.phaserMixRange - 1;
+            this.phaserFeedback = 0;
+            this.phaserStages = 2;  
             this.chipwaveselected=2; 
             this.isUsingAdvancedLoopControls = false;
             this.chipWaveLoopStart = 0;
@@ -20030,6 +25288,7 @@ li.select2-results__option[role=group] > strong:hover {
             this.transition = Config.transitions.dictionary["normal"].index;
             this.pitchShift = 0;
             this.octaveShift = 0;
+            this.customfunction = ["",""]; 
             this.boost = 0;
             this.detune = 0;
             this.vibrato = 0;
@@ -20045,19 +25304,19 @@ li.select2-results__option[role=group] > strong:hover {
             this.unisonOffset = 0.0;
             this.unisonExpression = 1.4;
             this.unisonSign = 1.0;
-this.detectForUnison = 0;
-this.last_unisonVoices = 1
-this.last_unisonSign = 1
-this.last_unisonExpression = 2.0
-this.last_unisonOffset = 0
-this.last_unisonSpread = 0  
-            
+            this.detectForUnison = 0;
+            this.last_unisonVoices = 1
+            this.last_unisonSign = 1
+            this.last_unisonExpression = 2.0
+            this.last_unisonOffset = 0
+            this.last_unisonSpread = 0  
             this.effects = 0;
             this.chord = 1;
             this.volume = 0;
             this.pan = Config.panCenter;
             this.panDelay = 0;
             this.arpeggioSpeed = 12;
+            this.strumSpeed = 1;
             this.monoChordTone = 0;
             this.fastTwoNoteArp = false;
             this.legacyTieOver = false;
@@ -20149,6 +25408,10 @@ this.last_unisonSpread = 0
             this.effects = (1 << 2);
             this.chorus = Config.chorusRange - 1;
             this.reverb = 0;
+            this.phaserFreq = 0;
+            this.phaserFeedback = 0;
+            this.phaserStages = 2;
+            this.phaserMix = Config.phaserMixRange - 1; 
             this.echoSustain = Math.floor((Config.echoSustainRange - 1) * 0.5);
             this.echoDelay = Math.floor((Config.echoDelayRange - 1) * 0.5);
             this.eqFilter.reset();
@@ -20180,6 +25443,7 @@ this.last_unisonSpread = 0
             this.panDelay = 0;
             this.pitchShift = Config.pitchShiftCenter;
             this.octaveShift = 12; 
+            this.customfunction = ["",""];
             this.boost = 0; 
             this.detune = Config.detuneCenter;
             this.vibrato = 0;
@@ -20188,6 +25452,7 @@ this.last_unisonSpread = 0
             this.stringSustainType = Config.enableAcousticSustain ? 1 : 0;
             this.clicklessTransition = false;
             this.arpeggioSpeed = 12;
+            this.strumSpeed = 1;
             this.monoChordTone = 1;
             this.envelopeSpeed = 12;
             this.legacyTieOver = false;
@@ -20446,8 +25711,8 @@ this.last_unisonSpread = 0
             if (effectsIncludeOctaveShift(this.effects)) {
                 instrumentObject["pitchShiftOctaves"] = this.octaveShift;
             }
-            if (effectsIncludeBoost(this.effects)) {
-                instrumentObject["boost"] = this.boost;
+            if (effectsIncludeFunction(this.effects)) {
+                instrumentObject["customfunction"] = this.customfunction;
             }
             if (effectsIncludeDetune(this.effects)) {
                 instrumentObject["detuneCents"] = Synth.detuneToCents(this.detune);
@@ -20494,9 +25759,15 @@ this.last_unisonSpread = 0
                 instrumentObject["distortion"] = Math.round(100 * this.distortion / (Config.distortionRange - 1));
                 instrumentObject["aliases"] = this.aliases;
             }
-            if (effectsIncludeBitcrusher(this.effects)) {
+            if (effectsIncludeBitcrusher(this.effects)) { 
                 instrumentObject["bitcrusherOctave"] = (Config.bitcrusherFreqRange - 1 - this.bitcrusherFreq) * Config.bitcrusherOctaveStep;
                 instrumentObject["bitcrusherQuantization"] = Math.round(100 * this.bitcrusherQuantization / (Config.bitcrusherQuantizationRange - 1));
+            }
+            if (effectsIncludePhaser(this.effects)) {
+                instrumentObject["phaserMix"] = Math.round(100 * this.phaserMix / (Config.phaserMixRange - 1));
+                instrumentObject["phaserFreq"] = Math.round(100 * this.phaserFreq / (Config.phaserFreqRange - 1));
+                instrumentObject["phaserFeedback"] = Math.round(100 * this.phaserFeedback / (Config.phaserFeedbackRange - 1));
+                instrumentObject["phaserStages"] = Math.round(100 * this.phaserStages / (Config.phaserMaxStages - 1));
             }
             if (effectsIncludePanning(this.effects)) {
                 instrumentObject["pan"] = Math.round(100 * (this.pan - Config.panCenter) / Config.panCenter);
@@ -20735,7 +26006,7 @@ this.last_unisonSpread = 0
                 for (let i = 0; i < instrumentObject["effects"].length; i++) {
                     effects = effects | (1 << Config.effectNames.indexOf(instrumentObject["effects"][i]));
                 }
-                this.effects = (effects & ((1 << 16) - 1));
+                this.effects = (effects & ((1 << 18) - 1));
             }
             else {
                 const legacyEffectsNames = ["none", "reverb", "chorus", "chorus & reverb"];
@@ -20785,7 +26056,7 @@ this.last_unisonSpread = 0
                 const chord = Config.chords.dictionary[legacyChordNames[chordProperty]] || Config.chords.dictionary[chordProperty];
                 if (chord != undefined) {
                     this.chord = chord.index;
-                }
+                }     
                 else {
                     if (this.type == 2) {
                         this.chord = Config.chords.dictionary["arpeggio"].index;
@@ -20831,6 +26102,9 @@ this.last_unisonSpread = 0
             }
             if (instrumentObject["pitchShiftOctaves"] != undefined) {
                 this.octaveShift = clamp(0, Config.pitchShiftRange, Math.round(+instrumentObject["pitchShiftOctaves"]));
+            } 
+            if (instrumentObject["customfunction"] != undefined) {
+                this.customfunction =  instrumentObject["customfunction"]
             } 
             if (instrumentObject["boost"] != undefined) {
                 this.boost = clamp(0, Config.pitchShiftRange, Math.round(+instrumentObject["boost"]));
@@ -20941,7 +26215,19 @@ this.last_unisonSpread = 0
             }
             if (instrumentObject["bitcrusherQuantization"] != undefined) {
                 this.bitcrusherQuantization = clamp(0, Config.bitcrusherQuantizationRange, Math.round((Config.bitcrusherQuantizationRange - 1) * (instrumentObject["bitcrusherQuantization"] | 0) / 100));
+            } 
+            if (instrumentObject["phaserMix"] != undefined) {
+                this.phaserMix = clamp(0, Config.phaserMixRange, Math.round((Config.phaserMixRange - 1) * (instrumentObject["phaserMix"] | 0) / 100));
             }
+            if (instrumentObject["phaserFreq"] != undefined) {
+                this.phaserFreq = clamp(0, Config.phaserFreqRange, Math.round((Config.phaserFreqRange - 1) * (instrumentObject["phaserFreq"] | 0) / 100));
+            }
+            if (instrumentObject["phaserFeedback"] != undefined) {
+                this.phaserFeedback = clamp(0, Config.phaserFeedbackRange, Math.round((Config.phaserFeedbackRange - 1) * (instrumentObject["phaserFeedback"] | 0) / 100));
+            }
+            if (instrumentObject["phaserStages"] != undefined) {
+                this.phaserStages = clamp(0, Config.phaserMaxStages, Math.round((Config.phaserMaxStages - 1) * (instrumentObject["phaserStages"] | 0) / 100));
+            } 
             if (instrumentObject["echoSustain"] != undefined) {
                 this.echoSustain = clamp(0, Config.echoSustainRange, Math.round((Config.echoSustainRange - 1) * (instrumentObject["echoSustain"] | 0) / 100));
             }
@@ -21059,28 +26345,29 @@ this.last_unisonSpread = 0
                 const zefboxWaveNames = { "semi-square": 63, "deep square": 64, "squaretal": 40, "saw wide": 65, "saw narrow ": 66, "deep sawtooth": 67, "sawtal": 68, "pulse": 69, "triple pulse": 70, "high pulse": 71, "deep pulse": 72 };
                 const miscWaveNames = { "test1": 56, "pokey 4bit lfsr": 57, "pokey 5step bass": 58, "isolated spiky": 59, "unnamed 1": 60, "unnamed 2": 61, "guitar string": 75, "intense": 76, "buzz wave": 77, "pokey square": 57, "pokey bass": 58, "banana wave": 83, "test 1": 84, "test 2": 84, "real snare": 85, "earthbound o. guitar": 86 };
                 const paandorasboxWaveNames = { "kick": 87, "snare": 88, "piano1": 89, "WOW": 90, "overdrive": 91, "trumpet": 92, "saxophone": 93, "orchestrahit": 94, "detached violin": 95, "synth": 96, "sonic3snare": 97, "come on": 98, "choir": 99, "overdriveguitar": 100, "flute": 101, "legato violin": 102, "tremolo violin": 103, "amen break": 104, "pizzicato violin": 105, "tim allen grunt": 106, "tuba": 107, "loopingcymbal": 108, "standardkick": 109, "standardsnare": 110, "closedhihat": 111, "foothihat": 112, "openhihat": 113, "crashcymbal": 114, "pianoC4": 115, "liver pad": 116, "marimba": 117, "susdotwav": 118, "wackyboxtts": 119 };
-                this.chipWave = -1;
-                const rawName = instrumentObject["wave"];
-                for (const table of [
-                    legacyWaveNames,
-                    modboxWaveNames,
-                    sandboxWaveNames,
-                    zefboxWaveNames,
-                    miscWaveNames,
-                    paandorasboxWaveNames
-                ]) {
-                    if (this.chipWave == -1 && table[rawName] != undefined && Config.chipWaves[table[rawName]] != undefined) {
-                        this.chipWave = table[rawName];
-                        break;
-                    }
-                }
-                if (this.chipWave == -1) {
-                    const potentialChipWaveIndex = Config.chipWaves.findIndex(wave => wave.name == rawName);
-                    if (potentialChipWaveIndex != -1)
-                        this.chipWave = potentialChipWaveIndex;
-                }
-                if (this.chipWave == -1)
-                    this.chipWave = 1;
+this.chipWave = -1;
+const rawName = instrumentObject["wave"];
+for (const table of [
+		legacyWaveNames,
+		modboxWaveNames,
+		sandboxWaveNames,
+		zefboxWaveNames,
+		miscWaveNames,
+		paandorasboxWaveNames
+	]) {
+	if (this.chipWave == -1 && table[rawName] != undefined && Config.chipWaves[table[rawName]] != undefined) {
+		this.chipWave = table[rawName];this.wave = rawName
+		break;
+	}
+}
+if (this.chipWave == -1) {
+	const potentialChipWaveIndex = Config.chipWaves.findIndex(wave => wave.name == rawName);
+	if (potentialChipWaveIndex != -1)
+		this.chipWave = potentialChipWaveIndex;
+}
+if (this.chipWave == -1)
+	this.chipWave = 1;
+this.wave = rawName
             }
             if (this.type == 1 || this.type == 11) {
                 if (this.type == 1) {
@@ -21557,7 +26844,7 @@ this.last_unisonSpread = 0
             this.eqFilterSimpleCut = Config.filterSimpleCutRange - 1;
             this.eqFilterSimplePeak = 0;
             this.eqSubFilters = [];
-            this.getNewNoteVolume = (isMod, modChannel, modInstrument, modCount) => {
+            this.getNewNoteVolume = (isMod, modChannel, modInstrument, modCount) => { 
                 if (!isMod || modChannel == undefined || modInstrument == undefined || modCount == undefined)
                     return Config.noteSizeMax;
                 else {
@@ -21585,7 +26872,6 @@ this.last_unisonSpread = 0
                         let echoDelayIndex = Config.modulators.dictionary["echo delay"].index;
                         let pitchShiftIndex = Config.modulators.dictionary["pitch shift"].index;
                         let octaveShiftIndex = Config.modulators.dictionary["octave shift"].index;
-                        let boostIndex = Config.modulators.dictionary["boost"].index;
                         let ringModIndex = Config.modulators.dictionary["ring modulation"].index;
                         let ringModHertzIndex = Config.modulators.dictionary["ring mod hertz"].index;
                         
@@ -21653,9 +26939,6 @@ this.last_unisonSpread = 0
                            case octaveShiftIndex:
                                 vol = this.channels[instrument.modChannels[modCount]].instruments[instrumentIndex].octaveShift;
                                 break;
-                           case boostIndex:
-                                vol = this.channels[instrument.modChannels[modCount]].instruments[instrumentIndex].boost;
-                                break;
                             case ringModIndex:
                                 vol = this.channels[instrument.modChannels[modCount]].instruments[instrumentIndex].ringModulation - Config.modulators[ringModIndex].convertRealFactor;
                                 break;
@@ -21712,7 +26995,7 @@ break;
             };
             this.getVolumeCap = (isMod, modChannel, modInstrument, modCount) => {
                 if (!isMod || modChannel == undefined || modInstrument == undefined || modCount == undefined)
-                    return Config.noteSizeMax;
+                    return Config.noteSizeMax; 
                 else {
                     modCount = Config.modCount - modCount - 1;
                     let instrument = this.channels[modChannel].instruments[modInstrument];
@@ -21849,6 +27132,7 @@ for (let channel of this.channels) {
             }
         }
         toBase64String() { 
+        	rebuiltKeyboard()
             let bits;
             let buffer = [];
             buffer.push(Song._variant);
@@ -22032,8 +27316,20 @@ buffer.push(110,
                     if (effectsIncludeOctaveShift(instrument.effects)) {  
                         buffer.push(base64IntToCharCode[instrument.octaveShift]);
                     }
-                    if (effectsIncludeBoost(instrument.effects)) {  
-                        buffer.push(base64IntToCharCode[instrument.boost]);
+                    if (effectsIncludeFunction(instrument.effects)) {
+                     const json = JSON.stringify(instrument.customfunction);
+                     const bytes = new TextEncoder().encode(json);
+                     const b64 = btoa(String.fromCharCode(...bytes))
+                          .replace(/\+/g, "-")
+                          .replace(/\//g, "_")
+                          .replace(/=+$/, "");
+                          const hi = b64.length >> 6;
+                          const lo = b64.length & 63;
+                          buffer.push(base64IntToCharCode[hi]);
+                      buffer.push(base64IntToCharCode[lo]);
+                      for (let i = 0; i < b64.length; i++) {
+                          buffer.push(b64.charCodeAt(i));   
+                      }
                     }
                     if (effectsIncludeDetune(instrument.effects)) {
                         buffer.push(base64IntToCharCode[(instrument.detune - Config.detuneMin) >> 6], base64IntToCharCode[(instrument.detune - Config.detuneMin) & 0x3F]);
@@ -22051,6 +27347,12 @@ buffer.push(110,
                         buffer.push(base64IntToCharCode[instrument.distortion]);
                         buffer.push(base64IntToCharCode[+instrument.aliases]);
                     }
+                    if (effectsIncludePhaser(instrument.effects)) {
+                        buffer.push(base64IntToCharCode[instrument.phaserFreq]);
+                        buffer.push(base64IntToCharCode[instrument.phaserFeedback]);
+                        buffer.push(base64IntToCharCode[instrument.phaserStages]);
+                        buffer.push(base64IntToCharCode[instrument.phaserMix]);
+                    } 
                     if (effectsIncludeBitcrusher(instrument.effects)) {
                         buffer.push(base64IntToCharCode[instrument.bitcrusherFreq], base64IntToCharCode[instrument.bitcrusherQuantization]);
                     }
@@ -22092,31 +27394,38 @@ buffer.push(110,
                         }
                         harmonicsBits.encodeBase64(buffer);
                     }
-if (instrument.type == 0) { 
-buffer.push(119)
-const waveName = Config.chipWaves[instrument.chipWave]?.name || "rndd"
-function binEncode4(str) {
-    const utf8 = new TextEncoder().encode(str)
-    const hash = [0,0,0]
-    for (let i = 0; i < utf8.length; i++) hash[i % 3] ^= utf8[i]
-    let val = (hash[0] << 16) | (hash[1] << 8) | hash[2]
-    let result = ''
-    for (let i = 0; i < 4; i++) {
-        let bits = (val >> ((3-i)*6)) & 0x3f
-        for (let j = 5; j >= 0; j--) {
-            result += ((bits >> j) & 1) ? 'A' : 'B'
-        }
-    }
-    return result 
+ 
+ 
+
+
+	
+	
+if (instrument.type == 0) {
+ 
+     
+	
+buffer.push(119) 
+let waveName = Config.chipWaves[instrument.chipWave]?.name ?? "unknown";
+let i4=0; for (let wave of Config.chipWaves) {	if (wave.name === instrument.wave) { i4=true;	}
+} if (i4==0){ waveName=instrument.wave }
+function encodeWaveName(str) {
+    const utf8 = new TextEncoder().encode(str);
+    let bin = "";
+    for (let b of utf8) bin += String.fromCharCode(b);
+    let b64 = btoa(bin)
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+    return b64;
 }
-
-const encodedWave = binEncode4(waveName)
-
+const encodedWave = encodeWaveName(waveName);
 buffer.push(
     base64IntToCharCode[encodedWave.length >> 6],
     base64IntToCharCode[encodedWave.length & 0x3f]
 )
 for (let i = 0; i < encodedWave.length; i++) buffer.push(encodedWave.charCodeAt(i))
+ 
+
 
 
                         buffer.push(104, base64IntToCharCode[instrument.unison]);
@@ -22344,7 +27653,7 @@ buffer.push(
                                 bits.write(neededModInstrumentIndexBits, modInstrument);
                             }
                             if (status != 3) {
-                                bits.write(6, modSetting);
+                                bits.write(7, modSetting);// instead of 6 is 7 wait 67 ! 
                             }
                             if (Config.modulators[instrument.modulators[mod]].name == "eq filter" || Config.modulators[instrument.modulators[mod]].name == "note filter" || Config.modulators[instrument.modulators[mod]].name == "song eq") {
                                 bits.write(6, modFilter);
@@ -22614,6 +27923,7 @@ buffer.push(
                     let willLoadLegacySamples = false;
                     let willLoadNintariboxSamples = false;
                     let willLoadMarioPaintboxSamples = false;
+                    let willLoadStudioSamples = false;
                     const customSampleUrls = [];
                     const customSamplePresets = [];
                     sampleLoadingState.statusTable = {};
@@ -22641,6 +27951,12 @@ buffer.push(
                                 willLoadMarioPaintboxSamples = true;
                                 customSampleUrls.push(url);
                                 loadBuiltInSamples(2);
+                            }
+                        }else if (url.toLowerCase() === "studiosamples") {
+                            if (!willLoadStudioSamples) {
+                                willLoadStudioSamples = true;
+                                customSampleUrls.push(url);
+                                loadBuiltInSamples(3);
                             }
                         }
                         else {
@@ -23066,7 +28382,9 @@ case 123:{
 	}
 }
 break;
-case 119: {
+ 
+
+case 119: { 
     if (beforeThree && fromBeepBox) {
         const legacyWaves=[1,2,3,4,5,6,7,8,0];
         const channelIndex=base64CharCodeToInt[compressed.charCodeAt(charIndex++)];
@@ -23082,6 +28400,7 @@ case 119: {
                     instrument.chipNoise=clamp(0,Config.chipNoises.length,base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                 } else {
                     instrument.chipWave=clamp(0,Config.chipWaves.length,legacyWaves[base64CharCodeToInt[compressed.charCodeAt(charIndex++)]]|0);
+                    
                 }
             }
         }
@@ -23099,40 +28418,28 @@ case 119: {
         if (instrument.type==2) {
             instrument.chipNoise=clamp(0,Config.chipNoises.length,base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
         } else {
-if (fromFruityBox) {
-    const len = (base64CharCodeToInt[compressed.charCodeAt(charIndex++)] << 6) |
-                base64CharCodeToInt[compressed.charCodeAt(charIndex++)]
-    const encodedWave = compressed.substring(charIndex, charIndex + len)
-    charIndex += len
-
-    function binEncode4(str) {
-        const utf8 = new TextEncoder().encode(str)
-        const hash = [0,0,0]
-        for (let i = 0; i < utf8.length; i++) hash[i % 3] ^= utf8[i]
-        let val = (hash[0] << 16) | (hash[1] << 8) | hash[2]
-        let result = ''
-        for (let i = 0; i < 4; i++) {
-            let bits = (val >> ((3-i)*6)) & 0x3f
-            for (let j = 5; j >= 0; j--) {
-                result += ((bits >> j) & 1) ? 'A' : 'B'
-            }
-        }
-        return result
-    }
-
-    const foundIndex = Config.chipWaves.findIndex(w => binEncode4(w.name) === encodedWave)
-
-    if (foundIndex >= 0) {
-        instrument.wave = Config.chipWaves[foundIndex].name
-        instrument.chipWave = foundIndex
-    } else {
-        const newWave = { name: "unknown", expression: 1, isSampled: true, samples: [] }
-        const newIndex = Config.chipWaves.push(newWave) - 1
-        Config.chipWaves.dictionary[newWave.name] = newWave
-        instrument.wave = newWave.name
-        instrument.chipWave = newIndex
-    }
-}
+   if (fromFruityBox) {
+   	const len =
+   		(base64CharCodeToInt[compressed.charCodeAt(charIndex++)] << 6) |
+   		base64CharCodeToInt[compressed.charCodeAt(charIndex++)];
+   	
+   	const encodedWave = compressed.substring(charIndex, charIndex + len);
+   	charIndex += len;
+   	let b64 = encodedWave.replace(/-/g, "+").replace(/_/g, "/");
+   	while (b64.length % 4 != 0) b64 += "=";
+   	const bin = atob(b64);
+   	const bytes = new Uint8Array(bin.length);
+   	for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+   	const waveName = new TextDecoder().decode(bytes);
+   	const foundIndex = Config.chipWaves.findIndex(w => w.name === waveName);
+   	if (foundIndex >= 0) {
+   		instrument.wave = waveName;
+   		instrument.chipWave = foundIndex;
+   	} else {
+   		instrument.wave = waveName;
+   		instrument.wavenotfound = waveName;
+   	}
+   }
 else if (fromSlarmoosBox) {
 	let wave = 0;
 	for (let i = 0; i < 6; i++) {
@@ -23695,7 +29002,7 @@ break;
                         {
                             const instrument = this.channels[instrumentChannelIterator].instruments[instrumentIndexIterator];
                             if ((beforeNine && fromBeepBox) || ((fromJummBox && beforeFive) || (beforeFour && fromGoldBox))) {
-                                instrument.effects = (base64CharCodeToInt[compressed.charCodeAt(charIndex++)] & ((1 << 15) - 1));
+                                instrument.effects = (base64CharCodeToInt[compressed.charCodeAt(charIndex++)] & ((1 << 18) - 1));//max 16 bits for effects
                                 if (legacyGlobalReverb == 0 && !((fromJummBox && beforeFive) || (beforeFour && fromGoldBox))) {
                                     instrument.effects &= ~(1 << 0);
                                 }
@@ -23793,9 +29100,22 @@ break;
                                 if (effectsIncludeOctaveShift(instrument.effects)) {
                                     instrument.octaveShift = clamp(0, Config.pitchShiftRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                 }
-                                if (effectsIncludeBoost(instrument.effects)) {
-                                    instrument.boost = clamp(0, Config.pitchShiftRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
-                                }
+                                if (effectsIncludeFunction(instrument.effects)) {
+                                    const hi = base64CharCodeToInt[compressed.charCodeAt(charIndex++)];
+                                    const lo = base64CharCodeToInt[compressed.charCodeAt(charIndex++)];
+                                    const len = (hi << 6) | lo;
+                                    let b64 = "";
+                                    for (let i = 0; i < len; i++) {
+                                       b64 += String.fromCharCode(compressed.charCodeAt(charIndex++));
+                                    }
+                                    b64 = b64.replace(/-/g, "+").replace(/_/g, "/");
+                                    const pad = b64.length % 4;
+                                    if (pad) b64 += "=".repeat(4 - pad);
+                                    const bin = atob(b64);
+                                    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+                                    const json = new TextDecoder().decode(bytes);
+                                    instrument.customfunction = JSON.parse(json);
+                                 }
                                 if (effectsIncludeDetune(instrument.effects)) {
                                     if (fromBeepBox) {
                                         instrument.detune = clamp(Config.detuneMin, Config.detuneMax + 1, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
@@ -23824,6 +29144,12 @@ break;
                                     instrument.distortion = clamp(0, Config.distortionRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                     if ((fromJummBox && !beforeFive) || fromGoldBox || fromUltraBox || fromSlarmoosBox)
                                         instrument.aliases = base64CharCodeToInt[compressed.charCodeAt(charIndex++)] ? true : false;
+                                }
+                                if (effectsIncludePhaser(instrument.effects)) {
+                                    instrument.phaserFreq = clamp(0, Config.phaserFreqRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                    instrument.phaserFeedback = clamp(0, Config.phaserFeedbackRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                    instrument.phaserStages = clamp(0, Config.phaserMaxStages + 1, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                    instrument.phaserMix = clamp(0, Config.phaserMixRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                 }
                                 if (effectsIncludeBitcrusher(instrument.effects)) {
                                     instrument.bitcrusherFreq = clamp(0, Config.bitcrusherFreqRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
@@ -23873,7 +29199,7 @@ break;
                                     instrument.ringModHzOffset = clamp(Config.rmHzOffsetMin, Config.rmHzOffsetMax + 1, (base64CharCodeToInt[compressed.charCodeAt(charIndex++)] << 6) + base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                 }
                             }
-                            instrument.effects &= (1 << 16) - 1;
+                            instrument.effects &= (1 << 18) - 1;
                         }
                         break;
                     case 118:
@@ -24473,7 +29799,7 @@ break;
                                                     break;
                                             }
                                             if (status != 3) {
-                                                instrument.modulators[mod] = bits.read(6);
+                                                instrument.modulators[mod] = bits.read(7);//7 bits because more than 64 setting 
                                             }
                                             if (!jumfive && (Config.modulators[instrument.modulators[mod]].name == "eq filter" || Config.modulators[instrument.modulators[mod]].name == "note filter" || Config.modulators[instrument.modulators[mod]].name == "song eq")) {
                                                 instrument.modFilterTypes[mod] = bits.read(6);
@@ -24815,7 +30141,7 @@ break;
                 }
             if (Config.willReloadForCustomSamples) {
                 window.location.hash = this.toBase64String();
-                setTimeout(() => { location.reload(); }, 50);
+                setTimeout(() => {cleanMemoryBeforeNavigation(); location.reload(); }, 50);
             }
         }
         static _isProperUrl(string) {
@@ -25183,6 +30509,7 @@ break;
                     Config.willReloadForCustomSamples = true;
                     Song._restoreChipWaveListToDefault();
                     let willLoadLegacySamples = false;
+                    let willLoadStudioSamples = false;
                     let willLoadNintariboxSamples = false;
                     let willLoadMarioPaintboxSamples = false;
                     const customSampleUrls = [];
@@ -25220,7 +30547,17 @@ break;
                                 	loadBuiltInSamples(2);
                                 }
                             }
-                        }
+                        }else if (url.toLowerCase() === "studiosamples") {
+                            if (!willLoadStudioSamples) {
+                                willLoadStudioSamples = true;
+                                customSampleUrls.push(url);
+                                if(jsonFormat=="slarmoosbox2"){
+                                loadBuiltInSamples(3,1);
+                                }else{
+                                loadBuiltInSamples(3);
+                                }
+                            }
+                        } 
                         else {
                             const parseOldSyntax = false;
                             Song._parseAndConfigureCustomSample(url, customSampleUrls, customSamplePresets, sampleLoadingState, parseOldSyntax);
@@ -25719,9 +31056,9 @@ break;
             Array.prototype.push.apply(this.channels, newPitchChannels);
             Array.prototype.push.apply(this.channels, newNoiseChannels);
             Array.prototype.push.apply(this.channels, newModChannels);
-            if (Config.willReloadForCustomSamples) {
+            if (Config.willReloadForCustomSamples || true) {
                 window.location.hash = this.toBase64String();
-               setTimeout(() => { location.reload(); }, 50);
+               setTimeout(() => { cleanMemoryBeforeNavigation(); location.reload(); }, 50);
             }
         }
         getPattern(channelIndex, bar) {
@@ -25760,176 +31097,176 @@ break;
     Song._oldestSlarmoosBoxVersion = 1;
     Song._latestSlarmoosBoxVersion = 5;
     Song._variant = 0x74; 
-    class PickedString {
-        constructor() {
-            this.delayLine = null;
-            this.allPassG = 0.0;
-            this.allPassGDelta = 0.0;
-            this.sustainFilterA1 = 0.0;
-            this.sustainFilterA1Delta = 0.0;
-            this.sustainFilterA2 = 0.0;
-            this.sustainFilterA2Delta = 0.0;
-            this.sustainFilterB0 = 0.0;
-            this.sustainFilterB0Delta = 0.0;
-            this.sustainFilterB1 = 0.0;
-            this.sustainFilterB1Delta = 0.0;
-            this.sustainFilterB2 = 0.0;
-            this.sustainFilterB2Delta = 0.0;
-            this.reset();
-        }
-        reset() {
-            this.delayIndex = -1;
-            this.allPassSample = 0.0;
-            this.allPassPrevInput = 0.0;
-            this.sustainFilterSample = 0.0;
-            this.sustainFilterPrevOutput2 = 0.0;
-            this.sustainFilterPrevInput1 = 0.0;
-            this.sustainFilterPrevInput2 = 0.0;
-            this.fractionalDelaySample = 0.0;
-            this.prevDelayLength = -1.0;
-            this.delayResetOffset = 0;
-        }
-        update(synth, instrumentState, tone, stringIndex, roundedSamplesPerTick, stringDecayStart, stringDecayEnd, sustainType) {
-            const allPassCenter = 2.0 * Math.PI * Config.pickedStringDispersionCenterFreq / synth.samplesPerSecond;
-            const prevDelayLength = this.prevDelayLength;
-            const phaseDeltaStart = tone.phaseDeltas[stringIndex];
-            const phaseDeltaScale = tone.phaseDeltaScales[stringIndex];
-            const phaseDeltaEnd = phaseDeltaStart * Math.pow(phaseDeltaScale, roundedSamplesPerTick);
-            const radiansPerSampleStart = Math.PI * 2.0 * phaseDeltaStart;
-            const radiansPerSampleEnd = Math.PI * 2.0 * phaseDeltaEnd;
-            const centerHarmonicStart = radiansPerSampleStart * 2.0;
-            const centerHarmonicEnd = radiansPerSampleEnd * 2.0;
-            const allPassRadiansStart = Math.min(Math.PI, radiansPerSampleStart * Config.pickedStringDispersionFreqMult * Math.pow(allPassCenter / radiansPerSampleStart, Config.pickedStringDispersionFreqScale));
-            const allPassRadiansEnd = Math.min(Math.PI, radiansPerSampleEnd * Config.pickedStringDispersionFreqMult * Math.pow(allPassCenter / radiansPerSampleEnd, Config.pickedStringDispersionFreqScale));
-            const shelfRadians = 2.0 * Math.PI * Config.pickedStringShelfHz / synth.samplesPerSecond;
-            const decayCurveStart = (Math.pow(100.0, stringDecayStart) - 1.0) / 99.0;
-            const decayCurveEnd = (Math.pow(100.0, stringDecayEnd) - 1.0) / 99.0;
-            const register = sustainType == 1 ? 0.25 : 0.0;
-            const registerShelfCenter = 15.6;
-            const registerLowpassCenter = 3.0 * synth.samplesPerSecond / 48000;
-            const decayRateStart = Math.pow(0.5, decayCurveStart * Math.pow(shelfRadians / (radiansPerSampleStart * registerShelfCenter), (1.0 + 2.0 * register)) * registerShelfCenter);
-            const decayRateEnd = Math.pow(0.5, decayCurveEnd * Math.pow(shelfRadians / (radiansPerSampleEnd * registerShelfCenter), (1.0 + 2.0 * register)) * registerShelfCenter);
-            const expressionDecayStart = Math.pow(decayRateStart, 0.002);
-            const expressionDecayEnd = Math.pow(decayRateEnd, 0.002);
-            Synth.tempFilterStartCoefficients.allPass1stOrderInvertPhaseAbove(allPassRadiansStart);
-            synth.tempFrequencyResponse.analyze(Synth.tempFilterStartCoefficients, centerHarmonicStart);
-            const allPassGStart = Synth.tempFilterStartCoefficients.b[0];
-            const allPassPhaseDelayStart = -synth.tempFrequencyResponse.angle() / centerHarmonicStart;
-            Synth.tempFilterEndCoefficients.allPass1stOrderInvertPhaseAbove(allPassRadiansEnd);
-            synth.tempFrequencyResponse.analyze(Synth.tempFilterEndCoefficients, centerHarmonicEnd);
-            const allPassGEnd = Synth.tempFilterEndCoefficients.b[0];
-            const allPassPhaseDelayEnd = -synth.tempFrequencyResponse.angle() / centerHarmonicEnd;
-            const brightnessType = sustainType == 0 ? 0 : 1;
-            if (brightnessType == 0) {
-                const shelfGainStart = Math.pow(decayRateStart, Config.stringDecayRate);
-                const shelfGainEnd = Math.pow(decayRateEnd, Config.stringDecayRate);
-                Synth.tempFilterStartCoefficients.highShelf2ndOrder(shelfRadians, shelfGainStart, 0.5);
-                Synth.tempFilterEndCoefficients.highShelf2ndOrder(shelfRadians, shelfGainEnd, 0.5);
-            }
-            else {
-                const cornerHardness = Math.pow(brightnessType == 1 ? 0.0 : 1.0, 0.25);
-                const lowpass1stOrderCutoffRadiansStart = Math.pow(registerLowpassCenter * registerLowpassCenter * radiansPerSampleStart * 3.3 * 48000 / synth.samplesPerSecond, 0.5 + register) / registerLowpassCenter / Math.pow(decayCurveStart, .5);
-                const lowpass1stOrderCutoffRadiansEnd = Math.pow(registerLowpassCenter * registerLowpassCenter * radiansPerSampleEnd * 3.3 * 48000 / synth.samplesPerSecond, 0.5 + register) / registerLowpassCenter / Math.pow(decayCurveEnd, .5);
-                const lowpass2ndOrderCutoffRadiansStart = lowpass1stOrderCutoffRadiansStart * Math.pow(2.0, 0.5 - 1.75 * (1.0 - Math.pow(1.0 - cornerHardness, 0.85)));
-                const lowpass2ndOrderCutoffRadiansEnd = lowpass1stOrderCutoffRadiansEnd * Math.pow(2.0, 0.5 - 1.75 * (1.0 - Math.pow(1.0 - cornerHardness, 0.85)));
-                const lowpass2ndOrderGainStart = Math.pow(2.0, -Math.pow(2.0, -Math.pow(cornerHardness, 0.9)));
-                const lowpass2ndOrderGainEnd = Math.pow(2.0, -Math.pow(2.0, -Math.pow(cornerHardness, 0.9)));
-                Synth.tempFilterStartCoefficients.lowPass2ndOrderButterworth(warpInfinityToNyquist(lowpass2ndOrderCutoffRadiansStart), lowpass2ndOrderGainStart);
-                Synth.tempFilterEndCoefficients.lowPass2ndOrderButterworth(warpInfinityToNyquist(lowpass2ndOrderCutoffRadiansEnd), lowpass2ndOrderGainEnd);
-            }
-            synth.tempFrequencyResponse.analyze(Synth.tempFilterStartCoefficients, centerHarmonicStart);
-            const sustainFilterA1Start = Synth.tempFilterStartCoefficients.a[1];
-            const sustainFilterA2Start = Synth.tempFilterStartCoefficients.a[2];
-            const sustainFilterB0Start = Synth.tempFilterStartCoefficients.b[0] * expressionDecayStart;
-            const sustainFilterB1Start = Synth.tempFilterStartCoefficients.b[1] * expressionDecayStart;
-            const sustainFilterB2Start = Synth.tempFilterStartCoefficients.b[2] * expressionDecayStart;
-            const sustainFilterPhaseDelayStart = -synth.tempFrequencyResponse.angle() / centerHarmonicStart;
-            synth.tempFrequencyResponse.analyze(Synth.tempFilterEndCoefficients, centerHarmonicEnd);
-            const sustainFilterA1End = Synth.tempFilterEndCoefficients.a[1];
-            const sustainFilterA2End = Synth.tempFilterEndCoefficients.a[2];
-            const sustainFilterB0End = Synth.tempFilterEndCoefficients.b[0] * expressionDecayEnd;
-            const sustainFilterB1End = Synth.tempFilterEndCoefficients.b[1] * expressionDecayEnd;
-            const sustainFilterB2End = Synth.tempFilterEndCoefficients.b[2] * expressionDecayEnd;
-            const sustainFilterPhaseDelayEnd = -synth.tempFrequencyResponse.angle() / centerHarmonicEnd;
-            const periodLengthStart = 1.0 / phaseDeltaStart;
-            const periodLengthEnd = 1.0 / phaseDeltaEnd;
-            const minBufferLength = Math.ceil(Math.max(periodLengthStart, periodLengthEnd) * 2);
-            const delayLength = periodLengthStart - allPassPhaseDelayStart - sustainFilterPhaseDelayStart;
-            const delayLengthEnd = periodLengthEnd - allPassPhaseDelayEnd - sustainFilterPhaseDelayEnd;
-            this.prevDelayLength = delayLength;
-            this.delayLengthDelta = (delayLengthEnd - delayLength) / roundedSamplesPerTick;
-            this.allPassG = allPassGStart;
-            this.sustainFilterA1 = sustainFilterA1Start;
-            this.sustainFilterA2 = sustainFilterA2Start;
-            this.sustainFilterB0 = sustainFilterB0Start;
-            this.sustainFilterB1 = sustainFilterB1Start;
-            this.sustainFilterB2 = sustainFilterB2Start;
-            this.allPassGDelta = (allPassGEnd - allPassGStart) / roundedSamplesPerTick;
-            this.sustainFilterA1Delta = (sustainFilterA1End - sustainFilterA1Start) / roundedSamplesPerTick;
-            this.sustainFilterA2Delta = (sustainFilterA2End - sustainFilterA2Start) / roundedSamplesPerTick;
-            this.sustainFilterB0Delta = (sustainFilterB0End - sustainFilterB0Start) / roundedSamplesPerTick;
-            this.sustainFilterB1Delta = (sustainFilterB1End - sustainFilterB1Start) / roundedSamplesPerTick;
-            this.sustainFilterB2Delta = (sustainFilterB2End - sustainFilterB2Start) / roundedSamplesPerTick;
-            const pitchChanged = Math.abs(Math.log2(delayLength / prevDelayLength)) > 0.01;
-            const reinitializeImpulse = (this.delayIndex == -1 || pitchChanged);
-            if (this.delayLine == null || this.delayLine.length <= minBufferLength) {
-                const likelyMaximumLength = Math.ceil(2 * synth.samplesPerSecond / Instrument.frequencyFromPitch(12));
-                const newDelayLine = new Float32Array(Synth.fittingPowerOfTwo(Math.max(likelyMaximumLength, minBufferLength)));
-                if (!reinitializeImpulse && this.delayLine != null) {
-                    const oldDelayBufferMask = (this.delayLine.length - 1) >> 0;
-                    const startCopyingFromIndex = this.delayIndex + this.delayResetOffset;
-                    this.delayIndex = this.delayLine.length - this.delayResetOffset;
-                    for (let i = 0; i < this.delayLine.length; i++) {
-                        newDelayLine[i] = this.delayLine[(startCopyingFromIndex + i) & oldDelayBufferMask];
-                    }
-                }
-                this.delayLine = newDelayLine;
-            }
-            const delayLine = this.delayLine;
-            const delayBufferMask = (delayLine.length - 1) >> 0;
-            if (reinitializeImpulse) {
-                this.delayIndex = 0;
-                this.allPassSample = 0.0;
-                this.allPassPrevInput = 0.0;
-                this.sustainFilterSample = 0.0;
-                this.sustainFilterPrevOutput2 = 0.0;
-                this.sustainFilterPrevInput1 = 0.0;
-                this.sustainFilterPrevInput2 = 0.0;
-                this.fractionalDelaySample = 0.0;
-                const startImpulseFrom = -delayLength;
-                const startZerosFrom = Math.floor(startImpulseFrom - periodLengthStart / 2);
-                const stopZerosAt = Math.ceil(startZerosFrom + periodLengthStart * 2);
-                this.delayResetOffset = stopZerosAt;
-                for (let i = startZerosFrom; i <= stopZerosAt; i++) {
-                    delayLine[i & delayBufferMask] = 0.0;
-                }
-                const impulseWave = instrumentState.wave;
-                const impulseWaveLength = impulseWave.length - 1;
-                const impulsePhaseDelta = impulseWaveLength / periodLengthStart;
-                const fadeDuration = Math.min(periodLengthStart * 0.2, synth.samplesPerSecond * 0.003);
-                const startImpulseFromSample = Math.ceil(startImpulseFrom);
-                const stopImpulseAt = startImpulseFrom + periodLengthStart + fadeDuration;
-                const stopImpulseAtSample = stopImpulseAt;
-                let impulsePhase = (startImpulseFromSample - startImpulseFrom) * impulsePhaseDelta;
-                let prevWaveIntegral = 0.0;
-                for (let i = startImpulseFromSample; i <= stopImpulseAtSample; i++) {
-                    const impulsePhaseInt = impulsePhase | 0;
-                    const index = impulsePhaseInt % impulseWaveLength;
-                    let nextWaveIntegral = impulseWave[index];
-                    const phaseRatio = impulsePhase - impulsePhaseInt;
-                    nextWaveIntegral += (impulseWave[index + 1] - nextWaveIntegral) * phaseRatio;
-                    const sample = (nextWaveIntegral - prevWaveIntegral) / impulsePhaseDelta;
-                    const fadeIn = Math.min(1.0, (i - startImpulseFrom) / fadeDuration);
-                    const fadeOut = Math.min(1.0, (stopImpulseAt - i) / fadeDuration);
-                    const combinedFade = fadeIn * fadeOut;
-                    const curvedFade = combinedFade * combinedFade * (3.0 - 2.0 * combinedFade);
-                    delayLine[i & delayBufferMask] += sample * curvedFade;
-                    prevWaveIntegral = nextWaveIntegral;
-                    impulsePhase += impulsePhaseDelta;
-                }
-            }
-        }
-    }
+   class PickedString {
+   	constructor() {
+   		this.delayLine = null;
+   		this.allPassG = 0.0;
+   		this.allPassGDelta = 0.0;
+   		this.sustainFilterA1 = 0.0;
+   		this.sustainFilterA1Delta = 0.0;
+   		this.sustainFilterA2 = 0.0;
+   		this.sustainFilterA2Delta = 0.0;
+   		this.sustainFilterB0 = 0.0;
+   		this.sustainFilterB0Delta = 0.0;
+   		this.sustainFilterB1 = 0.0;
+   		this.sustainFilterB1Delta = 0.0;
+   		this.sustainFilterB2 = 0.0;
+   		this.sustainFilterB2Delta = 0.0;
+   		this.reset();
+   	}
+   	reset() {
+   		this.delayIndex = -1;
+   		this.allPassSample = 0.0;
+   		this.allPassPrevInput = 0.0;
+   		this.sustainFilterSample = 0.0;
+   		this.sustainFilterPrevOutput2 = 0.0;
+   		this.sustainFilterPrevInput1 = 0.0;
+   		this.sustainFilterPrevInput2 = 0.0;
+   		this.fractionalDelaySample = 0.0;
+   		this.prevDelayLength = -1.0;
+   		this.delayResetOffset = 0;
+   	}
+   	update(synth, instrumentState, tone, stringIndex, roundedSamplesPerTick, stringDecayStart, stringDecayEnd, sustainType) {
+   		const allPassCenter = 2.0 * Math.PI * Config.pickedStringDispersionCenterFreq / synth.samplesPerSecond;
+   		const prevDelayLength = this.prevDelayLength;
+   		const phaseDeltaStart = tone.phaseDeltas[stringIndex];
+   		const phaseDeltaScale = tone.phaseDeltaScales[stringIndex];
+   		const phaseDeltaEnd = phaseDeltaStart * Math.pow(phaseDeltaScale, roundedSamplesPerTick);
+   		const radiansPerSampleStart = Math.PI * 2.0 * phaseDeltaStart;
+   		const radiansPerSampleEnd = Math.PI * 2.0 * phaseDeltaEnd;
+   		const centerHarmonicStart = radiansPerSampleStart * 2.0;
+   		const centerHarmonicEnd = radiansPerSampleEnd * 2.0;
+   		const allPassRadiansStart = Math.min(Math.PI, radiansPerSampleStart * Config.pickedStringDispersionFreqMult * Math.pow(allPassCenter / radiansPerSampleStart, Config.pickedStringDispersionFreqScale));
+   		const allPassRadiansEnd = Math.min(Math.PI, radiansPerSampleEnd * Config.pickedStringDispersionFreqMult * Math.pow(allPassCenter / radiansPerSampleEnd, Config.pickedStringDispersionFreqScale));
+   		const shelfRadians = 2.0 * Math.PI * Config.pickedStringShelfHz / synth.samplesPerSecond;
+   		const decayCurveStart = (Math.pow(100.0, stringDecayStart) - 1.0) / 99.0;
+   		const decayCurveEnd = (Math.pow(100.0, stringDecayEnd) - 1.0) / 99.0;
+   		const register = sustainType == 1 ? 0.25 : 0.0;
+   		const registerShelfCenter = 15.6;
+   		const registerLowpassCenter = 3.0 * synth.samplesPerSecond / 48000;
+   		const decayRateStart = Math.pow(0.5, decayCurveStart * Math.pow(shelfRadians / (radiansPerSampleStart * registerShelfCenter), (1.0 + 2.0 * register)) * registerShelfCenter);
+   		const decayRateEnd = Math.pow(0.5, decayCurveEnd * Math.pow(shelfRadians / (radiansPerSampleEnd * registerShelfCenter), (1.0 + 2.0 * register)) * registerShelfCenter);
+   		const expressionDecayStart = Math.pow(decayRateStart, 0.002);
+   		const expressionDecayEnd = Math.pow(decayRateEnd, 0.002);
+   		Synth.tempFilterStartCoefficients.allPass1stOrderInvertPhaseAbove(allPassRadiansStart);
+   		synth.tempFrequencyResponse.analyze(Synth.tempFilterStartCoefficients, centerHarmonicStart);
+   		const allPassGStart = Synth.tempFilterStartCoefficients.b[0];
+   		const allPassPhaseDelayStart = -synth.tempFrequencyResponse.angle() / centerHarmonicStart;
+   		Synth.tempFilterEndCoefficients.allPass1stOrderInvertPhaseAbove(allPassRadiansEnd);
+   		synth.tempFrequencyResponse.analyze(Synth.tempFilterEndCoefficients, centerHarmonicEnd);
+   		const allPassGEnd = Synth.tempFilterEndCoefficients.b[0];
+   		const allPassPhaseDelayEnd = -synth.tempFrequencyResponse.angle() / centerHarmonicEnd;
+   		const brightnessType = sustainType == 0 ? 0 : 1;
+   		if (brightnessType == 0) {
+   			const shelfGainStart = Math.pow(decayRateStart, Config.stringDecayRate);
+   			const shelfGainEnd = Math.pow(decayRateEnd, Config.stringDecayRate);
+   			Synth.tempFilterStartCoefficients.highShelf2ndOrder(shelfRadians, shelfGainStart, 0.5);
+   			Synth.tempFilterEndCoefficients.highShelf2ndOrder(shelfRadians, shelfGainEnd, 0.5);
+   		}
+   		else {
+   			const cornerHardness = Math.pow(brightnessType == 1 ? 0.0 : 1.0, 0.25);
+   			const lowpass1stOrderCutoffRadiansStart = Math.pow(registerLowpassCenter * registerLowpassCenter * radiansPerSampleStart * 3.3 * 48000 / synth.samplesPerSecond, 0.5 + register) / registerLowpassCenter / Math.pow(decayCurveStart, .5);
+   			const lowpass1stOrderCutoffRadiansEnd = Math.pow(registerLowpassCenter * registerLowpassCenter * radiansPerSampleEnd * 3.3 * 48000 / synth.samplesPerSecond, 0.5 + register) / registerLowpassCenter / Math.pow(decayCurveEnd, .5);
+   			const lowpass2ndOrderCutoffRadiansStart = lowpass1stOrderCutoffRadiansStart * Math.pow(2.0, 0.5 - 1.75 * (1.0 - Math.pow(1.0 - cornerHardness, 0.85)));
+   			const lowpass2ndOrderCutoffRadiansEnd = lowpass1stOrderCutoffRadiansEnd * Math.pow(2.0, 0.5 - 1.75 * (1.0 - Math.pow(1.0 - cornerHardness, 0.85)));
+   			const lowpass2ndOrderGainStart = Math.pow(2.0, -Math.pow(2.0, -Math.pow(cornerHardness, 0.9)));
+   			const lowpass2ndOrderGainEnd = Math.pow(2.0, -Math.pow(2.0, -Math.pow(cornerHardness, 0.9)));
+   			Synth.tempFilterStartCoefficients.lowPass2ndOrderButterworth(warpInfinityToNyquist(lowpass2ndOrderCutoffRadiansStart), lowpass2ndOrderGainStart);
+   			Synth.tempFilterEndCoefficients.lowPass2ndOrderButterworth(warpInfinityToNyquist(lowpass2ndOrderCutoffRadiansEnd), lowpass2ndOrderGainEnd);
+   		}
+   		synth.tempFrequencyResponse.analyze(Synth.tempFilterStartCoefficients, centerHarmonicStart);
+   		const sustainFilterA1Start = Synth.tempFilterStartCoefficients.a[1];
+   		const sustainFilterA2Start = Synth.tempFilterStartCoefficients.a[2];
+   		const sustainFilterB0Start = Synth.tempFilterStartCoefficients.b[0] * expressionDecayStart;
+   		const sustainFilterB1Start = Synth.tempFilterStartCoefficients.b[1] * expressionDecayStart;
+   		const sustainFilterB2Start = Synth.tempFilterStartCoefficients.b[2] * expressionDecayStart;
+   		const sustainFilterPhaseDelayStart = -synth.tempFrequencyResponse.angle() / centerHarmonicStart;
+   		synth.tempFrequencyResponse.analyze(Synth.tempFilterEndCoefficients, centerHarmonicEnd);
+   		const sustainFilterA1End = Synth.tempFilterEndCoefficients.a[1];
+   		const sustainFilterA2End = Synth.tempFilterEndCoefficients.a[2];
+   		const sustainFilterB0End = Synth.tempFilterEndCoefficients.b[0] * expressionDecayEnd;
+   		const sustainFilterB1End = Synth.tempFilterEndCoefficients.b[1] * expressionDecayEnd;
+   		const sustainFilterB2End = Synth.tempFilterEndCoefficients.b[2] * expressionDecayEnd;
+   		const sustainFilterPhaseDelayEnd = -synth.tempFrequencyResponse.angle() / centerHarmonicEnd;
+   		const periodLengthStart = 1.0 / phaseDeltaStart;
+   		const periodLengthEnd = 1.0 / phaseDeltaEnd;
+   		const minBufferLength = Math.ceil(Math.max(periodLengthStart, periodLengthEnd) * 2);
+   		const delayLength = periodLengthStart - allPassPhaseDelayStart - sustainFilterPhaseDelayStart;
+   		const delayLengthEnd = periodLengthEnd - allPassPhaseDelayEnd - sustainFilterPhaseDelayEnd;
+   		this.prevDelayLength = delayLength;
+   		this.delayLengthDelta = (delayLengthEnd - delayLength) / roundedSamplesPerTick;
+   		this.allPassG = allPassGStart;
+   		this.sustainFilterA1 = sustainFilterA1Start;
+   		this.sustainFilterA2 = sustainFilterA2Start;
+   		this.sustainFilterB0 = sustainFilterB0Start;
+   		this.sustainFilterB1 = sustainFilterB1Start;
+   		this.sustainFilterB2 = sustainFilterB2Start;
+   		this.allPassGDelta = (allPassGEnd - allPassGStart) / roundedSamplesPerTick;
+   		this.sustainFilterA1Delta = (sustainFilterA1End - sustainFilterA1Start) / roundedSamplesPerTick;
+   		this.sustainFilterA2Delta = (sustainFilterA2End - sustainFilterA2Start) / roundedSamplesPerTick;
+   		this.sustainFilterB0Delta = (sustainFilterB0End - sustainFilterB0Start) / roundedSamplesPerTick;
+   		this.sustainFilterB1Delta = (sustainFilterB1End - sustainFilterB1Start) / roundedSamplesPerTick;
+   		this.sustainFilterB2Delta = (sustainFilterB2End - sustainFilterB2Start) / roundedSamplesPerTick;
+   		const pitchChanged = Math.abs(Math.log2(delayLength / prevDelayLength)) > 0.01;
+   		const reinitializeImpulse = (this.delayIndex == -1 || pitchChanged);
+   		if (this.delayLine == null || this.delayLine.length <= minBufferLength) {
+   			const likelyMaximumLength = Math.ceil(2 * synth.samplesPerSecond / Instrument.frequencyFromPitch(12));
+   			const newDelayLine = new Float32Array(Synth.fittingPowerOfTwo(Math.max(likelyMaximumLength, minBufferLength)));
+   			if (!reinitializeImpulse && this.delayLine != null) {
+   				const oldDelayBufferMask = (this.delayLine.length - 1) >> 0;
+   				const startCopyingFromIndex = this.delayIndex + this.delayResetOffset;
+   				this.delayIndex = this.delayLine.length - this.delayResetOffset;
+   				for (let i = 0; i < this.delayLine.length; i++) {
+   					newDelayLine[i] = this.delayLine[(startCopyingFromIndex + i) & oldDelayBufferMask];
+   				}
+   			}
+   			this.delayLine = newDelayLine;
+   		}
+   		const delayLine = this.delayLine;
+   		const delayBufferMask = (delayLine.length - 1) >> 0;
+   		if (reinitializeImpulse) {
+   			this.delayIndex = 0;
+   			this.allPassSample = 0.0;
+   			this.allPassPrevInput = 0.0;
+   			this.sustainFilterSample = 0.0;
+   			this.sustainFilterPrevOutput2 = 0.0;
+   			this.sustainFilterPrevInput1 = 0.0;
+   			this.sustainFilterPrevInput2 = 0.0;
+   			this.fractionalDelaySample = 0.0;
+   			const startImpulseFrom = -delayLength;
+   			const startZerosFrom = Math.floor(startImpulseFrom - periodLengthStart / 2);
+   			const stopZerosAt = Math.ceil(startZerosFrom + periodLengthStart * 2);
+   			this.delayResetOffset = stopZerosAt;
+   			for (let i = startZerosFrom; i <= stopZerosAt; i++) {
+   				delayLine[i & delayBufferMask] = 0.0;
+   			}
+   			const impulseWave = instrumentState.wave;
+   			const impulseWaveLength = impulseWave.length - 1;
+   			const impulsePhaseDelta = impulseWaveLength / periodLengthStart;
+   			const fadeDuration = Math.min(periodLengthStart * 0.2, synth.samplesPerSecond * 0.003);
+   			const startImpulseFromSample = Math.ceil(startImpulseFrom);
+   			const stopImpulseAt = startImpulseFrom + periodLengthStart + fadeDuration;
+   			const stopImpulseAtSample = stopImpulseAt;
+   			let impulsePhase = (startImpulseFromSample - startImpulseFrom) * impulsePhaseDelta;
+   			let prevWaveIntegral = 0.0;
+   			for (let i = startImpulseFromSample; i <= stopImpulseAtSample; i++) {
+   				const impulsePhaseInt = impulsePhase | 0;
+   				const index = impulsePhaseInt % impulseWaveLength;
+   				let nextWaveIntegral = impulseWave[index];
+   				const phaseRatio = impulsePhase - impulsePhaseInt;
+   				nextWaveIntegral += (impulseWave[index + 1] - nextWaveIntegral) * phaseRatio;
+   				const sample = (nextWaveIntegral - prevWaveIntegral) / impulsePhaseDelta;
+   				const fadeIn = Math.min(1.0, (i - startImpulseFrom) / fadeDuration);
+   				const fadeOut = Math.min(1.0, (stopImpulseAt - i) / fadeDuration);
+   				const combinedFade = fadeIn * fadeOut;
+   				const curvedFade = combinedFade * combinedFade * (3.0 - 2.0 * combinedFade);
+   				delayLine[i & delayBufferMask] += sample * curvedFade;
+   				prevWaveIntegral = nextWaveIntegral;
+   				impulsePhase += impulsePhaseDelta;
+   			}
+   		}
+   	}
+   }
     class EnvelopeComputer {
         constructor() {
             this.noteSecondsStart = [];
@@ -25969,7 +31306,7 @@ break;
             this._modifiedEnvelopeIndices = [];
             this._modifiedEnvelopeCount = 0;
             this.lowpassCutoffDecayVolumeCompensation = 1.0;
-            const length = 56;
+            const length = 64 // 56 was now its 64;
             for (let i = 0; i < length; i++) {
                 this.envelopeStarts[i] = 1.0;
                 this.envelopeEnds[i] = 1.0;
@@ -26186,8 +31523,9 @@ break;
                         if (nextSlideEnd) {
                             const other = EnvelopeComputer.computeEnvelope(envelope, envelopeSpeed, globalEnvelopeSpeed, 0.0, 0.0, beatTimeEnd[envelopeIndex], timeSinceStart, nextNoteSize, pitch, inverse, perEnvelopeLowerBound, perEnvelopeUpperBound, false, steps, seed, waveform, defaultPitch, startPinTickAbsolute);
                             envelopeEnd += (other - envelopeEnd) * nextSlideRatioEnd;
-                        }
+                        } 
                     }
+                    
                     this.envelopeStarts[computeIndex] *= envelopeStart;
                     this.envelopeEnds[computeIndex] *= envelopeEnd;
                     this._modifiedEnvelopeIndices[this._modifiedEnvelopeCount++] = computeIndex;
@@ -26715,6 +32053,7 @@ default: throw new Error("Unrecognized operator envelope type.");
             this.ringModMixFade = 1.0;
             this.ringModMixFadeDelta = 0;
             this.distortion = 0.0;
+            this.customfunction = ["",""];  
             this.distortionDelta = 0.0;
             this.distortionDrive = 0.0;
             this.distortionDriveDelta = 0.0;
@@ -26788,6 +32127,17 @@ default: throw new Error("Unrecognized operator envelope type.");
             this.reverbShelfPrevInput1 = 0.0;
             this.reverbShelfPrevInput2 = 0.0;
             this.reverbShelfPrevInput3 = 0.0;
+            this.phaserSamples = null;
+            this.phaserPrevInputs = null;
+            this.phaserFeedbackMult = 0.0;
+            this.phaserFeedbackMultDelta = 0.0;
+            this.phaserMix = 0.0; 
+            this.phaserMixDelta = 0.0;
+            this.phaserBreakCoef = 0.0;
+            this.phaserBreakCoefDelta = 0.0;
+            this.phaserStages = 0;
+            this.phaserStagesDelta = 0; 
+            this.noteFrequency=440
             this.spectrumWave = new SpectrumWaveState();
             this.harmonicsWave = new HarmonicsWaveState();
             this.drumsetSpectrumWaves = [];
@@ -26824,6 +32174,12 @@ default: throw new Error("Unrecognized operator envelope type.");
                     this.reverbDelayLine = new Float32Array(Config.reverbDelayBufferSize);
                 }
             }
+            if (effectsIncludePhaser(instrument.effects)) {
+                if (this.phaserSamples == null) {
+                    this.phaserSamples = new Float32Array(Config.phaserMaxStages);
+                    this.phaserPrevInputs = new Float32Array(Config.phaserMaxStages);
+                }
+            } 
             if (effectsIncludeGranular(instrument.effects)) {
                 const granularDelayLineSizeInMilliseconds = 2500;
                 const granularDelayLineSizeInSeconds = granularDelayLineSizeInMilliseconds / 1000;
@@ -26897,8 +32253,14 @@ default: throw new Error("Unrecognized operator envelope type.");
             this.reverbShelfPrevInput1 = 0.0;
             this.reverbShelfPrevInput2 = 0.0;
             this.reverbShelfPrevInput3 = 0.0;
+            if (this.phaserSamples != null)
+                for (let i = 0; i < this.phaserSamples.length; i++)
+                    this.phaserSamples[i] = 0.0;
+            if (this.phaserPrevInputs != null)
+                for (let i = 0; i < this.phaserPrevInputs.length; i++)
+                    this.phaserPrevInputs[i] = 0.0; 
             this.volumeScale = 1.0;
-            this.aliases = false;
+            this.aliases = false; 
             this.awake = false;
             this.flushingDelayLines = false;
             this.deactivateAfterThisTick = false;
@@ -26937,9 +32299,10 @@ default: throw new Error("Unrecognized operator envelope type.");
             this.ringModPhase = 0.0;
             this.ringModMixFade = 1.0;
         }
-        compute(synth, instrument, samplesPerTick, roundedSamplesPerTick, tone, channelIndex, instrumentIndex) { 
+        compute(synth, instrument, samplesPerTick, roundedSamplesPerTick, tone, channelIndex, instrumentIndex) {
             this.computed = true;
             this.type = instrument.type;
+            this.customfunction = instrument.customfunction; 
             this.synthesizer = Synth.getInstrumentSynthFunction(instrument);
             this.unison = Config.unisons[instrument.unison];
             this.chord = instrument.getChord();
@@ -26979,6 +32342,7 @@ default: throw new Error("Unrecognized operator envelope type.");
             const envelopeEnds = this.envelopeComputer.envelopeEnds;
             const usesGranular = effectsIncludeGranular(this.effects);
             const usesRingModulation = effectsIncludeRingModulation(this.effects);
+            const usesPhaser = effectsIncludePhaser(this.effects); 
             const usesDistortion = effectsIncludeDistortion(this.effects);
             const usesBitcrusher = effectsIncludeBitcrusher(this.effects);
             const usesPanning = effectsIncludePanning(this.effects);
@@ -27361,6 +32725,66 @@ instrument.unisonSign = (step(((
                 this.echoShelfB1 = Synth.tempFilterStartCoefficients.b[1];
             }
             let maxReverbMult = 0.0;
+               if (usesPhaser) { 
+                const phaserMinFeedback = 0.0;
+                const phaserMaxFeedback = 0.95;
+                const phaserFeedbackMultSlider = instrument.phaserFeedback / Config.phaserFeedbackRange;
+                const phaserFeedbackMultEnvelopeStart = envelopeStarts[59];
+                const phaserFeedbackMultEnvelopeEnd = envelopeEnds[59];
+                let phaserFeedbackMultRawStart = phaserFeedbackMultSlider * phaserFeedbackMultEnvelopeStart;
+                let phaserFeedbackMultRawEnd = phaserFeedbackMultSlider * phaserFeedbackMultEnvelopeEnd;
+                if (synth.isModActive(Config.modulators.dictionary["phaser feedback"].index, channelIndex, instrumentIndex)) {
+                    phaserFeedbackMultRawStart = synth.getModValue(Config.modulators.dictionary["phaser feedback"].index, channelIndex, instrumentIndex, false) / (Config.phaserFeedbackRange);
+                    phaserFeedbackMultRawEnd = synth.getModValue(Config.modulators.dictionary["phaser feedback"].index, channelIndex, instrumentIndex, true) / (Config.phaserFeedbackRange);
+                }
+                const phaserFeedbackMultStart = Math.max(phaserMinFeedback, Math.min(phaserMaxFeedback, phaserFeedbackMultRawStart));
+                const phaserFeedbackMultEnd = Math.max(phaserMinFeedback, Math.min(phaserMaxFeedback, phaserFeedbackMultRawEnd));
+                this.phaserFeedbackMult = phaserFeedbackMultStart;
+                this.phaserFeedbackMultDelta = (phaserFeedbackMultEnd - phaserFeedbackMultStart) / roundedSamplesPerTick;
+                const phaserMixSlider = instrument.phaserMix / (Config.phaserMixRange - 1);
+                const phaserMixEnvelopeStart = envelopeStarts[58];
+                const phaserMixEnvelopeEnd = envelopeEnds[58];
+                let phaserMixStart = phaserMixSlider * phaserMixEnvelopeStart;
+                let phaserMixEnd = phaserMixSlider * phaserMixEnvelopeEnd;
+                if (synth.isModActive(Config.modulators.dictionary["phaser"].index, channelIndex, instrumentIndex)) {
+                    phaserMixStart = Math.max(0, Math.min(Config.phaserMixRange - 1, synth.getModValue(Config.modulators.dictionary["phaser"].index, channelIndex, instrumentIndex, false))) / (Config.phaserMixRange - 1);
+                    phaserMixEnd = Math.max(0, Math.min(Config.phaserMixRange - 1, synth.getModValue(Config.modulators.dictionary["phaser"].index, channelIndex, instrumentIndex, true))) / (Config.phaserMixRange - 1);
+                }
+                this.phaserMix = phaserMixStart;
+                this.phaserMixDelta = (phaserMixEnd - phaserMixStart) / roundedSamplesPerTick;
+                const phaserBreakFreqSlider = instrument.phaserFreq / (Config.phaserFreqRange - 1);
+                let phaserBreakFreqEnvelopeStart = envelopeStarts[57];
+                let phaserBreakFreqEnvelopeEnd = envelopeEnds[57];
+                let phaserBreakFreqRawStart = phaserBreakFreqSlider * phaserBreakFreqEnvelopeStart;
+                let phaserBreakFreqRawEnd = phaserBreakFreqSlider * phaserBreakFreqEnvelopeEnd;
+                if (synth.isModActive(Config.modulators.dictionary["phaser frequency"].index, channelIndex, instrumentIndex)) {
+                    phaserBreakFreqRawStart = synth.getModValue(Config.modulators.dictionary["phaser frequency"].index, channelIndex, instrumentIndex, false) / (Config.phaserFreqRange);
+                    phaserBreakFreqRawEnd = synth.getModValue(Config.modulators.dictionary["phaser frequency"].index, channelIndex, instrumentIndex, true) / (Config.phaserFreqRange);
+                }
+                const phaserBreakFreqRemappedStart = Config.phaserMinFreq * Math.pow(Config.phaserMaxFreq / Config.phaserMinFreq, phaserBreakFreqRawStart);
+                const phaserBreakFreqRemappedEnd = Config.phaserMinFreq * Math.pow(Config.phaserMaxFreq / Config.phaserMinFreq, phaserBreakFreqRawEnd);
+                const phaserBreakFreqStart = Math.max(Config.phaserMinFreq, Math.min(Config.phaserMaxFreq, phaserBreakFreqRemappedStart));
+                const phaserBreakFreqStartT = Math.tan(Math.PI * phaserBreakFreqStart / samplesPerSecond);
+                const phaserBreakCoefStart = (phaserBreakFreqStartT - 1) / (phaserBreakFreqStartT + 1);
+                const phaserBreakFreqEnd = Math.max(Config.phaserMinFreq, Math.min(Config.phaserMaxFreq, phaserBreakFreqRemappedEnd));
+                const phaserBreakFreqEndT = Math.tan(Math.PI * phaserBreakFreqEnd / samplesPerSecond);
+                const phaserBreakCoefEnd = (phaserBreakFreqEndT - 1) / (phaserBreakFreqEndT + 1);
+                this.phaserBreakCoef = phaserBreakCoefStart;
+                this.phaserBreakCoefDelta = (phaserBreakCoefEnd - phaserBreakCoefStart) / roundedSamplesPerTick;
+                const phaserStagesEnvelopeStart = envelopeStarts[60];
+                const phaserStagesEnvelopeEnd = envelopeEnds[60];
+                
+                
+                const phaserStagesSlider = instrument.phaserStages;
+                let phaserStagesStart = Math.max(Config.phaserMinStages, Math.min(Config.phaserMaxStages, phaserStagesSlider * phaserStagesEnvelopeStart));
+                let phaserStagesEnd = Math.max(Config.phaserMinStages, Math.min(Config.phaserMaxStages, phaserStagesSlider * phaserStagesEnvelopeEnd));
+                if (synth.isModActive(Config.modulators.dictionary["phaser stages"].index, channelIndex, instrumentIndex)) {
+                    phaserStagesStart = Math.round(synth.getModValue(Config.modulators.dictionary["phaser stages"].index, channelIndex, instrumentIndex, false));
+                    phaserStagesEnd = Math.round(synth.getModValue(Config.modulators.dictionary["phaser stages"].index, channelIndex, instrumentIndex, false));
+                }
+                this.phaserStages = phaserStagesStart;
+                this.phaserStagesDelta = (phaserStagesEnd - phaserStagesStart) / roundedSamplesPerTick;
+            }
             if (usesReverb) {
                 const reverbEnvelopeStart = envelopeStarts[47];
                 const reverbEnvelopeEnd = envelopeEnds[47];
@@ -27460,7 +32884,7 @@ instrument.unisonSign = (step(((
         updateWaves(instrument, samplesPerSecond) {
             this.volumeScale = 1.0;
             if (instrument.type == 0) {
-                this.wave = (this.aliases) ? Config.chipWaves[instrument.chipWave].samples : Config.chipWaves[instrument.chipWave].samples; 
+                 this.wave = (this.aliases) ? Config.chipWaves[instrument.chipWave].samples : Config.chipWaves[instrument.chipWave].samples; 
                 this.isUsingAdvancedLoopControls = instrument.isUsingAdvancedLoopControls;
                 this.chipWaveLoopStart = instrument.chipWaveLoopStart;
                 this.chipWaveLoopEnd = instrument.chipWaveLoopEnd;
@@ -27582,6 +33006,9 @@ instrument.unisonSign = (step(((
                 }
             }
         }
+         
+       
+
         initModFilters(song) {
             if (song != null) {
                 song.tmpEqFilterStart = song.eqFilter;
@@ -27850,6 +33277,7 @@ instrument.unisonSign = (step(((
             return this.playheadInternal;
         }
         set playhead(value) {
+        	this.value=value
             if (this.song != null) {
                 this.playheadInternal = Math.max(0, Math.min(this.song.barCount, value));
                 let remainder = this.playheadInternal;
@@ -29570,6 +34998,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
         playTone(channelIndex, bufferIndex, runLength, tone) {
             const channelState = this.channels[channelIndex];
             const instrumentState = channelState.instruments[tone.instrumentIndex];
+            instrumentState.noteFrequency=tone
             if (instrumentState.synthesizer != null)
                 instrumentState.synthesizer(this, bufferIndex, runLength, tone, instrumentState);
             tone.envelopeComputer.clearEnvelopes();
@@ -29609,11 +35038,10 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             const channel = song.channels[channelIndex];
             const channelState = this.channels[channelIndex];
             const instrument = channel.instruments[tone.instrumentIndex];
-            
             const instrumentState = channelState.instruments[tone.instrumentIndex];
             instrumentState.awake = true;
             instrumentState.tonesAddedInThisTick = true;
-          //  console.log( (instrumentState) )
+            instrumentState.noteFrequency=tone
             if (!instrumentState.computed) {
                 instrumentState.compute(this, instrument, samplesPerTick, roundedSamplesPerTick, tone, channelIndex, tone.instrumentIndex);
             }
@@ -29891,7 +35319,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             song.masterGain=((this.getModValue(Config.modulators.dictionary["song mastergain"].index, channelIndex, tone.instrumentIndex, false)+255)/5)-1
             	 ;
             }
-            if (effectsIncludePitchShift(instrument.effects)) {
+            if (effectsIncludePitchShift(instrument.effects)) { 
                 let pitchShift = Config.justIntonationSemitones[instrument.pitchShift] / intervalScale;
                 let pitchShiftScalarStart = 1.0;
                 let pitchShiftScalarEnd = 1.0;
@@ -29904,23 +35332,22 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                 const envelopeEnd = envelopeEnds[18];
                 intervalStart += pitchShift * envelopeStart * pitchShiftScalarStart;
                 intervalEnd += pitchShift * envelopeEnd * pitchShiftScalarEnd;
-            }
- if (effectsIncludeOctaveShift(instrument.effects)) {
-	let baseShift = (instrument.octaveShift * 12) / intervalScale;
-	let pitchShiftStart = baseShift;
-	let pitchShiftEnd = baseShift;
-	if (this.isModActive(Config.modulators.dictionary["octave shift"].index, channelIndex, tone.instrumentIndex)) {
-		const modnow = this.getModValue(Config.modulators.dictionary["octave shift"].index, channelIndex, tone.instrumentIndex, false)
-		pitchShiftStart = (modnow * 12) / intervalScale ;
-		pitchShiftEnd = (modnow * 12) / intervalScale ;
-	}
-	const envelopeStart = envelopeStarts[18];
-	const envelopeEnd = envelopeEnds[18];
-	intervalStart += (-12*12 + pitchShiftStart) * envelopeStart;
-	intervalEnd += (-12*12 + pitchShiftEnd) * envelopeEnd;
-}
-
-
+            } 
+            if (effectsIncludeOctaveShift(instrument.effects)) {
+             	let baseShift = (instrument.octaveShift * 12) / 1 
+             	let pitchShiftStart = baseShift;
+              let pitchShiftEnd = baseShift;
+              	if (this.isModActive(Config.modulators.dictionary["octave shift"].index, channelIndex, tone.instrumentIndex)) {
+              		const modnow = this.getModValue(Config.modulators.dictionary["octave shift"].index, channelIndex, tone.instrumentIndex, false)
+                 pitchShiftStart = (modnow * 12) / intervalScale ;
+               		pitchShiftEnd = (modnow * 12) / intervalScale ;
+              	}
+              	const envelopeStart = envelopeStarts[18];
+              	const envelopeEnd = envelopeEnds[18];
+               intervalStart += (-12*12 + pitchShiftStart) * envelopeStart;
+               intervalEnd += (-12*12 + pitchShiftEnd) * envelopeEnd;
+              }  
+ 
             if (effectsIncludeDetune(instrument.effects) || this.isModActive(Config.modulators.dictionary["song detune"].index, channelIndex, tone.instrumentIndex)) {
                 const envelopeStart = envelopeStarts[19];
                 const envelopeEnd = envelopeEnds[19];
@@ -30153,8 +35580,8 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                 sineExpressionBoost *= (Math.pow(2.0, (2.0 - 1.4 * instrument.feedbackAmplitude / 15.0)) - 1.0) / 3.0;
                 sineExpressionBoost *= 1.0 - Math.min(1.0, Math.max(0.0, totalCarrierExpression - 1) / 2.0);
                 sineExpressionBoost = 1.0 + sineExpressionBoost * 3.0;
-                let expressionStart = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionStart * chordExpressionStart * envelopeStarts[0];
-                let expressionEnd = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionEnd * chordExpressionEnd * envelopeEnds[0];
+                const expressionStart = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionStart * chordExpressionStart * envelopeStarts[0]; 
+                const expressionEnd = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionEnd * chordExpressionEnd * envelopeEnds[0];
                 if (isMono && tone.pitchCount <= instrument.monoChordTone) {
                     expressionStart = 0;
                     expressionEnd = 0;
@@ -31297,6 +36724,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
         }
         static effectsSynth(synth, outputDataL, outputDataR, bufferIndex, runLength, instrumentState) {
             const usesDistortion = effectsIncludeDistortion(instrumentState.effects);
+            const usesFunction = effectsIncludeFunction(instrumentState.effects);
             const usesBitcrusher = effectsIncludeBitcrusher(instrumentState.effects);
   
             const usesEqFilter = instrumentState.eqFilterCount > 0;
@@ -31304,6 +36732,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             const usesChorus = effectsIncludeChorus(instrumentState.effects);
             const usesEcho = effectsIncludeEcho(instrumentState.effects);
             const usesReverb = effectsIncludeReverb(instrumentState.effects);
+            const usesPhaser = effectsIncludePhaser(instrumentState.effects); 
             const usesGranular = effectsIncludeGranular(instrumentState.effects);
             const usesRingModulation = effectsIncludeRingModulation(instrumentState.effects);
             let signature = 0;
@@ -31328,9 +36757,16 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             if (usesReverb)
                 signature = signature | 1;
             signature = signature << 1;
-            if (usesGranular)
+            if (usesPhaser)
                 signature = signature | 1;
             signature = signature << 1;
+            if (usesGranular)
+                signature = signature | 1;
+                signature = signature << 1;
+            if (usesFunction) {
+            	signature = signature | 1;
+            	signature = signature << 1;
+            }
             if (usesRingModulation)
                 signature = signature | 1;
             let effectsFunction = Synth.effectsFunctionCache[signature];
@@ -31349,6 +36785,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
 				let delayInputMult = +instrumentState.delayInputMult;
 				const delayInputMultDelta = +instrumentState.delayInputMultDelta;`;
                 }
+   
                 if (usesGranular) {
                     effectsSource += `
                 let granularWet = instrumentState.granularMix;
@@ -31394,16 +36831,6 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
 				let distortionPrevInput = +instrumentState.distortionPrevInput;
 				let distortionNextOutput = +instrumentState.distortionNextOutput;`;
                 }
-/*if (usesRobotizer) {
-	effectsSource += `
-    let robotizerPhase = +instrumentState.robotizerPhase;
-    let robotizerSpeed = +instrumentState.robotizerSpeed;
-    const robotizerSpeedScale = +instrumentState.robotizerSpeedScale;
-    let robotizerDepth = +instrumentState.robotizerDepth;
-    const robotizerDepthScale = +instrumentState.robotizerDepthScale;
-    let robotizerMix = +instrumentState.robotizerMix;
-    const robotizerMixScale = +instrumentState.robotizerMixScale;`;
-}*/
                 if (usesBitcrusher) {
                     effectsSource += `
 				
@@ -31436,6 +36863,22 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                     waveform = Synth.getOperatorWave(ringModWaveformIndex, ringModPulseWidth).samples;
                 }
                 const waveformLength = waveform.length - 1;
+                `;
+                }
+                if (usesPhaser) { 
+                    effectsSource += `
+                
+                const phaserSamples = instrumentState.phaserSamples;
+                const phaserPrevInputs = instrumentState.phaserPrevInputs;
+                let phaserStages = instrumentState.phaserStages;
+                let phaserStagesInt = Math.floor(phaserStages);
+                const phaserStagesDelta = instrumentState.phaserStagesDelta;
+                const phaserFeedbackMultDelta = +instrumentState.phaserFeedbackMultDelta;
+                let phaserFeedbackMult = +instrumentState.phaserFeedbackMult;
+                const phaserMixDelta = +instrumentState.phaserMixDelta;
+                let phaserMix = +instrumentState.phaserMix;
+                const phaserBreakCoefDelta = +instrumentState.phaserBreakCoefDelta;
+                let phaserBreakCoef = +instrumentState.phaserBreakCoef;
                 `;
                 }
                 if (usesEqFilter) {
@@ -31663,17 +37106,6 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
 					distortion += distortionDelta;
 					distortionDrive += distortionDriveDelta;`;
                 }
-/*if (usesRobotizer) {
-	effectsSource += `
-    robotizerPhase += robotizerSpeed;
-    if (robotizerPhase > 1.0) robotizerPhase -= 1.0;
-    const mod = Math.sin(robotizerPhase * Math.PI * 2.0);
-    const robotized = sample * (1.0 - robotizerMix) + (sample * mod * robotizerDepth) * robotizerMix;
-    sample = robotized;
-    robotizerSpeed *= robotizerSpeedScale;
-    robotizerDepth *= robotizerDepthScale;
-    robotizerMix *= robotizerMixScale;`;
-}*/
                 if (usesBitcrusher) {
                     effectsSource += `
 					
@@ -31717,6 +37149,26 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                  
                 `;
                 }
+                   if (usesPhaser) {
+                    effectsSource += `
+                        const phaserFeedback = phaserSamples[Math.max(0,phaserStagesInt - 1)] * phaserFeedbackMult;
+                        for (let stage = 0; stage < phaserStagesInt; stage++) {
+                            const phaserInput = stage === 0 ? sample + phaserFeedback : phaserSamples[stage - 1];
+                            const phaserPrevInput = phaserPrevInputs[stage];
+                            const phaserSample = phaserSamples[stage];
+                            const phaserNextOutput = phaserBreakCoef * phaserInput + phaserPrevInput - phaserBreakCoef * phaserSample;
+                            phaserPrevInputs[stage] = phaserInput;
+                            phaserSamples[stage] = phaserNextOutput;
+                        }
+                        const phaserOutput = phaserSamples[Math.max(0,phaserStagesInt - 1)];
+                        sample = sample + phaserOutput * phaserMix;
+                        phaserFeedbackMult += phaserFeedbackMultDelta;
+                        phaserBreakCoef += phaserBreakCoefDelta;
+                        phaserMix += phaserMixDelta;
+                        phaserStages += phaserStagesDelta;
+                        /*phaserStagesInt = Math.floor(phaserStages);*/
+                    `;
+                }
                 if (usesEqFilter) {
                     effectsSource += `
 					
@@ -31725,10 +37177,11 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
 					initialFilterInput2 = initialFilterInput1;
 					initialFilterInput1 = inputSample;`;
                 }
-                effectsSource += `
+                effectsSource += ` 
 					
 					sample *= eqFilterVolume;
 					eqFilterVolume += eqFilterVolumeDelta;`;
+
                 if (usesPanning) {
                     effectsSource += `
 					
@@ -31755,6 +37208,13 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
 					let sampleL = sample;
 					let sampleR = sample;`;
                 }
+
+if (usesFunction) {
+    effectsSource += `try {`+
+instrumentState.customfunction[1] +'} catch {};'
+}
+
+
                 if (usesChorus) {
                     effectsSource += `
 					
@@ -31884,6 +37344,8 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
 				
 				instrumentState.delayInputMult = delayInputMult;`;
                 }
+
+
                 if (usesGranular) {
                     effectsSource += `
                     instrumentState.granularMix = granularWet;
@@ -31909,17 +37371,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
 				instrumentState.distortionPrevInput = distortionPrevInput;
 				instrumentState.distortionNextOutput = distortionNextOutput;`;
                 }
-/*if (usesRobotizer) {
-	effectsSource += `
-    if (Math.abs(robotizerPhase) < epsilon) robotizerPhase = 0.0;
-    if (Math.abs(robotizerSpeed) < epsilon) robotizerSpeed = 0.0;
-    if (Math.abs(robotizerDepth) < epsilon) robotizerDepth = 0.0;
-    if (Math.abs(robotizerMix) < epsilon) robotizerMix = 0.0;
-    instrumentState.robotizerPhase = robotizerPhase;
-    instrumentState.robotizerSpeed = robotizerSpeed;
-    instrumentState.robotizerDepth = robotizerDepth;
-    instrumentState.robotizerMix = robotizerMix;`;
-}*/
+  
                 if (usesBitcrusher) {
                     effectsSource += `
 					
@@ -31933,7 +37385,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
 				instrumentState.bitcrusherFoldLevel = bitcrusherFoldLevel;`;
                 }
                 if (usesRingModulation) {
-                    effectsSource += ` 
+                    effectsSource += `  
                 instrumentState.ringModMix = ringModMix;
                 instrumentState.ringModMixDelta = ringModMixDelta;
                 instrumentState.ringModPhase = ringModPhase;
@@ -31943,6 +37395,19 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                 instrumentState.ringModPulseWidth = ringModPulseWidth;
                 instrumentState.ringModMixFade = ringModMixFade;
                  `;
+                }
+                  if (usesPhaser) {
+                    effectsSource += `
+                 
+                for (let stage = 0; stage < phaserStages; stage++) {
+                    if (!Number.isFinite(phaserPrevInputs[stage]) || Math.abs(phaserPrevInputs[stage]) < epsilon) phaserPrevInputs[stage] = 0.0;
+                    if (!Number.isFinite(phaserSamples[stage]) || Math.abs(phaserSamples[stage]) < epsilon) phaserSamples[stage] = 0.0;
+                }
+                
+                instrumentState.phaserMix = phaserMix;
+                instrumentState.phaserFeedbackMult = phaserFeedbackMult;
+                instrumentState.phaserBreakCoef = phaserBreakCoef;
+                `;
                 }
                 if (usesEqFilter) {
                     effectsSource += `
@@ -35627,11 +41092,11 @@ static clearAllRecoveredSongs() {
         }
     }
     class ChangeChannelCount extends Change {
-        constructor(doc, newPitchChannelCount, newNoiseChannelCount, newModChannelCount) {
+        constructor(doc, newPitchChannelCount, newNoiseChannelCount, newModChannelCount, newOctavecount) {
             super();
             if (doc.song.pitchChannelCount != newPitchChannelCount || doc.song.noiseChannelCount != newNoiseChannelCount || doc.song.modChannelCount != newModChannelCount) {
                 const newChannels = [];
-                function changeGroup(newCount, oldCount, newStart, oldStart, octave, isNoise, isMod) {
+                function changeGroup(newCount, oldCount, newStart, oldStart, octave, isNoise, isMod, isOctaves) {
                     for (let i = 0; i < newCount; i++) {
                         const channelIndex = i + newStart;
                         const oldChannel = i + oldStart;
@@ -36158,6 +41623,15 @@ static clearAllRecoveredSongs() {
             if (oldValue != newValue)
                 this._didSomething();
         }
+    } 
+    class ChangeFunction extends ChangeInstrumentSlider {
+        constructor(doc, index, newValue, oldValue) {
+            super(doc); 
+            this._instrument.customfunction[index] = newValue;
+            doc.notifier.changed();
+            if (oldValue != newValue)
+	             this._didSomething();
+        }
     }
     class ChangeDetune extends ChangeInstrumentSlider {
         constructor(doc, oldValue, newValue) {
@@ -36272,6 +41746,42 @@ static clearAllRecoveredSongs() {
             super(doc);
             doc.synth.unsetMod(Config.modulators.dictionary["freq crush"].index, doc.channel, doc.getCurrentInstrument());
             this._instrument.bitcrusherQuantization = newValue;
+            doc.notifier.changed();
+            if (oldValue != newValue)
+                this._didSomething();
+        }
+    }
+    class ChangePhaserMix extends ChangeInstrumentSlider {
+        constructor(doc, oldValue, newValue) {
+            super(doc);
+            this._instrument.phaserMix = newValue;
+            doc.notifier.changed();
+            if (oldValue != newValue)
+                this._didSomething();
+        }
+    } 
+    class ChangePhaserFreq extends ChangeInstrumentSlider {
+        constructor(doc, oldValue, newValue) {
+            super(doc);
+            this._instrument.phaserFreq = newValue;
+            doc.notifier.changed();
+            if (oldValue != newValue)
+                this._didSomething();
+        }
+    }
+    class ChangePhaserFeedback extends ChangeInstrumentSlider {
+        constructor(doc, oldValue, newValue) {
+            super(doc);
+            this._instrument.phaserFeedback = newValue;
+            doc.notifier.changed();
+            if (oldValue != newValue)
+                this._didSomething();
+        }
+    }
+    class ChangePhaserStages extends ChangeInstrumentSlider {
+        constructor(doc, oldValue, newValue) {
+            super(doc);
+            this._instrument.phaserStages = newValue;
             doc.notifier.changed();
             if (oldValue != newValue)
                 this._didSomething();
@@ -37190,6 +42700,17 @@ static clearAllRecoveredSongs() {
             }
         }
     }
+    
+    class ChangeMaxOctaves extends Change {
+   	constructor(doc, newValue) {
+   		super();
+   		if (!isNaN(newValue)&&Config.pitchOctaves) {
+   		 Config.pitchOctaves=parseInt(newValue)
+   			doc.notifier.changed();
+   			this._didSomething();
+   		}
+   	}
+   }
     class ChangePatternsPerChannel extends Change {
         constructor(doc, newValue) {
             super();
@@ -38503,8 +44024,10 @@ class ChangeChipWave extends Change {
   const instrument = doc.song.channels[doc.channel].instruments[doc.getCurrentInstrument()];
   if (instrument.chipWave != newValue) {
    instrument.chipWave = newValue;
+   instrument.wave = Config.chipWaves[newValue]?.name ?? "unknown";
    instrument.chipwaveselected = instrument.chipWave
    instrument.preset = instrument.type;
+   instrument.wavenotfound = null;
    doc.notifier.changed();
    if (!editor._instrumentName.value || editor._instrumentName.value.trim() === "") {
     const select = editor._chipWaveSelect;
@@ -38521,7 +44044,6 @@ class ChangeChipWave extends Change {
   }
  }
 }
-     
     class ChangeChipWaveUseAdvancedLoopControls extends Change {
      constructor(doc, newValue) {
       super();
@@ -38991,6 +44513,7 @@ class ChangeChipWave extends Change {
                         }
                         else {
                             this._pianoKeys[j].classList.remove("disabled");
+                            this._pianoKeys[j].classList.remove("blackkey");
                             if (!Config.keys[pitchNameIndex].isWhiteKey) {
                             	this._pianoKeys[j].classList.add("blackkey");
                             }
@@ -40537,7 +46060,7 @@ async function initMic() {
             innerWidth / 2 - 150,
             innerHeight / 2 - 100 + window.scrollY,
             "Microphone Access Error",
-            "<text style='color:black'>You must open FruityBox App and allow microphone access.</text>",
+            "<text style='color:black'>You must open FruityBox App and gain microphone access.</text>",
             "#00afdf"
         );
     }
@@ -40953,7 +46476,62 @@ let maxEndTick = 0;
             this.boxSelectionY0 = this.boxSelectionY1 = this._doc.channel;
         }
     }
+function rebuiltKeyboard(){ 
+	if (typeof editor === "undefined" || !editor) return;
+	if (!editor.doc || !editor.doc.prefs) return;
 
+	const pianoStyleId = "dynamic-piano-styles";
+let pianoStyleElement = document.getElementById(pianoStyleId);
+ 
+if (editor.doc.prefs.pianoKeyboard == true) {
+	if (!pianoStyleElement) {
+		pianoStyleElement = document.createElement("style");
+		pianoStyleElement.id = pianoStyleId;
+		pianoStyleElement.textContent = `
+            .beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) {
+                border:0px solid white; outline:none; transform: scale(100%,250%) translateY(15%) !important;  
+            }
+            .beepboxEditor .piano-button.blackkey {
+                margin-left:20% !important;
+                position:relative !important; z-index:2;
+                box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
+            }
+            .beepboxEditor .piano-button::before {
+                display:none !important;
+                border:2px solid #3d3c3a;
+            }
+            .beepboxEditor .piano-button.blackkey .piano-label {
+                padding-left:25% !important;
+            }
+            .beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) .piano-label {
+                transform:scale(100%,40%) translateY(-4px) !important;
+            }
+            .beepboxEditor .piano-button.blackkey::before {
+                display: none;
+                border: 1px solid #3d3c3a !important;
+                background-clip:none !important;
+            }
+        `;
+const labels = document.querySelectorAll('.piano-label');
+labels.forEach(label => {
+	if (label.textContent.includes("C")) {
+		label.style.opacity = "1";
+	} else {
+		label.style.opacity = "0";
+	}
+});
+		document.head.appendChild(pianoStyleElement);
+	}
+} else {
+	if (pianoStyleElement) {
+		pianoStyleElement.remove();
+	}
+	const labels = document.querySelectorAll('.piano-label');
+labels.forEach(label => {
+		label.style.opacity = "1";
+});
+}
+}
     class Preferences {
         constructor() {
             this.showFifth = true;
@@ -40974,7 +46552,10 @@ let maxEndTick = 0;
             this.useCustomSelectPrompt = window.localStorage.getItem("useCustomSelectPrompt") != "false";
             
 this.differentMod = window.localStorage.getItem("differentMod") == "true";
+this.newloopeditor = window.localStorage.getItem("newloopeditor") == "true";
 this.increaseAllPins = window.localStorage.getItem("increaseAllPins") != "false";
+
+this.oldButtonSheme = window.localStorage.getItem("oldButtonSheme") == "true";
 this.whistleRecord = window.localStorage.getItem("whistleRecord") != "false"; 
             
             
@@ -40996,9 +46577,13 @@ this.whistleRecord = window.localStorage.getItem("whistleRecord") != "false";
             this.showOscilloscope = window.localStorage.getItem("showOscilloscope") == "true";
             this.showSampleLoadingStatus = window.localStorage.getItem("showSampleLoadingStatus") != "false";
             this.showDescription = window.localStorage.getItem("showDescription") != "false";
+            this.showPlugins = window.localStorage.getItem("showPlugins") == "true";
+ 
             this.showInstrumentScrollbars = window.localStorage.getItem("showInstrumentScrollbars") == "true";
             this.closePromptByClickoff = window.localStorage.getItem("closePromptByClickoff") == "true";
             this.frostedGlassBackground = window.localStorage.getItem("frostedGlassBackground") == "true";
+            this.pianoKeyboard = window.localStorage.getItem("pianoKeyboard") == "true";
+            setTimeout(function (){rebuiltKeyboard()},100)
             this.keyboardLayout = window.localStorage.getItem("keyboardLayout") || "pianoTransposingC";
             this.bassOffset = (+window.localStorage.getItem("bassOffset")) || 0;
             this.layout = window.localStorage.getItem("layout") || "small";
@@ -41019,9 +46604,11 @@ this.whistleRecord = window.localStorage.getItem("whistleRecord") != "false";
             }
         }
         save() {
-        	
+        	 
         	window.localStorage.setItem("differentMod", this.differentMod ? "true" : "false"); 
+        	window.localStorage.setItem("newloopeditor", this.newloopeditor ? "true" : "false"); 
         	window.localStorage.setItem("increaseAllPins", this.increaseAllPins ? "true" : "false"); 
+        	window.localStorage.setItem("oldButtonSheme", this.oldButtonSheme ? "true" : "false"); 
         	window.localStorage.setItem("whistleRecord", this.whistleRecord ? "true" : "false"); 
         	
             window.localStorage.setItem("autoPlay", this.autoPlay ? "true" : "false");
@@ -41052,9 +46639,12 @@ this.whistleRecord = window.localStorage.getItem("whistleRecord") != "false";
             window.localStorage.setItem("showOscilloscope", this.showOscilloscope ? "true" : "false");
             window.localStorage.setItem("showSampleLoadingStatus", this.showSampleLoadingStatus ? "true" : "false");
             window.localStorage.setItem("showDescription", this.showDescription ? "true" : "false");
+            window.localStorage.setItem("showPlugins", this.showPlugins ? "true" : "false");
             window.localStorage.setItem("showInstrumentScrollbars", this.showInstrumentScrollbars ? "true" : "false");
             window.localStorage.setItem("closePromptByClickoff", this.closePromptByClickoff ? "true" : "false");
             window.localStorage.setItem("frostedGlassBackground", this.frostedGlassBackground ? "true" : "false");
+            window.localStorage.setItem("pianoKeyboard", this.pianoKeyboard ? "true" : "false");
+
             window.localStorage.setItem("keyboardLayout", this.keyboardLayout);
             window.localStorage.setItem("bassOffset", String(this.bassOffset));
             window.localStorage.setItem("layout", this.layout);
@@ -41103,6 +46693,7 @@ this.whistleRecord = window.localStorage.getItem("whistleRecord") != "false";
             this.selection = new Selection(this);
             this.prefs = new Preferences();
             this.channel = 0;
+            this._pendingPlugin=""
             this.muteEditorChannel = 0;
             this.bar = 0;
             this.recentPatternInstruments = [];
@@ -42544,9 +48135,10 @@ You should be redirected to the song at:<br /><br />
             this._modChannelStepper = input$f({ style: "width: 3em; margin-left: 1em;", type: "number", step: "1" });
             this._layeredInstrumentsBox = input$f({ style: "width: 3em; margin-left: 1em;", type: "checkbox" });
             this._patternInstrumentsBox = input$f({ style: "width: 3em; margin-left: 1em;", type: "checkbox" });
+            this._octaveStepper = input$f({ style: "width: 3em; margin-left: 1em; ", type: "number", step: "1" });
             this._cancelButton = button$m({ class: "cancelButton" });
             this._okayButton = button$m({ class: "okayButton", style: "width:45%;" }, "Okay");
-            this.container = div$m({ class: "prompt noSelection", style: "width: 250px; text-align: right;" }, h2$l("Channel Settings"), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Pitch channels:", this._pitchChannelStepper), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Drum channels:", this._drumChannelStepper), div$m({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Mod channels:", this._modChannelStepper), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Available patterns per channel:", this._patternsStepper), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Simultaneous instruments", br$3(), "per channel:", this._layeredInstrumentsBox), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Different instruments", br$3(), "per pattern:", this._patternInstrumentsBox), div$m({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton), this._cancelButton);
+            this.container = div$m({ class: "prompt noSelection", style: "width: 250px; text-align: right;" }, h2$l("Channel Settings"), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Pitch channels:", this._pitchChannelStepper), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Drum channels:", this._drumChannelStepper), div$m({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Mod channels:", this._modChannelStepper), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Available patterns per channel:", this._patternsStepper), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Simultaneous instruments", br$3(), "per channel:", this._layeredInstrumentsBox), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Different instruments", br$3(), "per pattern:", this._patternInstrumentsBox),label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end; display:none;" }, "Max octaves", br$3(), this._octaveStepper), div$m({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton), this._cancelButton);
             this._close = () => {
                 this._doc.undo();
             };
@@ -42557,10 +48149,12 @@ You should be redirected to the song at:<br /><br />
                 this._pitchChannelStepper.removeEventListener("keypress", ChannelSettingsPrompt._validateKey);
                 this._drumChannelStepper.removeEventListener("keypress", ChannelSettingsPrompt._validateKey);
                 this._modChannelStepper.removeEventListener("keypress", ChannelSettingsPrompt._validateKey);
+                this._octaveStepper.removeEventListener("keypress", ChannelSettingsPrompt._validateKey);
                 this._patternsStepper.removeEventListener("blur", this._validateNumber);
                 this._pitchChannelStepper.removeEventListener("blur", this._validateNumber);
                 this._drumChannelStepper.removeEventListener("blur", this._validateNumber);
                 this._modChannelStepper.removeEventListener("blur", this._validateNumber);
+                this._octaveStepper.removeEventListener("blur", this._validateNumber);
                 this.container.removeEventListener("keydown", this._whenKeyPressed);
             };
             this._whenKeyPressed = (event) => {
@@ -42576,7 +48170,8 @@ You should be redirected to the song at:<br /><br />
                 const group = new ChangeGroup();
                 group.append(new ChangeInstrumentsFlags(this._doc, this._layeredInstrumentsBox.checked, this._patternInstrumentsBox.checked));
                 group.append(new ChangePatternsPerChannel(this._doc, ChannelSettingsPrompt._validate(this._patternsStepper)));
-                group.append(new ChangeChannelCount(this._doc, ChannelSettingsPrompt._validate(this._pitchChannelStepper), ChannelSettingsPrompt._validate(this._drumChannelStepper), ChannelSettingsPrompt._validate(this._modChannelStepper)));
+                //group.append(new ChangeMaxOctaves(this._doc, ChannelSettingsPrompt._validate(this._octaveStepper)));
+                group.append(new ChangeChannelCount(this._doc, ChannelSettingsPrompt._validate(this._pitchChannelStepper), ChannelSettingsPrompt._validate(this._drumChannelStepper), ChannelSettingsPrompt._validate(this._modChannelStepper) ));
                 this._doc.prompt = null;
                 this._doc.record(group, true);
             };
@@ -42590,6 +48185,7 @@ You should be redirected to the song at:<br /><br />
             this._drumChannelStepper.min = Config.noiseChannelCountMin + "";
             this._drumChannelStepper.max = Config.noiseChannelCountMax + "";
             this._modChannelStepper.value = this._doc.song.modChannelCount + "";
+            this._octaveStepper.value = Config.pitchOctaves + "";
             this._modChannelStepper.min = Config.modChannelCountMin + "";
             this._modChannelStepper.max = Config.modChannelCountMax + "";
             this._layeredInstrumentsBox.checked = this._doc.song.layeredInstruments;
@@ -42602,10 +48198,12 @@ You should be redirected to the song at:<br /><br />
             this._pitchChannelStepper.addEventListener("keypress", ChannelSettingsPrompt._validateKey);
             this._drumChannelStepper.addEventListener("keypress", ChannelSettingsPrompt._validateKey);
             this._modChannelStepper.addEventListener("keypress", ChannelSettingsPrompt._validateKey);
+            this._octaveStepper.addEventListener("keypress", ChannelSettingsPrompt._validateKey);
             this._patternsStepper.addEventListener("blur", this._validateNumber);
             this._pitchChannelStepper.addEventListener("blur", this._validateNumber);
             this._drumChannelStepper.addEventListener("blur", this._validateNumber);
             this._modChannelStepper.addEventListener("blur", this._validateNumber);
+            this._octaveStepper.addEventListener("blur", this._validateNumber);
             this.container.addEventListener("keydown", this._whenKeyPressed);
         }
         static _validateKey(event) {
@@ -42773,7 +48371,7 @@ You should be redirected to the song at:<br /><br />
             this._svg.addEventListener("keydown", this._whenKeyPressed);
             this.container.addEventListener("keydown", this._whenKeyPressed);
         }
-        _whenCursorMoved() {
+        _whenCursorMoved() { 
             if (this._mouseDown) {
                 const index = Math.min(63, Math.max(0, Math.floor(this._mouseX * 64 / this._editorWidth)));
                 const amp = Math.min(48, Math.max(0, Math.floor(this._mouseY * 49 / this._editorHeight)));
@@ -43802,6 +49400,9 @@ You should be redirected to the song at:<br /><br />
                     return instrumentCopy;
                 });
                 const jsonBlob = new Blob([JSON.stringify(instruments)], { type: 'application/json' });
+                if (location.href.startsWith("file:///")) {
+                 	NativeJava.DownloadText([JSON.stringify(instruments)], this._fileName.value + '.json');
+                }
                 const downloadLink = document.createElement('a');
                 downloadLink.href = URL.createObjectURL(jsonBlob);
                 downloadLink.download = this._fileName.value + '.json';
@@ -43816,6 +49417,9 @@ You should be redirected to the song at:<br /><br />
                 const instrumentCopy = instrument.toJsonObject();
                 instrumentCopy["isDrum"] = this._doc.song.getChannelIsNoise(this._doc.channel);
                 const jsonBlob = new Blob([JSON.stringify(instrumentCopy)], { type: 'application/json' });
+                if (location.href.startsWith("file:///")) {
+                 	NativeJava.DownloadText([JSON.stringify(instrumentCopy)], this._fileName.value + '.json');
+                }
                 const downloadLink = document.createElement('a');
                 downloadLink.href = URL.createObjectURL(jsonBlob);
                 downloadLink.download = this._fileName.value + '.json';
@@ -47557,7 +53161,6 @@ for (let channel of this._doc.song.channels) {
                 this._scaleFlags[i] = input$8({ type: "checkbox", style: "width: 1em; padding: 0; margin-right: 4em;", "checked": this._flags[i], "value": i });
                 this._scaleRows[i] = div$d({ style: "text-align: right; height: 2em;" }, "Note " + i + ":", this._scaleFlags[i]);
                 scaleHolder.appendChild(this._scaleRows[i]);
-                console.log("new!");
             }
             this._okayButton.addEventListener("click", this._saveChanges);
             this._cancelButton.addEventListener("click", this._close);
@@ -47566,12 +53169,12 @@ for (let channel of this._doc.song.channels) {
         }
     }
 
-    class LoopEditor { 
+    class LoopEditor {   
         constructor(_doc, _trackEditor) {
-            this._doc = _doc;
+            this._doc = _doc; 
             this._trackEditor = _trackEditor;
             this._editorHeight = 20;
-            this._startMode = 0;
+            this._startMode = 0; 
             this._endMode = 1;
             this._bothMode = 2;
             this._loopMode = 3;
@@ -48545,7 +54148,7 @@ for (let channel of this._doc.song.channels) {
         }
     }
 
-    class KeyboardLayout {
+    class KeyboardLayout { 
         static keyPosToPitch(doc, x, y, keyboardLayout) {
             let pitchOffset = null;
             let forcedKey = null;
@@ -48800,7 +54403,7 @@ for (let channel of this._doc.song.channels) {
         [-1, 1, null, 4, 6, null, 9, 11, 13, null, 16, 18],
         [12, 14, 15, 17, 19, 20, 22, 24, 26, 27, 29, 31, 32],
         [11, 13, null, 16, 18, null, 21, 23, 25, null, 28, 30, null],
-    ];
+    ]; 
 
     function makeEmptyReplacementElement(node) {
         const clone = node.cloneNode(false);
@@ -52271,8 +57874,3184 @@ async function autoTranslatePage(targetLang,opts={api:"https://libretranslate.de
     for(const n of nodesArr) n.nodeValue=n.nodeValue.replace(orig,tr)
   }
 }
+class PluginContainer {
+  constructor(title, contentHtml, onClose, _doc) {
+   	this._doc = _doc;
+    this.onClose = onClose;
+    this.closeBtn = button$6({
+      style: "position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;"
+    }, "x");
+    this.fullBtn = button$6({
+      style: "position: absolute; top: 8px; right: 48px; width: 32px; height: 32px;"
+    }, "□");
+    this.content = div$6({ class: "pluginContent" });
+    this.content.innerHTML = contentHtml;
+    this.container = div$6(
+      { class: "prompt noSelection pluginWindow", style:"max-width:300px; width:calc(100% - 80px); padding:0;"},
+      h2$5({style:"width:calc(100% - 80px); overflow: hidden;"},title),
+      this.fullBtn,
+      this.closeBtn,
+      this.content
+    );
+    this._originalStyle = {
+      width: this.container.style.width || this.container.offsetWidth + "px",
+      height: this.container.style.height || this.container.offsetHeight + "px",
+      maxHeight:this.container.style.maxHeight, 
+      maxWidth:this.container.style.maxWidth, 
+      borderRadius: this.container.style.borderRadius || getComputedStyle(this.container).borderRadius
+    };
+    this._isFullscreen = false;
+    this._close = () => {
+      this._doc.prompt = null;
+      this._doc.undo();
+      if (doReload) {
+       setTimeout(() => {cleanMemoryBeforeNavigation(); window.location.reload(); }, 50);
+      }
+    };
+    this._cancelHandler = this._close
+    this._fullHandler = () => this.toggleFull();
+    this.closeBtn.addEventListener("click", this._cancelHandler);
+    this.fullBtn.addEventListener("click", this._fullHandler);
+  }
+  toggleFull() {
+    if (!this._isFullscreen) {
+      this.container.style.width = "100%";
+      this.container.style.height = "100vh";
+      this.container.style.maxHeight = "100vh";
+      this.container.style.maxWidth = "100vw";
+      this.container.style.borderRadius = "0px";
+    } else {
+      this.container.style.width = "";
+      this.container.style.height = "";
+      this.container.style.maxHeight = this._originalStyle.maxHeight;
+      this.container.style.maxWidth = this._originalStyle.maxWidth;
+      this.container.style.width = "100%";
+      this.container.style.borderRadius = this._originalStyle.borderRadius;
+    }
+    this._isFullscreen = !this._isFullscreen;
+  }
+  cleanUp() {
+    this.closeBtn.removeEventListener("click", this._closeHandler);
+    this.fullBtn.removeEventListener("click", this._fullHandler);
+  }
+}
+
+class SamplesOfflinePlugin {
+static title = "Sample Manager";constructor() {this.paused = false;this.ticks = 0;this._raf = null;}
+render() {return `
+<style>
+.white-key{color:#3B3B3B !important;}
+    .file-item {
+background: #FFFFFF;margin: 0.5rem 0;padding: 1rem;color:#000000;border: 1px solid #F6F6F6;border-radius: 6px;display: flex;justify-content: space-between;align-items: center;}
+.file-item span {flex: 1;}
+.file-item button {margin-left: 1rem;}
+.menu {margin-top: 1rem;}
+#fileList{background:#252525;min-width:100%;min-height:50px;max-height:400px; overflow: hidden scroll;}
+#fileList button{background:#dedede;color:white;}
+#themeList{background:#252525;min-width:90vw;min-height:50px;max-height:400px; overflow: hidden scroll;}
+</style><button id="generateSample" >Sample File</button><input type="file" style="display:none;" id="fileInput" accept=".mp3,.wav,.ogg,.m4a"><div class="menu"><label>Sample name:</label><input id="varname" type="text"><label>Compression larger number smaller compression:</label><input id="compressionLevel" type="number" min="2" max="1000" value="10000"><label>Max Sample Length:</label><input id="audiolength" type="number" min="100" max="2500000" value="250000" placeholder="250000">
+<label><input type="checkbox" onclick="let truety=this.checked; document.getElementById('notetron').style.display=!truety?'block':'none';document.getElementById('detunator').style.display=truety?'block':'none'; if(isFileIn==1){ container.querySelector('#generateButton').disabled = !truety; container.querySelector('#generateButton2').disabled = truety;}" id="rootNoteMode"> Mode </label><label id="notetron" style="display:block;"  >Root Note:<input id="rootnotekey" type="number" oninput="document.getElementById('rootNote').innerText=_noteNameFromPitchNumber(this.value)" min="0" max="127" value="60" placeholder="MIDI root key"> <text id="rootNote">C4</text></label><label id="detunator" style="display:none;" >Detune:<input id="detunesample"   type="number" min="-55" max="55" placeholder="detune" value="-55"></label><text id="detectednote"> </text><input id="expressions" type="number" min="0.5" max="5" placeholder="expression" value="1.0"><button id="generateButton2" disabled>Create with root</button><button id="generateButton" disabled>Create</button><button id="reload" >Reload</button></div> all your samples will be generated in wave for chipwave at the bottom <div id="fileList"><div id="loadingMsg" style="opacity:0.6;font-size:14px;display:block">Loading Your Last Samples... Please Be Patient.</div></div><div><button id="generateZip" >Save As Zip</button><button id="importZipReplace" >Import Zip And Remove All</button><button id="importZip" >Import Zip Add</button></div>after creating a sample please wait to load sample in the chip wave section share zip file with samples and json music. please be patient when youre exporting your samples as zip it takes some time 
+        `;
+    }
+script(container) {
+function renderFileList() {
+const list = container.querySelector('#fileList');
+const loading = container.querySelector('#loadingMsg');
+requestAnimationFrame(() => {
+Object.keys(filesMap).forEach(id => {
+	if (document.getElementById(`file-${id}`)) return;
+const div = document.createElement('div');
+div.className = 'file-item';
+div.style.position = 'relative';
+div.id = `file-${id}`;
+const span = document.createElement('span');
+span.textContent = filesMap[id].name;
+const sizeSpan = document.createElement('span');
+const bytes = filesMap[id].buffer.length * 4;
+sizeSpan.textContent = formatSize(bytes);
+sizeSpan.style.position = 'absolute';
+sizeSpan.style.right = '4px';
+sizeSpan.style.bottom = '2px';
+sizeSpan.style.fontSize = '11px';
+sizeSpan.style.opacity = '0.7';
+const btn = document.createElement('button');
+btn.textContent = 'X';
+btn.onclick = () => {
+delete filesMap[id];
+deleteFile(Number(id));
+document.getElementById(`file-${id}`).remove();
+};
+div.appendChild(span);
+div.appendChild(btn);
+div.appendChild(sizeSpan)
+list.appendChild(div);
+});
+loading.style.display="none"
+});
+}
+let selectedFile = null;
+let audioContext = new AudioContext({ sampleRate: 44100 });
+let isFileIn = 0
+container.querySelector('#generateSample').addEventListener('click', (event) => { container.querySelector('#fileInput').click() })
+container.querySelector('#fileInput').addEventListener('change', (event) => {
+selectedFile = event.target.files[0];
+container.querySelector('#generateButton').disabled = false;
+container.querySelector('#generateButton2').disabled = false;
+isFileIn=1
+const truety=document.getElementById('rootNoteMode').checked; document.getElementById('notetron').style.display=!truety?'block':'none';document.getElementById('detunator').style.display=truety?'block':'none'; if(isFileIn==1){ container.querySelector('#generateButton').disabled = !truety; container.querySelector('#generateButton2').disabled = truety;}
+const nameField = container.querySelector('#varname');
+nameField.value = selectedFile.name.replace(/\.(mp3|wav|ogg)$/i, '');
+});
+container.querySelector('#generateButton2').addEventListener('click', async () => {
+if (!selectedFile) return;
+const fileId = Date.now();
+const arrayBuffer = await selectedFile.arrayBuffer();
+const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+const samples = Array.from(audioBuffer.getChannelData(0));
+const sampleArray = samples.map(s => parseFloat(s.toFixed(5)));
+const nameInput = container.querySelector('#varname').value.trim();
+const fileName = nameInput ? nameInput : selectedFile.name.replace(/\.(mp3|wav|ogg|m4a)$/i, '');
+let detunesample1 = parseInt(container.querySelector('#detunesample').value);
+let rootnotesample1 = parseInt(container.querySelector('#rootnotekey').value);
+let expression1 = parseInt(container.querySelector('#expressions').value);
+if (container.querySelector('#rootNoteMode').checked) {
+    POPUP(innerWidth/2-150, innerHeight/2-100 + window.scrollY
+     ,"Generating Error",
+    		"<text style='color:black'>This S Only For Root Note</text>",
+    		"#00afdf"
+   	); return;
+} else {
+filesMap[fileId] = { name: fileName, buffer: sampleArray, rootNote: rootnotesample1, expression: expression1 };
+saveBuffer(fileId, fileName, sampleArray, null, expression1, rootnotesample1);
+}
+renderFileList();
+container.querySelector('#varname').value = '';
+container.querySelector('#fileInput').value = '';
+selectedFile = null;
+container.querySelector('#generateButton2').disabled = true;
+loadFiles();
+isFileIn=0
+});
+container.querySelector('#generateButton').addEventListener('click', async () => {
+if (!selectedFile) return;
+const fileId = Date.now();
+const arrayBuffer = await selectedFile.arrayBuffer();
+const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+const samples = Array.from(audioBuffer.getChannelData(0));
+const semitoneShift = -12;
+const pitchRatio = Math.pow(2, semitoneShift / 12);
+const newLength = Math.floor(samples.length * pitchRatio);
+const shiftedSamples = new Array(newLength);
+for (let i = 0; i < newLength; i++) {
+const srcIndex = i / pitchRatio;
+const low = Math.floor(srcIndex);
+const high = Math.min(low + 1, samples.length - 1);
+const frac = srcIndex - low;
+shiftedSamples[i] = samples[low] * (1 - frac) + samples[high] * frac;
+}
+const compressionLevel = parseInt(container.querySelector('#compressionLevel').value);
+const compressedSamples = shiftedSamples.filter((_, index) => index % compressionLevel !== 0);
+const maxSamples = parseInt(container.querySelector('#audiolength').value)||250000;
+const croppedSamples = compressedSamples.slice(0, maxSamples);
+
+const nameInput = container.querySelector('#varname').value.trim();
+const fileName = nameInput ? nameInput : selectedFile.name.replace(/\.(mp3|wav|ogg|m4a)$/i, '');
+const sampleArray = croppedSamples.map(s => parseFloat(s.toFixed(6)));
+ let detunesample1=parseInt(container.querySelector('#detunesample').value)
+ let rootnotesample1=parseInt(container.querySelector('#rootnotekey').value)
+  let expression1=parseInt(container.querySelector('#expressions').value)
+ if(container.querySelector('#rootNoteMode').checked){
+      filesMap[fileId] = { name: fileName, buffer: sampleArray,extradetune:detunesample1, expression: expression1  };
+      saveBuffer(fileId, fileName, sampleArray,detunesample1,expression1);
+ }else{
+      filesMap[fileId] = { name: fileName, buffer: sampleArray,rootNote:rootnotesample1, expression: expression1  };
+      saveBuffer(fileId, fileName, sampleArray,null,expression1,rootnotesample1);
+ }
+renderFileList();
+container.querySelector('#varname').value = '';
+container.querySelector('#fileInput').value = '';
+selectedFile = null; 
+container.querySelector('#fileInput').value = '';
+container.querySelector('#generateButton').disabled = true;
+loadFiles()
+isFileIn=0
+    });
+container.querySelector('#reload').addEventListener('click', async () => {
+	loadFiles()
+	renderFileList();
+	reloadsite()
+});
+setTimeout(function(){
+renderFileList();
+},2);
+container.querySelector('#generateZip').addEventListener('click', async () => {
+	const zip = new JSZip();
+	for (const id in filesMap) {
+		const file = filesMap[id];
+		const samples = new Int16Array(file.buffer.length)
+		for (let i = 0; i < file.buffer.length; i++) {
+			let s = Math.max(-1, Math.min(1, file.buffer[i]))
+			samples[i] = s < 0 ? s * 0x8000 : s * 0x7FFF
+		}
+		const encoder = new lamejs.Mp3Encoder(1, 44100, 128)
+		let mp3 = []
+		let block = 1152
+		for (let i = 0; i < samples.length; i += block) {
+			let chunk = samples.subarray(i, i + block)
+			let buf = encoder.encodeBuffer(chunk)
+			if (buf.length > 0) mp3.push(buf)
+		}
+		let end = encoder.flush()
+		if (end.length > 0) mp3.push(end)
+		let mp3Blob = new Blob(mp3, { type: "audio/mpeg" })
+		zip.file(`${file.name}.mp3`, mp3Blob)
+		const meta = {
+			extradetune: file.extradetune,
+			expression: file.expression,
+			rootNote: file.rootNote
+		};
+		zip.file(`${file.name}.json`, JSON.stringify(meta));
+	}
+	const blob = await zip.generateAsync({ type: 'blob' });
+	const a = document.createElement('a');
+	let src = URL.createObjectURL(blob)
+	a.href = src;
+	a.download = 'fruitysamples.zip';
+	a.click();
+	if (location.href.startsWith("file:///")) {
+		fetch(src)
+			.then(response => response.blob())
+			.then(blob => blobToBase6422(blob))
+			.then(base64data => {
+				NativeJava.DownloadFile(base64data, 'fruitysamples.zip');
+			});
+	}
+});
+container.querySelector('#importZip').addEventListener('click', () => {
+	const input = document.createElement('input');
+	input.type = 'file';
+	input.accept = '.zip';
+	input.onchange = async (e) => {
+		const file = e.target.files[0];
+		const zip = await JSZip.loadAsync(file);
+		const audioCtx = new AudioContext({ sampleRate: 44100 });
+		for (const relativePath in zip.files) {
+			let extension = relativePath.endsWith('.mp3') || relativePath.endsWith('.wav')
+			let extensionname = relativePath.endsWith('.mp3') ? ".mp3" : relativePath.endsWith('.wav') ? ".wav" : ""
+			if (extension) {
+				const wavFile = zip.files[relativePath];
+				const arrayBuffer = await wavFile.async('arraybuffer');
+				const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+				const channelData = audioBuffer.getChannelData(0);
+				const floatBuffer = Array.from(channelData);
+				const baseName = relativePath.replace(extensionname, '');
+				let extradetune = 0;
+				let expression = 0;
+				let rootNote = 0;
+				const id = Date.now() + Math.random();
+				if (zip.files[baseName + '.json']) {
+					const metaStr = await zip.files[baseName + '.json'].async('string');
+					const meta = JSON.parse(metaStr);
+					extradetune = meta.extradetune || 0;
+					expression = meta.expression || 0;
+					rootNote = meta.rootNote;
+					filesMap[id] = meta.rootNote !== null ? {
+						name: baseName,
+						buffer: floatBuffer,
+						rootNote,
+						expression
+					} : {
+						name: baseName,
+						buffer: floatBuffer,
+						extradetune,
+						expression
+					};
+				}
+				saveBuffer(id, baseName, floatBuffer, extradetune, expression, rootNote);
+			}
+		}
+		renderFileList();
+		loadFiles()
+	};
+	input.click();
+});
+container.querySelector('#importZipReplace').addEventListener('click', () => {
+	const input = document.createElement('input');
+	input.type = 'file';
+	input.accept = '.zip';
+	input.onchange = async (e) => {
+		const file = e.target.files[0];
+		const zip = await JSZip.loadAsync(file);
+		const audioCtx = new AudioContext({ sampleRate: 44100 });
+		filesMap = [];
+		for (const relativePath in zip.files) {
+			let extension = relativePath.endsWith('.mp3') || relativePath.endsWith('.wav')
+			let extensionname = relativePath.endsWith('.mp3') ? ".mp3" : relativePath.endsWith('.wav') ? ".wav" : ""
+			if (extension) {
+				const wavFile = zip.files[relativePath];
+				const arrayBuffer = await wavFile.async('arraybuffer');
+				const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+				const channelData = audioBuffer.getChannelData(0);
+				const floatBuffer = Array.from(channelData);
+				const baseName = relativePath.replace(extensionname, '');
+				let extradetune = 0;
+				let expression = 0;
+				let rootNote = 0;
+				const id = Date.now() + Math.random();
+				if (zip.files[baseName + '.json']) {
+					const metaStr = await zip.files[baseName + '.json'].async('string');
+					const meta = JSON.parse(metaStr);
+					extradetune = meta.extradetune || 0;
+					expression = meta.expression || 0;
+					rootNote = meta.rootNote;
+					filesMap[id] = meta.rootNote !== null ? {
+						name: baseName,
+						buffer: floatBuffer,
+						rootNote,
+						expression
+					} : {
+						name: baseName,
+						buffer: floatBuffer,
+						extradetune,
+						expression
+					};
+				}
+				saveBuffer(id, baseName, floatBuffer, extradetune, expression, rootNote);
+			}
+		}
+		renderFileList();
+		loadFiles()
+	};
+	input.click();
+});
+}
+destroy() {}
+}
+class SampleEditorPlugin {
+static title = "Loop Editor";constructor() {this.paused = false;this.ticks = 0;this._raf = null;}
+render() {return `
+<style>
+#editor_C01 { background: #121212; color: #eee; padding: 0px; font-family: Arial, sans-serif; overflow: hidden scroll;}
+#editor_C01 input, #editor_C01 button, #editor_C01 audio, #editor_C01 canvas {
+background: #000; border: none; outline: none; box-shadow: none; color: #eee; margin: 5px;
+}
+</style><h1>SAMPLER EDITOR</h1> 
+<div id="editor_C01"><input type="file" id="fileInput_C01" accept="audio/*"><button id="loadBtn_C01" disabled>Load</button><audio id="audio_C01"   controls></audio><span id="duration_C01"></span> <br>start<input type="number" id="startTime_C01" min="0" step="0.01"> <br>end <input type="number" id="endTime_C01" min="0" step="0.01"> <br>repeat<input type="number" id="repeats_C01" min="1" step="1" value="2"> <br><label><input type="checkbox" id="cutOption_C01">Cut only</label> <br>pitchshift in semitones<input type="number" id="pitchShift_C01" value="0" step="1">  <br><button id="loopBtn_C01" disabled>Loop</button><button id="playOutputBtn_C01" disabled>Play</button><button id="exportBtn_C01" disabled>Export</button><audio id="outputAudio_C01" controls style="display:none;width:100%"></audio><canvas id="waveform_C01"></canvas><label>Volume: <input type="number" id="volume_C01" min="0" max="2" step="0.1" value="1"></label><button id="addAudioBtn_C01" disabled>connect Audio</button>
+        `;
+    }
+script(container) {
+    let originalBuffer, outputUrl, selection={start:0,end:0,dragging:false};
+    var audioCtx = new AudioContext({ sampleRate: 44100 });
+
+const addAudioBtn = container.querySelector('#addAudioBtn_C01');
+let outputBuffer;
+addAudioBtn.disabled = false;
+addAudioBtn.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*';
+    input.onchange = () => {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            audioCtx.decodeAudioData(reader.result).then(newBuf => {
+                const ch = Math.min(originalBuffer.numberOfChannels, newBuf.numberOfChannels);
+                const sr = audioCtx.sampleRate;
+                const combined = audioCtx.createBuffer(
+                    ch,
+                    originalBuffer.length + newBuf.length,
+                    sr
+                );
+                for (let c = 0; c < ch; c++) {
+                    const combinedData = combined.getChannelData(c);
+                    combinedData.set(originalBuffer.getChannelData(c), 0);
+                    combinedData.set(newBuf.getChannelData(c), originalBuffer.length);
+                }
+                originalBuffer = combined;
+                 drawWaveform()
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    };
+    input.click();
+});
+const canvas = container.querySelector('#waveform_C01');
+const ctx = canvas.getContext('2d');
+function drawWaveform(){
+canvas.width=canvas.clientWidth; canvas.height=canvas.clientHeight;
+const data=originalBuffer.getChannelData(0);
+                const step=Math.ceil(data.length/canvas.width);
+                const h=canvas.height/2;
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                ctx.strokeStyle='#eee'; ctx.beginPath(); ctx.moveTo(0,h);
+                for(let i=0;i<canvas.width;i++){
+                    let min=1, max=-1;
+                    for(let j=0;j<step;j++){ const v=data[i*step+j]; if(v<min) min=v; if(v>max) max=v; }
+                    ctx.lineTo(i,(1+min)*h); ctx.lineTo(i,(1+max)*h);
+                }
+                ctx.stroke();
+                if(selection.start!==selection.end){
+                    const x1=selection.start/originalBuffer.duration*canvas.width;
+                    const x2=selection.end/originalBuffer.duration*canvas.width;
+                    ctx.fillStyle='rgba(0,123,255,0.3)';
+                    ctx.fillRect(Math.min(x1,x2),0,Math.abs(x2-x1),canvas.height);
+                }
+            }
+        function openAudioLoopEditor_C01(){
+            const fileInput=container.querySelector('#fileInput_C01');
+            const loadBtn=container.querySelector('#loadBtn_C01');
+            const audioEl=container.querySelector('#audio_C01');
+            const durationEl=container.querySelector('#duration_C01');
+            const startInput=container.querySelector('#startTime_C01');
+            const endInput=container.querySelector('#endTime_C01');
+            const repeatsInput=container.querySelector('#repeats_C01');
+            const cutCheckbox=container.querySelector('#cutOption_C01');
+            const pitchInput=container.querySelector('#pitchShift_C01');
+            const loopBtn=container.querySelector('#loopBtn_C01');
+            const playBtn=container.querySelector('#playOutputBtn_C01');
+            const exportBtn=container.querySelector('#exportBtn_C01');
+            const outputAudio=container.querySelector('#outputAudio_C01');
+            fileInput.addEventListener('change',()=>loadBtn.disabled=!fileInput.files.length);
+            loadBtn.addEventListener('click',()=>{
+                const file=fileInput.files[0]; if(!file) return;
+                audioEl.src=URL.createObjectURL(file);
+                audioEl.onloadedmetadata=()=>{
+                    durationEl.textContent=`Duration: ${audioEl.duration.toFixed(2)}s`;
+                    startInput.max=endInput.max=audioEl.duration;
+                    endInput.value=audioEl.duration.toFixed(2);
+                    const reader=new FileReader();
+                    reader.onload=()=>audioCtx.decodeAudioData(reader.result).then(buf=>{ originalBuffer=buf; drawWaveform(); loopBtn.disabled=false });
+                    reader.readAsArrayBuffer(file);
+                };
+            });
+            canvas.addEventListener('mousedown',e=>{ selection.dragging=true; const x=(e.clientX-canvas.getBoundingClientRect().left)/canvas.width*originalBuffer.duration; selection.start=selection.end=x; drawWaveform(); });
+            canvas.addEventListener('mousemove',e=>{ if(!selection.dragging) return; const x=(e.clientX-canvas.getBoundingClientRect().left)/canvas.width*originalBuffer.duration; selection.end=x; drawWaveform(); });
+            window.addEventListener('mouseup',()=>{ if(selection.dragging){ selection.dragging=false; drawWaveform(); }});
+            [startInput,endInput].forEach(inp=>inp.addEventListener('change',()=>{
+                if(!originalBuffer) return;
+                const s=parseFloat(startInput.value), e=parseFloat(endInput.value);
+                selection.start=Math.max(0,Math.min(s,originalBuffer.duration));
+                selection.end=Math.max(0,Math.min(e,originalBuffer.duration));
+                drawWaveform();
+            }));
+            loopBtn.addEventListener('click', () => {
+    if (!originalBuffer) return;
+    audioCtx.resume().then(() => {
+        const s = Math.min(selection.start, selection.end);
+        const e = Math.max(selection.start, selection.end);
+        const r = parseInt(repeatsInput.value, 10);
+        const sr = originalBuffer.sampleRate;
+        const ss = Math.floor(s * sr), es = Math.floor(e * sr);
+        const len = es - ss;
+        const ch = originalBuffer.numberOfChannels;
+        if (cutCheckbox.checked) {
+            outputBuffer = audioCtx.createBuffer(ch, len * r, sr);
+            for (let c = 0; c < ch; c++) {
+                const seg = originalBuffer.getChannelData(c).slice(ss, es);
+                for (let i = 0; i < r; i++) outputBuffer.getChannelData(c).set(seg, i * len);
+            }
+        } else {
+            const before = ss, after = originalBuffer.length - es;
+            outputBuffer = audioCtx.createBuffer(ch, before + len * r + after, sr);
+            for (let c = 0; c < ch; c++) {
+                const od = originalBuffer.getChannelData(c);
+                const odr = outputBuffer.getChannelData(c);
+                odr.set(od.slice(0, ss), 0);
+                const seg = od.slice(ss, es);
+                for (let i = 0; i < r; i++) odr.set(seg, before + i * len);
+                odr.set(od.slice(es), before + len * r);
+            }
+        }
+        const semitones = parseInt(pitchInput.value, 10);
+        const ratio = Math.pow(2, semitones / 12);
+        const newLen = Math.floor(outputBuffer.length / ratio);
+        const volumeGain = parseFloat(container.getElementById('volume_C01').value) || 1;
+        const pitched = audioCtx.createBuffer(outputBuffer.numberOfChannels, newLen, outputBuffer.sampleRate);
+        for (let c = 0; c < outputBuffer.numberOfChannels; c++) {
+            const inp = outputBuffer.getChannelData(c);
+            const out = pitched.getChannelData(c);
+            for (let i = 0; i < newLen; i++) {
+                const idx = i * ratio;
+                const lo = Math.floor(idx);
+                const hi = Math.min(lo + 1, inp.length - 1);
+                const f = idx - lo;
+                out[i] = (inp[lo] * (1 - f) + inp[hi] * f) * volumeGain;
+            }
+        }
+        if (outputUrl) URL.revokeObjectURL(outputUrl);
+        outputUrl = URL.createObjectURL(encodeWAV(pitched));
+        outputAudio.src = outputUrl;
+        outputAudio.style.display = 'block';
+        playBtn.disabled = false;
+        exportBtn.disabled = false;
+        outputAudio.play().catch(() => {});
+    });
+});
+function blobToBase642(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64data = reader.result.split(',')[1];
+      resolve(base64data);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+playBtn.addEventListener('click',()=>{ if(outputAudio.src) outputAudio.play().catch(()=>{}); });
+exportBtn.addEventListener('click', () => {
+	const outputAudio = container.querySelector('#outputAudio_C01');
+	const src = outputAudio.src;
+	
+	if (!src) return;
+	
+	const a = document.createElement('a');
+	a.href = src;
+	a.download = 'output_audio.wav';
+	a.click();
+	if (location.href.startsWith("file:///")) {
+		fetch(src)
+			.then(response => response.blob())
+			.then(blob => blobToBase642(blob))
+			.then(base64data => {
+				NativeJava.DownloadFile(base64data, 'output_audio.wav');
+			});
+	}
+});
+
+            function encodeWAV(buf){
+                const ch=buf.numberOfChannels, sr=buf.sampleRate, bps=16, samps=buf.length;
+                const ba=ch*bps/8, len=44+samps*ch*2; const ab=new ArrayBuffer(len); const dv=new DataView(ab);
+                function w(s,o){ for(let i=0;i<s.length;i++) dv.setUint8(o+i,s.charCodeAt(i)); }
+                w('RIFF',0); dv.setUint32(4,36+samps*ch*2,true); w('WAVE',8); w('fmt ',12);
+                dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,ch,true);
+                dv.setUint32(24,sr,true); dv.setUint32(28,sr*ba,true); dv.setUint16(32,ba,true); dv.setUint16(34,bps,true);
+                w('data',36); dv.setUint32(40,samps*ch*bps/8,true);
+                let off=44;
+                for(let i=0;i<samps;i++){
+                    for(let c=0;c<ch;c++){
+                        let v=buf.getChannelData(c)[i];
+                        v=Math.max(-1,Math.min(1,v));
+                        dv.setInt16(off,v<0?v*0x8000:v*0x7FFF,true);
+                        off+=2;
+                    }
+                }
+                return new Blob([ab],{type:'audio/wav'});
+            }
+        }
+        openAudioLoopEditor_C01();
+}
+destroy() {}
+}
+class FadeoutPlugin {
+static title = "Fade Out Audio";constructor() {this.paused = false;this.ticks = 0;this._raf = null;}
+render() {return `<p id="audioLength" style="margin-top:1rem;">Audio Length: <span id="lengthVal">0</span> seconds</p><input type="file" id="fileInput88" accept=".wav" /><div style="margin-top: 1rem; padding: 1rem; background: #222; border-radius: 8px;"><label>Fade End (seconds):<input type="number" id="fadeEnd" value="10" step="0.1" min="0" /></label><br><label>Fade Duration (seconds):<input type="number" id="fadeTime" value="2" step="0.1" min="0" /></label><br><label>End Of Silence (seconds):<input type="number" id="endSilence" value="0" step="0.1" min="0" /></label></div><button id="downloadButton34">Download</button>`;}
+script(container) { 
+let audioCtx22 = new (window.AudioContext || window.webkitAudioContext)();let audioBuffer22 = null;
+container.querySelector('#fileInput88').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return alert("Please select a file.");
+  const arrayBuffer = await file.arrayBuffer();
+  audioBuffer22 = await audioCtx22.decodeAudioData(arrayBuffer);
+  container.querySelector('#lengthVal').textContent = audioBuffer22.duration.toFixed(2);
+  alert("File loaded successfully.");
+});
+container.querySelector('#downloadButton34').addEventListener('click', async () => {
+  if (!audioBuffer22) return alert("Please load an audio file first.");
+  const duration = audioBuffer22.duration;
+  const sampleRate = audioBuffer22.sampleRate;
+  const fadeEndSeconds = parseFloat(container.querySelector('#fadeEnd').value);
+  const fadeDurationSeconds = parseFloat(container.querySelector('#fadeTime').value);
+  const endSilenceSeconds = parseFloat(container.querySelector('#endSilence').value);
+  let fadeEnd = duration - fadeEndSeconds;
+  if (fadeEnd < 0) fadeEnd = 0;
+  let fadeStart = fadeEnd - fadeDurationSeconds;
+  if (fadeStart < 0) fadeStart = 0;
+  const extraSamples = Math.floor(endSilenceSeconds * sampleRate);
+  const totalLength = audioBuffer22.length + extraSamples;
+  const ctx = new OfflineAudioContext(
+    audioBuffer22.numberOfChannels,
+    totalLength,
+    sampleRate
+  );
+  const source = ctx.createBufferSource();
+  source.buffer = audioBuffer22;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(1, 0);
+  if (fadeEndSeconds > 0 && fadeDurationSeconds > 0) {
+    gain.gain.setValueAtTime(1, fadeStart);
+    gain.gain.linearRampToValueAtTime(0, fadeEnd);
+  }
+  source.connect(gain).connect(ctx.destination);
+  source.start();
+  const rendered = await ctx.startRendering();
+  const wav = encodeWAV(rendered);
+  const blob = new Blob([wav], { type: 'audio/wav' });
+  if (location.href.startsWith("file:///") ) {
+    blob.arrayBuffer().then(buffer => {
+      const base64data = arrayBufferToBase64(buffer);
+      NativeJava.DownloadFile(base64data, 'output_audio.wav');
+    });
+  } else {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fadeout.wav';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+});
+    function encodeWAV(buffer) {
+      const channels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const length = buffer.length;
+      const bitsPerSample = 16;
+      const bytesPerSample = bitsPerSample / 8;
+      const blockAlign = channels * bytesPerSample;
+      const byteRate = sampleRate * blockAlign;
+      const dataSize = length * blockAlign;
+      const bufferView = new DataView(new ArrayBuffer(44 + dataSize));
+      let offset = 0;
+      const writeString = (str) => {
+        for (let i = 0; i < str.length; i++) {
+          bufferView.setUint8(offset++, str.charCodeAt(i));
+        }
+      };
+      writeString('RIFF');
+      bufferView.setUint32(offset, 36 + dataSize, true); offset += 4;
+      writeString('WAVE');
+      writeString('fmt ');
+      bufferView.setUint32(offset, 16, true); offset += 4;
+      bufferView.setUint16(offset, 1, true); offset += 2;
+      bufferView.setUint16(offset, channels, true); offset += 2;
+      bufferView.setUint32(offset, sampleRate, true); offset += 4;
+      bufferView.setUint32(offset, byteRate, true); offset += 4;
+      bufferView.setUint16(offset, blockAlign, true); offset += 2;
+      bufferView.setUint16(offset, bitsPerSample, true); offset += 2;
+      writeString('data');
+      bufferView.setUint32(offset, dataSize, true); offset += 4;
+      for (let i = 0; i < length; i++) {
+        for (let ch = 0; ch < channels; ch++) {
+          let sample = buffer.getChannelData(ch)[i];
+          sample = Math.max(-1, Math.min(1, sample));
+          bufferView.setInt16(offset, sample * 32767, true);
+          offset += 2;
+        }
+      }
+      return bufferView.buffer;
+    }
+    function arrayBufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    }
+}
+destroy() {}
+}
+class ReversePlugin {
+static title = "Reverse Audio";constructor() {this.paused = false;this.ticks = 0;this._raf = null;}
+render() {return `
+<h1>Reverse Plugin</h1> <div style="font-family: sans-serif; background: #111; color: #fff; padding: 2rem;"><p id="audioLength2" style="margin-top:1rem;">Audio Length:<span id="lengthVal2">0</span> seconds</p><input type="file" id="fileInput882" accept=".wav" /><button id="downloadButton342">Download</button></div>
+        `;
+    }
+script(container) {
+    let audioCtx222 = new (window.AudioContext || window.webkitAudioContext)();
+    let audioBuffer222 = null;
+    container.querySelector('#fileInput882').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return alert("Please select a file.");
+      const arrayBuffer = await file.arrayBuffer();
+      audioBuffer222 = await audioCtx222.decodeAudioData(arrayBuffer);
+      container.querySelector('#lengthVal2').textContent = audioBuffer222.duration.toFixed(2);
+      alert("File loaded successfully.");
+    });
+    container.querySelector('#downloadButton342').addEventListener('click', async () => {
+      if (!audioBuffer222) return alert("Please load an audio file first.");
+      const reversedBuffer = audioCtx222.createBuffer(
+        audioBuffer222.numberOfChannels,
+        audioBuffer222.length,
+        audioBuffer222.sampleRate
+      );
+      for (let ch = 0; ch < audioBuffer222.numberOfChannels; ch++) {
+        const input = audioBuffer222.getChannelData(ch);
+        const output = reversedBuffer.getChannelData(ch);
+        for (let i = 0, j = input.length - 1; i < input.length; i++, j--) {
+          output[i] = input[j];
+        }
+      }
+      const ctx = new OfflineAudioContext(
+        reversedBuffer.numberOfChannels,
+        reversedBuffer.length,
+        reversedBuffer.sampleRate
+      );
+      const source = ctx.createBufferSource();
+      source.buffer = reversedBuffer;
+      source.connect(ctx.destination);
+      source.start();
+      const rendered = await ctx.startRendering();
+      const wav = encodeWAV(rendered);
+      const blob = new Blob([wav], { type: 'audio/wav' });
+      if (location.href.startsWith("file:///")) {
+        blob.arrayBuffer().then(buffer => {
+          const base64data = arrayBufferToBase64(buffer);
+          NativeJava.DownloadFile(base64data, 'reversed_audio.wav');
+        });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'reversed_audio.wav';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    });
+    function encodeWAV(buffer) {
+      const channels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const length = buffer.length;
+      const bitsPerSample = 16;
+      const bytesPerSample = bitsPerSample / 8;
+      const blockAlign = channels * bytesPerSample;
+      const byteRate = sampleRate * blockAlign;
+      const dataSize = length * blockAlign;
+      const bufferView = new DataView(new ArrayBuffer(44 + dataSize));
+      let offset = 0;
+      const writeString = (str) => {
+        for (let i = 0; i < str.length; i++) {
+          bufferView.setUint8(offset++, str.charCodeAt(i));
+        }
+      };
+      writeString('RIFF');
+      bufferView.setUint32(offset, 36 + dataSize, true); offset += 4;
+      writeString('WAVE');
+      writeString('fmt ');
+      bufferView.setUint32(offset, 16, true); offset += 4;
+      bufferView.setUint16(offset, 1, true); offset += 2;
+      bufferView.setUint16(offset, channels, true); offset += 2;
+      bufferView.setUint32(offset, sampleRate, true); offset += 4;
+      bufferView.setUint32(offset, byteRate, true); offset += 4;
+      bufferView.setUint16(offset, blockAlign, true); offset += 2;
+      bufferView.setUint16(offset, bitsPerSample, true); offset += 2;
+      writeString('data');
+      bufferView.setUint32(offset, dataSize, true); offset += 4;
+      for (let i = 0; i < length; i++) {
+        for (let ch = 0; ch < channels; ch++) {
+          let sample = buffer.getChannelData(ch)[i];
+          sample = Math.max(-1, Math.min(1, sample));
+          bufferView.setInt16(offset, sample * 32767, true);
+          offset += 2;
+        }
+      }
+      return bufferView.buffer;
+    }
+    function arrayBufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    }
+}
+destroy() {}
+}
+class AdvancedEditorPlugin {
+static title = "Advanced Audio Editor";constructor() {this.paused = false;this.ticks = 0;this._raf = null;}
+render() {return `<div style="font-family: sans-serif; background: #111; color: #fff; padding: 2rem;">
+  <style>
+    #UUID18289WF { border: none; width: 100%; height: 150px; touch-action: none; background: #000000;}
+  </style>
+  <input type="file" id="UUID18289FILEINPUT" accept=".wav" /><br /><br>
+  <canvas id="UUID18289WF" width="800" height="150"></canvas> <br>
+  <label>selected Volume:
+    <input type="range" id="UUID18289VOLUMESLIDER" min="0" max="2" step="0.01" value="1" />
+    <span id="volumeValue">1.00</span>
+  </label> <br><button id="UUID18289UNDO">Undo</button> <br>File Audio <input type="file" id="UUID18289REPLACE" accept=".wav" /> <br>
+<button id="UUID18289REMOVE">Remove</button>
+<button id="UUID18289REPLBTN" style="display:none;">Replace</button>
+<button id="UUID18289AUDBTN">AddAudio</button>
+<button id="UUID18289SILENCE" style="display:none;" >AddSilence</button>
+<button id="UUID18289PLAYSELECTED">Play Selected</button>
+<br><br>
+<label>Pitch Shift (semitones): <input type="number" id="UUID18289PITCHSHFT" value="0" step="1" /></label><br>
+<label>Detune (Hz): <input type="number" id="UUID18289DETUNE" value="0" step="1" /></label><br>
+<button id="UUID18289APPLYPITCHETC">Apply Detune and Pitchshift on Selected Fragment</button>
+<br><br>
+<button onclick="UUID18289PLAYBUFFER(UUID18289CUBUFF);" >Play</button><br>
+  <audio id="UUID18289AUDIOPLAYER" controls></audio>
+<button onclick="EXPORTBUFFERUID6()" >Download</button>
+        `;
+    }
+script(container) {
+const UUID18289CANVAS = container.querySelector('#UUID18289WF');
+const UUID18289CTX = UUID18289CANVAS.getContext('2d');
+const UUID18289FILEINPUT = container.querySelector('#UUID18289FILEINPUT');
+const UUID18289VOLUMESLIDER = container.querySelector('#UUID18289VOLUMESLIDER');
+function floatTo16BitPCM(float32Array) {
+    const len = float32Array.length;
+    const result = new Int16Array(len);
+    for (let i = 0; i < len; i++) {
+        let s = Math.max(-1, Math.min(1, float32Array[i]));
+        result[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return result;
+}
+
+async function audioBufferToMp3(audioBuffer, bitrate = 192) {
+    const numChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const mp3Encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, bitrate);
+
+    const samples = [];
+    for (let i = 0; i < numChannels; i++) {
+        samples.push(floatTo16BitPCM(audioBuffer.getChannelData(i)));
+    }
+
+    const blockSize = 1152;
+    const mp3Data = [];
+
+    for (let i = 0; i < samples[0].length; i += blockSize) {
+        const left = samples[0].subarray(i, i + blockSize);
+        let right = numChannels === 2 ? samples[1].subarray(i, i + blockSize) : null;
+        const mp3buf = mp3Encoder.encodeBuffer(left, right);
+        if (mp3buf.length > 0) mp3Data.push(mp3buf);
+    }
+
+    const mp3buf = mp3Encoder.flush();
+    if (mp3buf.length > 0) mp3Data.push(mp3buf);
+
+    return new Blob(mp3Data, { type: 'audio/mp3' });
+}
+
+const UUID18289SILENCE=container.querySelector('#UUID18289SILENCE')
+const volumeValue = container.querySelector('#volumeValue');
+const UUID18289AUDIOPLAYER = container.querySelector('#UUID18289AUDIOPLAYER');
+let EXPORTBUFFERUID6;
+EXPORTBUFFERUID6 = async function(){
+  const outputAudio = container.querySelector('#UUID18289AUDIOPLAYER')
+  const src = outputAudio.src
+  if (!src) return
+
+  const res = await fetch(src)
+  const arrayBuffer = await res.arrayBuffer()
+
+  const ctx = new (window.AudioContext || window.webkitAudioContext)()
+  const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
+
+  const mp3Blob = await audioBufferToMp3(audioBuffer, 192);
 
 
+  if (location.href.startsWith("file:///")) {
+    const base64 = await blobToBase6422(mp3Blob)
+    NativeJava.DownloadFile(base64, "outputEditedAdvancedAudio.mp3")
+    return
+  }
+
+  const a = document.createElement("a")
+  a.href = URL.createObjectURL(mp3Blob)
+  a.download = "outputEditedAdvancedAudio.mp3"
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+window.EXPORTBUFFERUID6 = EXPORTBUFFERUID6
+let audioUUID18289CTX = new (window.AudioContext || window.webkitAudioContext)();
+let UUID18289OB = null;
+let UUID18289SELECTION = null;
+let UUID18289CLICKSTATE = 0;
+let UUID18289_SCALEX = 1;
+let UUID18289_SCROLLX = 0;
+let UUID18289CUBUFF = null;
+const UUID18289UNDOSTACK = [];
+
+function saveUndo() {
+	if (!UUID18289CUBUFF) return;
+	if (UUID18289UNDOSTACK.length >= 20) UUID18289UNDOSTACK.shift();
+	const copy = audioUUID18289CTX.createBuffer(UUID18289CUBUFF.numberOfChannels, UUID18289CUBUFF.length, UUID18289CUBUFF.sampleRate);
+	for (let ch = 0; ch < copy.numberOfChannels; ch++) {
+		copy.copyToChannel(UUID18289CUBUFF.getChannelData(ch), ch);
+	}
+	UUID18289UNDOSTACK.push(copy);
+}
+container.querySelector('#UUID18289APPLYPITCHETC').addEventListener('click', async () => {
+  if (!UUID18289CUBUFF || !UUID18289SELECTION || UUID18289SELECTION.x2 === null) return;
+
+  const semitones = parseFloat(container.querySelector('#UUID18289PITCHSHFT').value);
+  const detuneHz = parseFloat(container.querySelector('#UUID18289DETUNE').value);
+
+  const start = Math.floor(UUID18289SELECTION.x1);
+  const end = Math.floor(UUID18289SELECTION.x2);
+  const length = end - start;
+
+  const fragment = audioUUID18289CTX.createBuffer(UUID18289CUBUFF.numberOfChannels, length, UUID18289CUBUFF.sampleRate);
+
+  for (let ch = 0; ch < UUID18289CUBUFF.numberOfChannels; ch++) {
+    fragment.copyToChannel(UUID18289CUBUFF.getChannelData(ch).slice(start, end), ch);
+  }
+
+  const rate = Math.pow(2, semitones / 12);
+  const detuneFactor = (detuneHz + UUID18289CUBUFF.sampleRate) / UUID18289CUBUFF.sampleRate;
+
+  const playbackRate = rate * detuneFactor;
+
+  const rendered = await applyPitchDetune(fragment, playbackRate);
+  saveUndo();
+  const newRenderedLength = rendered.length;
+UUID18289SELECTION.x2 = UUID18289SELECTION.x1 + newRenderedLength;
+  const newLength = UUID18289CUBUFF.length - length + rendered.length;
+  const newBuf = audioUUID18289CTX.createBuffer(UUID18289CUBUFF.numberOfChannels, newLength, UUID18289CUBUFF.sampleRate);
+
+  for (let ch = 0; ch < newBuf.numberOfChannels; ch++) {
+    const old = UUID18289CUBUFF.getChannelData(ch);
+    const out = newBuf.getChannelData(ch);
+    out.set(old.slice(0, start));
+    out.set(rendered.getChannelData(ch), start);
+    out.set(old.slice(end), start + rendered.length);
+  }
+  UUID18289CUBUFF = newBuf;
+  drawUUID18289WF(UUID18289CUBUFF);
+});
+
+async function applyPitchDetune(buffer, playbackRate) {
+  const offlineUUID18289CTX = new OfflineAudioContext(
+    buffer.numberOfChannels,
+    Math.ceil(buffer.length / playbackRate), 
+    buffer.sampleRate
+  );
+
+  const src = offlineUUID18289CTX.createBufferSource();
+  src.buffer = buffer;
+  src.playbackRate.value = playbackRate;
+  src.connect(offlineUUID18289CTX.destination);
+  src.start(0);
+
+  return await offlineUUID18289CTX.startRendering();
+}
+container.querySelector("#UUID18289SILENCE").addEventListener("click", function () {
+  if (!UUID18289CUBUFF || !UUID18289SELECTION || UUID18289SELECTION.x2 === null) return;
+
+  saveUndo(); 
+
+  const x1 = Math.floor(UUID18289SELECTION.x1);
+  const x2 = Math.floor(UUID18289SELECTION.x2);
+  const silenceLength = Math.abs(x2 - x1);
+  const newLength = UUID18289CUBUFF.length + silenceLength;
+
+  const newBuf = audioUUID18289CTX.createBuffer(
+    UUID18289CUBUFF.numberOfChannels,
+    newLength,
+    UUID18289CUBUFF.sampleRate
+  );
+  x1fin= x1+silenceLength 
+  if(x2<x1){
+    x1fin=x1
+  }
+  
+  for (let ch = 0; ch < UUID18289CUBUFF.numberOfChannels; ch++) {
+    const old = UUID18289CUBUFF.getChannelData(ch);
+    const out = newBuf.getChannelData(ch);
+    out.set(old.slice(0, x1fin), 0);
+    for (let i = 0; i < silenceLength; i++) {
+      out[x1fin + i] = 0;
+    }
+    out.set(old.slice(x1fin), x1fin + silenceLength);
+  }
+
+  UUID18289CUBUFF = newBuf;
+  UUID18289SELECTION = null;
+  drawUUID18289WF(UUID18289CUBUFF);
+});
+
+
+container.querySelector('#UUID18289PLAYSELECTED').addEventListener('click', () => {
+  if (!UUID18289CUBUFF || !UUID18289SELECTION || UUID18289SELECTION.x2 === null) return;
+
+  const startSample = Math.floor(UUID18289SELECTION.x1);
+  const endSample = Math.floor(UUID18289SELECTION.x2);
+  const length = endSample - startSample;
+
+  const selectedBuffer = audioUUID18289CTX.createBuffer(
+    UUID18289CUBUFF.numberOfChannels,
+    length,
+    UUID18289CUBUFF.sampleRate
+  );
+
+  for (let ch = 0; ch < UUID18289CUBUFF.numberOfChannels; ch++) {
+    const src = UUID18289CUBUFF.getChannelData(ch);
+    const dst = selectedBuffer.getChannelData(ch);
+    dst.set(src.slice(startSample, endSample));
+  }
+
+  UUID18289PLAYBUFFER(selectedBuffer);
+});
+
+container.querySelector('#UUID18289UNDO').addEventListener('click', () => {
+  if (UUID18289UNDOSTACK.length === 0) return;
+  UUID18289CUBUFF = UUID18289UNDOSTACK.pop();
+  drawUUID18289WF(UUID18289CUBUFF);
+});
+
+UUID18289VOLUMESLIDER.addEventListener('change', () => {
+  if (!UUID18289OB || !UUID18289SELECTION || UUID18289SELECTION.x2 === null) return;
+  applyVolume();
+  drawUUID18289WF(UUID18289CUBUFF);
+});
+
+UUID18289VOLUMESLIDER.addEventListener('input', () => {
+  volumeValue.textContent = parseFloat(UUID18289VOLUMESLIDER.value).toFixed(2);
+});
+
+UUID18289FILEINPUT.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const arrayBuffer = await file.arrayBuffer();
+  UUID18289OB = await audioUUID18289CTX.decodeAudioData(arrayBuffer);
+  UUID18289CUBUFF = UUID18289OB;
+  UUID18289_SCALEX = 1;
+  UUID18289_SCROLLX = 0;
+  UUID18289SELECTION = null;
+  UUID18289CLICKSTATE = 0;
+  drawUUID18289WF(UUID18289CUBUFF);
+});
+container.querySelector('#UUID18289REMOVE').addEventListener('click', () => {
+  if (!UUID18289OB || !UUID18289SELECTION || UUID18289SELECTION.x2 === null) return;
+  saveUndo();
+  const len = UUID18289CUBUFF.length - (UUID18289SELECTION.x2 - UUID18289SELECTION.x1);
+  const newBuf = audioUUID18289CTX.createBuffer(UUID18289CUBUFF.numberOfChannels, len, UUID18289CUBUFF.sampleRate);
+
+  for (let ch = 0; ch < newBuf.numberOfChannels; ch++) {
+    const old = UUID18289CUBUFF.getChannelData(ch);
+    const out = newBuf.getChannelData(ch);
+    out.set(old.slice(0, UUID18289SELECTION.x1));
+    out.set(old.slice(UUID18289SELECTION.x2), UUID18289SELECTION.x1);
+  }
+
+  UUID18289CUBUFF = newBuf;
+  UUID18289SELECTION = null;
+  drawUUID18289WF(UUID18289CUBUFF);
+});
+
+container.querySelector('#UUID18289REPLACE').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file || !UUID18289SELECTION || UUID18289SELECTION.x2 === null) return;
+  const arrBuf = await file.arrayBuffer();
+  const newAudio = await audioUUID18289CTX.decodeAudioData(arrBuf);
+
+  saveUndo();
+  const newLen = UUID18289CUBUFF.length - (UUID18289SELECTION.x2 - UUID18289SELECTION.x1) + newAudio.length;
+  const newBuf = audioUUID18289CTX.createBuffer(UUID18289CUBUFF.numberOfChannels, newLen, UUID18289CUBUFF.sampleRate);
+
+  for (let ch = 0; ch < newBuf.numberOfChannels; ch++) {
+    const old = UUID18289CUBUFF.getChannelData(ch);
+    const out = newBuf.getChannelData(ch);
+    out.set(old.slice(0, UUID18289SELECTION.x1));
+    out.set(newAudio.getChannelData(Math.min(ch, newAudio.numberOfChannels - 1)), UUID18289SELECTION.x1);
+    out.set(old.slice(UUID18289SELECTION.x2), UUID18289SELECTION.x1 + newAudio.length);
+  }
+
+  UUID18289CUBUFF = newBuf;
+  UUID18289SELECTION = null;
+  drawUUID18289WF(UUID18289CUBUFF);
+  UUID18289PLAYBUFFER(UUID18289CUBUFF);
+});
+
+container.querySelector('#UUID18289AUDBTN').addEventListener('click', async () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.wav';
+
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const arrBuf = await file.arrayBuffer();
+    const newAudio = await audioUUID18289CTX.decodeAudioData(arrBuf);
+
+    if (typeof UUID18289SELECTION.x1 !== 'number' || isNaN(UUID18289SELECTION.x1)) {
+      alert("Select place to add ...");
+      return;
+    }
+
+    if (!UUID18289CUBUFF) {
+      UUID18289CUBUFF = newAudio;
+      drawUUID18289WF(UUID18289CUBUFF);
+      return;
+    }
+
+    const sampleRate = UUID18289CUBUFF.sampleRate;
+    const insertSample = Math.floor(UUID18289SELECTION.x1);
+    const len = UUID18289CUBUFF.length + newAudio.length;
+    const newBuf = audioUUID18289CTX.createBuffer(
+      Math.max(UUID18289CUBUFF.numberOfChannels, newAudio.numberOfChannels),
+      len,
+      sampleRate
+    );
+
+    saveUndo();
+
+    for (let ch = 0; ch < newBuf.numberOfChannels; ch++) {
+      const out = newBuf.getChannelData(ch);
+      const old = UUID18289CUBUFF.getChannelData(Math.min(ch, UUID18289CUBUFF.numberOfChannels - 1));
+      const add = newAudio.getChannelData(Math.min(ch, newAudio.numberOfChannels - 1));
+      out.set(old.slice(0, insertSample), 0);
+      out.set(add, insertSample);
+      out.set(old.slice(insertSample), insertSample + add.length);
+    }
+
+    UUID18289CUBUFF = newBuf;
+    drawUUID18289WF(UUID18289CUBUFF);
+  };
+
+  input.click();
+});
+
+
+function clamp(val, min, max) {
+  return Math.min(max, Math.max(min, val));
+}
+
+function offsetXToSample(offsetX) {
+  const rect = UUID18289CANVAS.getBoundingClientRect();
+  const UUID18289CANVASX = offsetX - rect.left;
+  const visibleSamples = UUID18289CUBUFF.length / UUID18289_SCALEX;
+const samplesPerPixel = visibleSamples / UUID18289CANVAS.width*2.5 ;
+return ((UUID18289_SCROLLX * visibleSamples + UUID18289CANVASX * samplesPerPixel)
+);
+}
+
+UUID18289CANVAS.addEventListener('click', (e) => {
+  if (!UUID18289OB) return;
+  const samplePos = offsetXToSample(e.clientX);
+
+  if (UUID18289SELECTION && UUID18289SELECTION.x1 !== null && UUID18289SELECTION.x2 !== null && samplePos >= UUID18289SELECTION.x1 && samplePos <= UUID18289SELECTION.x2) {
+    UUID18289SELECTION = { x1: samplePos, x2: null };
+    UUID18289CLICKSTATE = 1;
+    drawUUID18289WF(UUID18289CUBUFF);
+    return;
+  }
+
+  if (UUID18289CLICKSTATE === 0 || !UUID18289SELECTION) {
+    UUID18289SELECTION = { x1: clamp(samplePos, 0, UUID18289CUBUFF.length), x2: null };
+    UUID18289CLICKSTATE = 1;
+  } else {
+    UUID18289SELECTION.x2 = clamp(samplePos, 0, UUID18289CUBUFF.length);
+    if (UUID18289SELECTION.x2 < UUID18289SELECTION.x1) [UUID18289SELECTION.x1, UUID18289SELECTION.x2] = [UUID18289SELECTION.x2, UUID18289SELECTION.x1];
+    UUID18289CLICKSTATE = 0;
+  }
+  drawUUID18289WF(UUID18289CUBUFF);
+});
+
+UUID18289CANVAS.addEventListener('wheel', (e) => {
+  if (!UUID18289OB) return;
+  e.preventDefault();
+  UUID18289_SCROLLX += e.deltaY / (UUID18289_SCALEX * 10);
+  const maxScroll = UUID18289OB.length / UUID18289CANVAS.width / UUID18289_SCALEX - UUID18289CANVAS.width / UUID18289_SCALEX;
+  UUID18289_SCROLLX = clamp(UUID18289_SCROLLX, 0, Math.max(maxScroll, 0));
+  drawUUID18289WF(UUID18289CUBUFF);
+}, { passive: false });
+
+let lastTouchX = null;
+let lastTouchDist = null;
+
+UUID18289CANVAS.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    lastTouchX = e.touches[0].clientX;
+  } else if (e.touches.length === 2) {
+    lastTouchDist = UUID18289GETTOUCHDIST(e);
+  }
+});
+let is2Press=0;
+UUID18289CANVAS.addEventListener('touchmove', (e) => {
+  if (!UUID18289OB ) return;
+  e.preventDefault();
+  if (e.touches.length === 1 && !is2Press) {
+  const touchX = e.touches[0].clientX;
+  const deltaPx = lastTouchX - touchX;
+  const visibleSamples = UUID18289OB.length / UUID18289_SCALEX;
+  const deltaScroll = deltaPx / UUID18289CANVAS.width * clamp(UUID18289_SCALEX,0,20);
+
+  UUID18289_SCROLLX += deltaScroll;
+  const maxScroll = (UUID18289OB.length - UUID18289OB.length / UUID18289_SCALEX) / UUID18289OB.length;
+UUID18289_SCROLLX = clamp(UUID18289_SCROLLX, 0, maxScroll*UUID18289_SCALEX);
+
+  drawUUID18289WF(UUID18289CUBUFF);
+  lastTouchX = touchX;
+}
+ else if (e.touches.length === 2) {
+  const dist = UUID18289GETTOUCHDIST(e);
+  const zoomFactor = dist / lastTouchDist;
+
+  const midX = UUID18289GETMIDTOUCH(e);
+  const rect = UUID18289CANVAS.getBoundingClientRect();
+  const midUUID18289CANVASX = midX - rect.left;
+
+  const visibleSamples = UUID18289OB.length / UUID18289_SCALEX;
+  const samplesPerPixel = visibleSamples / UUID18289CANVAS.width;
+  const midSample = UUID18289_SCROLLX * UUID18289OB.length + samplesPerPixel * midUUID18289CANVASX;
+
+  UUID18289_SCALEX = clamp(UUID18289_SCALEX * zoomFactor, 1, 60000);
+  is2Press=1
+  const newVisibleSamples = UUID18289OB.length / UUID18289_SCALEX;
+  const maxScroll = (UUID18289OB.length - UUID18289OB.length / UUID18289_SCALEX) / UUID18289OB.length;
+  UUID18289_SCROLLX = clamp( UUID18289_SCROLLX , 0, maxScroll*UUID18289_SCALEX);
+
+  drawUUID18289WF(UUID18289CUBUFF);
+  lastTouchDist = dist;
+}
+
+});
+
+UUID18289CANVAS.addEventListener('touchend', (e) => {
+  if (e.touches.length < 2) lastTouchDist = null;
+  if (e.touches.length === 0) {lastTouchX = null;is2Press=0;}
+  
+  
+});
+let isDragging = false;
+let lastMouseX = 0;
+
+UUID18289CANVAS.addEventListener('mousedown', (e) => {
+  isDragging = true;
+  lastMouseX = e.clientX;
+});
+
+UUID18289CANVAS.addEventListener('mouseup', (e) => {
+  isDragging = false;
+});
+
+UUID18289CANVAS.addEventListener('mouseleave', (e) => {
+  isDragging = false;
+});
+
+UUID18289CANVAS.addEventListener('mousemove', (e) => {
+  if (!isDragging || !UUID18289OB) return;
+
+  const deltaPx = lastMouseX - e.clientX;
+  const deltaScroll = deltaPx / UUID18289CANVAS.width * clamp(UUID18289_SCALEX, 0, 20);
+
+  UUID18289_SCROLLX += deltaScroll;
+
+  const maxScroll = (UUID18289OB.length - UUID18289OB.length / UUID18289_SCALEX) / UUID18289OB.length;
+  UUID18289_SCROLLX = clamp(UUID18289_SCROLLX, 0, maxScroll * UUID18289_SCALEX);
+
+  drawUUID18289WF(UUID18289CUBUFF);
+  lastMouseX = e.clientX;
+});
+
+function UUID18289GETTOUCHDIST(e) {
+  const [t1, t2] = e.touches;
+  const dx = t2.clientX - t1.clientX;
+  const dy = t2.clientY - t1.clientY;
+  return Math.hypot(dx, dy);
+}
+
+function UUID18289GETMIDTOUCH(e) {
+  const [t1, t2] = e.touches;
+  return (t1.clientX + t2.clientX) / 2;
+}
+
+function drawUUID18289WF(buffer) {
+  if (!buffer) return;
+  UUID18289CTX.clearRect(0, 0, UUID18289CANVAS.width, UUID18289CANVAS.height);
+  const data = buffer.getChannelData(0);
+  const samplesPerPixel = buffer.length / UUID18289CANVAS.width / UUID18289_SCALEX;
+  const sampleOffset = UUID18289_SCROLLX * samplesPerPixel * UUID18289CANVAS.width;
+  const startSample = Math.floor(sampleOffset);
+  const endSample = Math.min(buffer.length, startSample + Math.floor(UUID18289CANVAS.width * samplesPerPixel));
+  const amp = UUID18289CANVAS.height / 2;
+
+  UUID18289CTX.beginPath();
+  for (let i = 0; i < UUID18289CANVAS.width; i++) {
+    const sampleIndex = startSample + Math.floor(i * samplesPerPixel);
+    if (sampleIndex >= buffer.length) break;
+    let min = 1.0, max = -1.0;
+    const step = Math.ceil(samplesPerPixel);
+    for (let j = 0; j < step; j++) {
+      const idx = sampleIndex + j;
+      if (idx >= buffer.length) break;
+      const v = data[idx];
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    UUID18289CTX.moveTo(i, (1 + min) * amp);
+    UUID18289CTX.lineTo(i, (1 + max) * amp);
+  }
+  UUID18289CTX.strokeStyle = "#fff";
+  UUID18289CTX.stroke();
+
+  if (UUID18289SELECTION && UUID18289SELECTION.x1 !== null && UUID18289SELECTION.x2 === null) {
+    const x = (UUID18289SELECTION.x1 - startSample) / samplesPerPixel;
+    UUID18289CTX.beginPath();
+    UUID18289CTX.arc(clamp(x, 0, UUID18289CANVAS.width), UUID18289CANVAS.height / 2, 5, 0, 2 * Math.PI);
+    UUID18289CTX.fillStyle = "blue";
+    UUID18289CTX.fill();
+  }
+
+  if (UUID18289SELECTION && UUID18289SELECTION.x1 !== null && UUID18289SELECTION.x2 !== null) {
+    let x1 = (UUID18289SELECTION.x1 - sampleOffset) / samplesPerPixel;
+let x2 = (UUID18289SELECTION.x2 - sampleOffset) / samplesPerPixel;
+
+    if (x2 < x1) [x1, x2] = [x2, x1];
+    x1 = clamp(x1, 0, UUID18289CANVAS.width);
+    x2 = clamp(x2, 0, UUID18289CANVAS.width);
+    UUID18289CTX.fillStyle = "rgba(0, 123, 255, 0.4)";
+    UUID18289CTX.fillRect(x1, 0, x2 - x1, UUID18289CANVAS.height);
+  }
+}
+
+function applyVolume() {
+  if (!UUID18289OB || !UUID18289SELECTION || UUID18289SELECTION.x2 === null) return;
+  saveUndo();
+  const volume = parseFloat(UUID18289VOLUMESLIDER.value);
+  const newBuffer = audioUUID18289CTX.createBuffer(UUID18289CUBUFF.numberOfChannels, UUID18289CUBUFF.length, UUID18289CUBUFF.sampleRate);
+  
+  const startSample = Math.floor(UUID18289SELECTION.x1);
+  const endSample = Math.floor(UUID18289SELECTION.x2);
+
+  for (let ch = 0; ch < UUID18289CUBUFF.numberOfChannels; ch++) {
+    const input = UUID18289CUBUFF.getChannelData(ch);
+    const output = newBuffer.getChannelData(ch);
+    for (let i = 0; i < input.length; i++) {
+      output[i] = (i >= startSample && i <= endSample) ? input[i] * volume : input[i];
+    }
+  }
+  UUID18289CUBUFF = newBuffer;
+ UUID18289VOLUMESLIDER.value=1
+ volumeValue.textContent = parseFloat(UUID18289VOLUMESLIDER.value).toFixed(2);
+}
+
+function UUID18289PLAYBUFFER(buffer) {
+  const blob = bufferToWavBlob(buffer);
+  if (UUID18289AUDIOPLAYER.src) URL.revokeObjectURL(UUID18289AUDIOPLAYER.src);
+  UUID18289AUDIOPLAYER.src = URL.createObjectURL(blob);
+  UUID18289AUDIOPLAYER.play();
+}
+window.UUID18289PLAYBUFFER = (buff) => playMusic(buff);
+function bufferToWavBlob(buffer) {
+  const interleaved = interleave(buffer);
+  const wav = encodeWav(interleaved, buffer.sampleRate, buffer.numberOfChannels);
+  return new Blob([wav], { type: "audio/wav" });
+}
+
+function interleave(buffer) {
+  const length = buffer.length * buffer.numberOfChannels;
+  const result = new Float32Array(length);
+  for (let i = 0; i < buffer.length; i++) {
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+      result[i * buffer.numberOfChannels + ch] = buffer.getChannelData(ch)[i];
+    }
+  }
+  return result;
+}
+
+function encodeWav(samples, sampleRate, numChannels) {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  const writeStr = (v, o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  const floatTo16 = (out, off, input) => {
+    for (let i = 0; i < input.length; i++) {
+      const s = Math.max(-1, Math.min(1, input[i]));
+      out.setInt16(off + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+  };
+
+  writeStr(view, 0, "RIFF");
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeStr(view, 8, "WAVE");
+  writeStr(view, 12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * 2, true);
+  view.setUint16(32, numChannels * 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(view, 36, "data");
+  view.setUint32(40, samples.length * 2, true);
+  floatTo16(view, 44, samples);
+  return view;
+}
+}
+destroy() {}
+}
+class WhistleToNotesPlugin {
+static title = "Whistle To Notes";constructor() {this.paused = false;this.ticks = 0; window.loopRunning34 = false;}
+render() {return `
+<style>
+#waveInputsContainer {
+  margin: 0;
+  width: 100vw;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  position: relative;
+  height: 30px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+  .wave-input{
+  	width:25px;
+  }
+  .keyboard {
+    position: relative;
+     
+    overflow-x: scroll;
+    width: 100%;
+    max-width: 1050px;
+    height: 203px;
+    background:#5B5B5B;
+    zoom:0.8
+  }
+  .key {
+    position: absolute;
+    font-size: 30px;
+    display:flex;
+    justify-content: center;
+    align-items:end ;
+    width: 50px;
+    height: 200px;
+    border: 1px solid #000;
+    background-color: #FFFFFF;
+  }
+  .key:active{
+    transform: translate(0,-5px);
+    animation: 0.5s blued ;
+  }
+  @keyframes blued{
+    0%{
+      background:#898989
+    }
+    100%{
+    }
+  }
+  .black-key {
+    background-color: #000;
+    width:35px;
+    height: 100px;
+    margin-top: -10px;
+    margin: 0;
+    z-index: 1;
+  }
+  .active {
+    background-color: #4CCDF0;
+  }
+</style>
+<style>
+#spectrogram {
+  border: 1px solid #333;
+  background:#000000;
+  display: block;
+  position: relative;
+  left:50%; 
+  transform: translate(-50%,0) ;
+  width: 300px;
+  height: 300px;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sens-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#volColor {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #333;
+  border-radius: 3px;
+  display: inline-block;
+}
+#sensDb {
+  width: 72px;
+}
+</style>
+<div class="controls">
+  <button id="btnRec2">Record</button>
+  <button id="btnStop2" disabled>Stop</button>
+  <button id="btnPlay2">PlayGeneratedNotes</button>
+  <button id="btnExport2">ExportMM3</button>
+  <button id="btnExport3">ExportJSON</button>
+  <input type="file" id="fileInput" accept="audio/*">
+  <div class="sens-wrap">
+    <label for="sensDb">Sensitivity MIN</label>
+    <input type="number" id="sensDb" step="1" value="70" min="1000" max="-125">
+    <div id="volColor" title="Sensitivity Color"></div>
+  </div>
+  <br>
+</div>
+<br>
+<canvas id="spectrogram"></canvas>
+<br>
+  	<label for="STABLE_N">Stable N</label>
+  	<input type="number" id="STABLE_N" step="1" value="2" oninput="if(!isNaN(STABLE_N)){STABLE_N=this.value; }"><br>
+  	<label for="SILENCE_N">Silence N</label>
+  	<input type="number" id="SILENCE_N" step="1" value="3" oninput="if(!isNaN(SILENCE_N)){SILENCE_N=this.value; }"><br>
+  	<label for="MIN_NOTE_MS">Min Note MS</label>
+  	<input type="number" id="MIN_NOTE_MS" step="1" value="6" oninput="if(!isNaN(MIN_NOTE_MS)){MIN_NOTE_MS=this.value; }"><br>
+  	<label for="CHANGE_HOLD_MS">Change Hold MS</label>
+  	<input type="number" id="CHANGE_HOLD_MS" step="1" value="5" oninput="if(!isNaN(CHANGE_HOLD_MS)){CHANGE_HOLD_MS=this.value; }"><br>
+ <label for="semitoneShift">Semitone Shift</label>
+<input type="number" id="semitoneShift" step="0.5" value="-12">
+tempo in convertion: <input id="tempoData" type="text" value="120">
+        `;
+    }
+script(container) { 
+const audioctx242 = new (window.AudioContext || window.webkitAudioContext)()
+let analyser, mediaSource, isRecording3 = false, startTs = 0
+let playing = false;
+var playingSources2 = [];
+var timeouts = [];
+let currentNote = null, currentStart = 0
+let stableBuf = [], silenceStreak = 0
+let pendingNote = null, pendingSince = 0
+var STABLE_N = 2, SILENCE_N = 3, MIN_NOTE_MS = 6, CHANGE_HOLD_MS = 5
+let audiobuff = [0,1]
+let semitoneShift = -12
+container.querySelector('#semitoneShift').addEventListener('input', e => {
+  const v = parseFloat(e.target.value)
+  if (!isNaN(v)) semitoneShift = v
+})
+const baseFrequencies2 = {
+  'c': 261.63, 'c#': 277.18, 'd': 293.66, 'd#': 311.13, 'e': 329.63,
+  'f': 349.23, 'f#': 369.99, 'g': 392, 'g#': 415.3, 'a': 440,
+  'a#': 466.16, 'h': 493.88
+}
+const order = ['c','c#','d','d#','e','f','f#','g','g#','a','a#','h']
+const octaves = [1,2,3,4,5,6,7]
+const bank = buildNoteBank()
+
+var music = { tempo: 1, run: [1], 1: { notes: [], instrument: 'square', nextSection: null, runallnotes: 1 } }
+
+var canvas2 = container.querySelector("#spectrogram")
+var ctx2 = canvas2.getContext("2d")
+let sensitivityDb = parseFloat(container.querySelector('#sensDb').value) || -50
+ 
+const scale = 1
+canvas2.width = 300
+canvas2.height = 300
+ctx2.scale(scale, scale);
+ 
+
+const volDiv = container.querySelector('#volColor')
+
+function dbToColor(db) {
+  const t = Math.max(0, Math.min(1, db / 100))
+  const hue = Math.round((1 - t) * 120)
+  return `hsl(${hue},100%,50%)`
+}
+function updateSensitivityColor() {
+  volDiv.style.backgroundColor = dbToColor(sensitivityDb)
+}
+updateSensitivityColor()
+
+container.querySelector('#sensDb').addEventListener('input', e => {
+  const v = parseFloat(e.target.value)
+  if (isFinite(v)) {
+    sensitivityDb = v
+    updateSensitivityColor()
+  }
+})
+function steps(value, step) {
+  return ((value % step) + step) % step
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function buildNoteBank() {
+  const rows = []
+  for (const o of octaves) {
+    for (const n of order) {
+      const f = baseFrequencies2[n] * Math.pow(2, o - 4)
+      rows.push({ name: n, oct: o, f })
+    }
+  }
+  rows.sort((a, b) => a.f - b.f)
+  for (let i = 0; i < rows.length; i++) {
+    const prev = rows[i - 1]?.f || rows[i].f / Math.pow(2, 1 / 12)
+    const next = rows[i + 1]?.f || rows[i].f * Math.pow(2, 1 / 12)
+    rows[i].lo = (prev + rows[i].f) / 2
+    rows[i].hi = (rows[i].f + next) / 2
+  }
+  return rows
+}
+
+function quantize(freq) {
+  for (const r of bank) {
+    const tolerance = r.f * 0.006 
+    if (freq >= r.lo + tolerance && freq < r.hi - tolerance) return r
+  }
+  return null
+}
+
+
+async function initMic2() {
+	try {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+  mediaSource = audioctx242.createMediaStreamSource(stream)
+  analyser = audioctx242.createAnalyser()
+  analyser.fftSize = 1024
+  mediaSource.connect(analyser)
+	}catch (e){
+		POPUP(innerWidth/2-150, innerHeight/2-100 + window.scrollY
+     ,"Microphone Access Error",
+    		"<text style='color:black'>You must open FruityBox App and allow microphone access.</text>",
+    		"#00afdf"
+ 	);
+	}
+}
+function detectPitch() {
+  const N = analyser.fftSize
+  const buf = new Float32Array(N)
+  analyser.getFloatTimeDomainData(buf)
+  let rms = 0
+  for (let i = 0; i < N; i++) rms += buf[i] * buf[i]
+  rms = Math.sqrt(rms / N)
+  let db = 20 * Math.log10(rms + 1e-12)
+  db = Math.max(0, Math.min(100, db + 100))
+  if (db < sensitivityDb) return { freq: null, clarity: 0, db }
+
+  let minLag = Math.floor(audioctx242.sampleRate / 2000)
+  let maxLag = Math.floor(audioctx242.sampleRate / 150)
+  let bestLag = -1, bestCorr = 0
+  let sumSq = 0
+  for (let i = 0; i < N; i++) sumSq += buf[i] * buf[i]
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let corr = 0, energy = 0
+    for (let i = 0; i < N - lag; i++) {
+      corr += buf[i] * buf[i + lag]
+      energy += buf[i + lag] * buf[i + lag]
+    }
+    const norm = corr / Math.sqrt(sumSq * energy || 1)
+    if (norm > bestCorr) { bestCorr = norm; bestLag = lag }
+  }
+  if (bestLag < 0 || bestCorr < 0.6) return { freq: null, clarity: bestCorr, db }
+
+  const c1 = xcorrAt(buf, bestLag - 1), c2 = xcorrAt(buf, bestLag), c3 = xcorrAt(buf, bestLag + 1)
+  const shift = (c3 - c1) / (2 * (2 * c2 - c1 - c3) || 1)
+  const refinedLag = bestLag + shift
+  const freq = audioctx242.sampleRate / refinedLag
+  return { freq, clarity: bestCorr, db }
+}
+
+function xcorrAt(buf, lag) {
+  let N = buf.length, c = 0, ss1 = 0, ss2 = 0
+  for (let i = 0; i < N - lag; i++) {
+    c += buf[i] * buf[i + lag]
+    ss1 += buf[i] * buf[i]
+    ss2 += buf[i + lag] * buf[i + lag]
+  }
+  return c / Math.sqrt(ss1 * ss2 || 1)
+}
+
+ 
+
+let scrollSpeed = 5
+let frameDuration = 1000 / 60;
+let activeLabels = []
+function pushNote(noteObj) {
+  if (!noteObj) return
+  if (noteObj.dur < MIN_NOTE_MS) return
+  const shiftedF = noteObj.f * Math.pow(2, semitoneShift / 12)
+  music[1].notes.push([shiftedF, noteObj.start - startTs, noteObj.dur, 0.5, 1])
+  const label = quantize(shiftedF)
+  if (label) {
+    activeLabels.push({
+      text: label.name + label.oct,
+      freq: noteObj.f / Math.pow(2, semitoneShift / 12) ,
+      ticks: 30
+    })
+  }
+}
+
+function drawSpectrogram() {
+  if (!analyser) return
+  ctx2 = canvas2.getContext("2d")
+  const bufferLength = analyser.frequencyBinCount
+  const data = new Uint8Array(bufferLength)
+  analyser.getByteFrequencyData(data)
+  const h = canvas2.height, w = canvas2.width
+  const scroll = scrollSpeed
+  const imgData = ctx2.getImageData(scroll, 0, w - scroll, h) 
+  ctx2.putImageData(imgData, 0, 0)
+  const sr = audioctx242.sampleRate
+  const fMin = 300, fMax = 3000
+  for (let y = 0; y < h; y++) {
+    const frac = y / h
+    const f = fMin + (1 - frac) * (fMax - fMin)
+    const idx = Math.round(f * bufferLength / (sr / 2))
+    if (idx >= 0 && idx < bufferLength) {
+      const val = data[idx]
+      ctx2.fillStyle = `hsl(${240 - val * 240 / 255},100%,50%)`
+      ctx2.fillRect(w - scroll - 30, y, scroll, 1) 
+    }
+  }
+  const barW = 30
+  ctx2.fillStyle = "black"
+  ctx2.fillRect(w - barW, 0, barW, h)
+  ctx2.font = "14px sans-serif"
+  ctx2.textAlign = "center"
+  ctx2.textBaseline = "middle"
+  activeLabels.forEach(l => {
+    const alpha = (l.ticks / 30) ** 2
+    const frac = (l.freq - fMin) / (fMax - fMin)
+    const y = (1 - frac) * h
+    ctx2.fillStyle = `rgba(255,255,255,${alpha})`
+    ctx2.fillText(l.text, w - barW / 2, y)
+    l.ticks--
+  })
+  activeLabels = activeLabels.filter(l => l.ticks > 0)
+}
+
+
+
+let lastDrawnNote = null
+
+window.loop2234 = function() {
+  if (isRecording3) {
+    drawSpectrogram()
+const { freq, db } = detectPitch()
+let q = null
+if (freq && db >= sensitivityDb) {
+  const shiftedFreq = freq * Math.pow(2, semitoneShift / 12)
+  q = quantize(shiftedFreq)
+}
+    if (q) {
+      stableBuf.push(q)
+      if (stableBuf.length > STABLE_N) stableBuf.shift()
+      const same = stableBuf.every(x => x && x.name === stableBuf[0].name && x.oct === stableBuf[0].oct)
+      if (!currentNote && same) {
+        currentNote = { name: q.name, oct: q.oct, f: q.f }
+        currentStart = performance.now()
+        silenceStreak = 0
+        pendingNote = null
+      } else if (currentNote && (currentNote.name !== q.name || currentNote.oct !== q.oct) && same) {
+        if (!pendingNote) {
+          pendingNote = { name: q.name, oct: q.oct, f: q.f }
+          pendingSince = performance.now()
+        } else if (performance.now() - pendingSince > CHANGE_HOLD_MS) {
+          const now = performance.now()
+          pushNote({ f: currentNote.f, start: currentStart, dur: now - currentStart })
+          currentNote = pendingNote
+          currentStart = now
+          pendingNote = null
+        }
+      } else {
+        pendingNote = null
+        silenceStreak = 0
+      }
+    } else {
+      stableBuf = []
+      pendingNote = null
+      silenceStreak++
+      if (currentNote && silenceStreak >= SILENCE_N) {
+        const now = performance.now()
+        pushNote({ f: currentNote.f, start: currentStart, dur: now - currentStart })
+        currentNote = null
+      }
+    }
+  }
+  if (!window.loopRunning34) return;
+  setTimeout(function(){ loop2234() }, frameDuration);
+}
+
+container.querySelector('#btnRec2').onclick = async () => {
+  await audioctx242.resume()
+  await initMic2()
+  isRecording3 = true
+  music[1].notes = []
+  currentNote = null
+  startTs = performance.now()
+  stableBuf = []
+  silenceStreak = 0
+  pendingNote = null
+  ctx2.clearRect(0, 0, canvas2.width, canvas2.height)
+  container.querySelector('#btnRec2').disabled = true
+  container.querySelector('#btnStop2').disabled = false
+  if (!window.loopRunning34) {
+  	window.loopRunning34 = true
+   loop2234()
+  }
+}
+
+container.querySelector('#btnStop2').onclick = () => {
+	   startTs = 0
+  isRecording3 = false
+  if (currentNote) {
+    const now = performance.now()
+    pushNote({ f: currentNote.f, start: currentStart, dur: now - currentStart })
+    currentNote = null
+  }
+  container.querySelector('#btnRec2').disabled = false
+  container.querySelector('#btnStop2').disabled = true
+}
+
+container.querySelector('#btnExport2').onclick = () => {
+  const blob = new Blob([JSON.stringify(music)], { type: 'application/octet-stream' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'music.mm3'
+  a.click()
+  URL.revokeObjectURL(url)
+  if (location.href.startsWith("file:///")) {
+	NativeJava.DownloadText(JSON.stringify(music), "music.mm3");
+}
+}
+function convertToFruityBox(mm3) {
+  		const notes = mm3["1"].notes;
+  		notes.sort((a, b) => a[1] - b[1]);
+  		const tempo = parseFloat(container.querySelector("#tempoData").value)||200 ;
+  		const ticksPerBeat = 8;
+  		const beatsPerBar = 8;
+  		const ticksPerBar = ticksPerBeat * beatsPerBar;
+  		const msPerTick = 60000 / tempo / ticksPerBeat;
+  		const channels = [];
+  		function createEmptyChannel(numPatterns) {
+  const patterns = Array.from({ length: numPatterns }, () => ({ notes: [] }));
+  const sequence = [...Array(numPatterns).keys()];
+return {
+	type: "pitch",
+	name: "triangle",
+	instruments: [{
+		type: "chip",
+		volume: 0,
+		eqFilter: [],
+		eqFilterType: false,
+		eqSimpleCut: 10,
+		eqSimplePeak: 0,
+		eqSubFilters0: [],
+		effects: [],
+		fadeInSeconds: 0,
+		fadeOutTicks: 48,
+		wave: "triangle",
+		envelopes: []
+	}],
+	patterns: patterns,
+	sequence: sequence,
+	octaveScrollBar: 0
+};
+}
+function hasOverlap(existingNotes, startTick, endTick) {
+  			return existingNotes.some(note => {
+  				const nStart = note.points[0].tick;
+  				const nEnd = note.points[1].tick;
+  				return (startTick < nEnd && endTick > nStart);
+});
+}
+let maxEndTick = 0;
+for (const [freq, startMs, lenMs] of notes) {
+	let msLEg = 500;
+if (container.querySelector("#TypeSelect").value == "A")  {
+	msLEg = parseInt(lenMs / 6)
+}else if (container.querySelector("#TypeSelect").value == "B") {
+	msLEg = parseInt(lenMs / 8)
+}else if ( !isNaN(container.querySelector("#TypeSelect").value) ) {
+	msLEg = parseInt(container.querySelector("#TypeSelect").value)
+}
+const clippedLenMs = Math.max(40, msLEg);
+const absEndTick = Math.round((startMs + clippedLenMs) / msPerTick);
+  if (absEndTick > maxEndTick) maxEndTick = absEndTick;
+}
+const numPatterns = Math.ceil(maxEndTick / ticksPerBar)+1;
+  		for (const [freq, startMs, lenMs] of notes) {
+  			const absStartTick = Math.round(startMs / msPerTick);
+let msLEg=500;
+if (container.querySelector("#TypeSelect").value == "A") {
+	msLEg = parseInt(lenMs / 6)
+} else if (container.querySelector("#TypeSelect").value == "B") {
+	msLEg = parseInt(lenMs / 8)
+} else if (!isNaN(container.querySelector("#TypeSelect").value)) {
+	msLEg = parseInt(container.querySelector("#TypeSelect").value)
+}
+const clippedLenMs = Math.max(40, msLEg );
+const absEndTick = Math.round((startMs + clippedLenMs) / msPerTick);
+  			const patternIndex = Math.floor(absStartTick / ticksPerBar);
+  			const startTick = absStartTick % ticksPerBar;
+  			let endTick = absEndTick % ticksPerBar;
+if (endTick <= startTick) {
+	endTick = startTick + 1;
+	if (endTick > ticksPerBar) endTick = ticksPerBar; 
+}
+const pitch = freqToPitchIndex(freq);
+ if (pitch === null) continue;
+  			let placed = false;
+  			for (let c = 0; c <= channels.length; c++) {
+  				if (channels[c] === undefined) channels[c] = createEmptyChannel(numPatterns);
+  				const pattern = channels[c].patterns[patternIndex];
+  				if (!hasOverlap(pattern.notes, startTick, endTick)) {
+  					pattern.notes.push({
+  						pitches: [pitch],
+  						points: [
+  							{ tick: startTick, pitchBend: 0, volume: 100, forMod: false },
+  							{ tick: endTick, pitchBend: 0, volume: 100, forMod: false }
+  						],
+  						continuesLastPattern: false
+  					});
+  					placed = true;
+  					break;
+  				}
+  			}
+if (!placed) {
+	const newChan = createEmptyChannel(numPatterns);
+	channels.push(newChan);
+	const pattern = newChan.patterns[patternIndex];
+	pattern.notes.push({
+		pitches: [pitch],
+		points: [
+			{ tick: startTick, pitchBend: 0, volume: 100, forMod: false },
+			{ tick: endTick, pitchBend: 0, volume: 100, forMod: false }
+		],
+		continuesLastPattern: false
+	});
+}
+}
+  		return {
+  			name: "FruitySong",
+  			format: "FruityBox",
+  			version: 5,
+  			scale: "Free",
+  			key: "C",
+  			introBars: 0,
+  			loopBars: 2,
+  			beatsPerBar,
+  			ticksPerBeat,
+  			beatsPerMinute: tempo,
+  			reverb: 0,
+  			masterGain: 1,
+  			compressionThreshold: 1,
+  			limitThreshold: 1,
+  			limitDecay: 4,
+  			limitRise: 4000,
+  			limitRatio: 1,
+  			compressionRatio: 1,
+  			layeredInstruments: false,
+  			patternInstruments: false,
+  			channels
+  		};
+  	}
+  	
+  	function freqToPitchIndex(freq) {
+  		const midi = 69 + 12 * Math.log2(freq / 440);
+  		const pitch = Math.round(midi - 12);
+  		if (pitch < 0 || pitch > 95*2) return null;
+  		return pitch;
+  	}
+  	
+container.querySelector('#btnExport3').onclick = () => {
+	let fruitybox=convertToFruityBox(music)
+	let	jsonfull=JSON.stringify(fruitybox, null, 2)
+	const blob = new Blob([jsonfull], { type: 'application/octet-stream' })
+	const url = URL.createObjectURL(blob)
+	const a = document.createElement('a')
+	a.href = url
+	a.download = 'fruit.json'
+	a.click()
+	URL.revokeObjectURL(url)
+	if (location.href.startsWith("file:///")) {
+		NativeJava.DownloadText(jsonfull, "fruit.json");
+	}
+}
+
+container.querySelector('#btnPlay2').onclick = () => playMusic1(music)
+
+ 
+async function playTone3(audioctx242, frequency, duration, volume, customInstrument, volumeEasing=1) {
+	return new Promise(resolve => {
+		const sampleRate = audioctx242.sampleRate;
+		const frameCount = sampleRate * (((duration+500) / 1000));
+		const buffer = audioctx242.createBuffer(1, frameCount, sampleRate);
+		const data = buffer.getChannelData(0);
+		const waveformLength = audiobuff.length;
+		for (let i = 0; i < frameCount; i++) {
+			let time = i / sampleRate;
+			let amplitude = volume;
+			if (volumeEasing === 1) {
+				amplitude *= Math.exp(-5 * time / ((duration+500) / 1000)) ;
+			} else if (volumeEasing > 1) {
+				amplitude *= 1 - Math.exp(-5 * time / (((duration+500) / 1000) * volumeEasing));
+			}
+			let wavePosition = (i * frequency * waveformLength / sampleRate) % waveformLength;
+			let index = Math.floor(wavePosition);
+			let nextIndex = (index + 1) % waveformLength;
+			let frac = wavePosition - index;
+			let sample = audiobuff[index] * (1 - frac) + audiobuff[nextIndex] * frac;
+			data[i] = amplitude * sample;
+		}
+		const source = audioctx242.createBufferSource();
+		source.buffer = buffer;
+		source.connect(audioctx242.destination);
+		playingSources2.push(source);
+		source.start();
+		source.onended = () => {
+			resolve();
+		};
+	});
+}
+function playMusic1(score) {
+  timeouts.forEach(t => clearTimeout(t))
+  timeouts = []
+  playingSources2.forEach(s => { try { s.stop() } catch (e) {} })
+  playingSources2 = []
+  if (playing) { playing = false; return }
+  playing = true
+  const notes = score[1].notes.slice()
+  const tempo = score[1].tempo || score.tempo || 1
+  for (const n of notes) {
+    const [hz, offset, dur, vol] = n
+    const t = setTimeout(() => {
+      if (!playing) return
+      playTone3(audioctx242, hz, dur / tempo, vol,0,1).then(() => {})
+    }, offset / tempo)
+    timeouts.push(t)
+  }
+  if (notes.length) {
+    const last = notes[notes.length - 1]
+    const total = (last[1] + last[2]) / tempo
+    const endT = setTimeout(() => { playing = false }, total + 50)
+    timeouts.push(endT)
+  } else {
+    playing = false
+  }
+}
+
+container.querySelector('#fileInput').addEventListener('change', async e => {
+  const file = e.target.files[0]
+  if (!file) return
+  try {
+    const arrayBuffer = await file.arrayBuffer()
+    const audioBuf = await audioctx242.decodeAudioData(arrayBuffer)
+    analyser = audioctx242.createAnalyser()
+    analyser.fftSize = 1024
+    const src = audioctx242.createBufferSource()
+    src.buffer = audioBuf
+    src.connect(analyser)
+    const proc = audioctx242.createScriptProcessor(1024, 1, 1)
+    src.connect(proc)
+    proc.connect(audioctx242.destination)
+    startTs = performance.now()
+    stableBuf = []
+    currentNote = null
+    proc.onaudioprocess = () => {
+      const { freq, db } = detectPitch()
+      let q = null
+if (freq && db >= sensitivityDb) {
+  const shiftedFreq = freq * Math.pow(2, semitoneShift / 12)
+  q = quantize(shiftedFreq)
+}
+
+      if (q) {
+        stableBuf.push(q)
+        if (stableBuf.length > STABLE_N) stableBuf.shift()
+        const same = stableBuf.every(x => x && x.name === stableBuf[0].name && x.oct === stableBuf[0].oct)
+        if (!currentNote && same) {
+          currentNote = { name: q.name, oct: q.oct, f: q.f }
+          currentStart = performance.now()
+        } else if (currentNote && (currentNote.name !== q.name || currentNote.oct !== q.oct) && same) {
+          const now = performance.now()
+          music[1].notes.push([currentNote.f, currentStart - startTs, now - currentStart, 0.5, 1])
+          currentNote = { name: q.name, oct: q.oct, f: q.f }
+          currentStart = now
+        }
+      } else {
+        if (currentNote) {
+          silenceStreak++
+          if (silenceStreak >= SILENCE_N) {
+            const now = performance.now()
+            music[1].notes.push([currentNote.f, currentStart - startTs, now - currentStart, 0.5, 1])
+            currentNote = null
+            silenceStreak = 0
+          }
+        }
+      }
+    }
+    src.start()
+  } catch (err) {}
+})
+let togglekeyboardpos=0
+}
+destroy() { window.loopRunning34=false}
+}
+class MelMakerPlugin {
+static title = "Keyboard";constructor() {this.paused = false;this.ticks = 0;this._raf = null;}
+render() {return `
+<style>
+#waveInputsContainer {
+  margin: 0;
+  width: 100vw;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  position: relative;
+  height: 30px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+  .wave-input{
+  	width:25px;
+  }
+  .keyboard {
+    position: relative;
+     
+    overflow-x: scroll;
+    width: 100%;
+    max-width: 1050px;
+    height: 203px;
+    background:#5B5B5B;
+    zoom:0.8
+  }
+  .key {
+    position: absolute;
+    font-size: 30px;
+    display:flex;
+    justify-content: center;
+    align-items:end ;
+    width: 50px;
+    height: 200px;
+    border: 1px solid #000;
+    background-color: #FFFFFF;
+    color:black
+  }
+  .key:active{
+    transform: translate(0,-5px);
+    animation: 0.5s blued ;
+  }
+  @keyframes blued{
+    0%{
+      background:#898989
+    }
+    100%{
+    }
+  }
+  .black-key {
+    background-color: #000;
+    width:35px;
+    height: 100px;
+    margin-top: -10px;
+    margin: 0;
+    z-index: 1;
+    color:white;
+  }
+  .active {
+    background-color: #4CCDF0;
+  }
+  #waveInputsContainer{
+  	width:100%; overflow: hidden scroll;
+  }
+</style>
+ <move id="main1">
+ <move id="keyboard">
+  <div style="color:var(--primary-text, black); user-select: none;  background:var(--editor-background, black); min-height:600px">
+    duration:
+<select id="durationL">
+ <option value="100">100</option>
+  <option value="200">200</option>
+  <option value="500">500</option>
+  <option value="1000">1000</option>
+  <option value="1500">1500</option>
+  <option value="2000">2000</option>
+  <option value="2500">2500</option>
+  <option value="3000">3000</option>
+</select>
+<br>
+<button id="startRecordingButton">start recording</button>
+<button id="btn1ef">Toggle Pos</button>
+<button id="stopRecordingButton" disabled>stop recording</button>
+Import music <input type="file" id="ImportMusic" accept=".mm3">
+<button onclick="playMusic(music)">play recorded music</button>
+<button onclick="recordreset()">reset record</button>
+<button onclick="saveAsBlob()">SAVE as mm3</button>
+<button onclick="removefrombuttonstext()">notext</button>
+  Octaves: <input type="number" id="octaves" value="3" min="1" max="7">
+  Start Octave: <input type="number" id="startOctave" value="3" min="0" max="8">
+  <button id="buildKeyboardButton" >Build Keyboard</button>
+  <br>
+<label><input type="checkbox" id="metronomeToggle"> Hear Metronome</label>
+Metronome Time (ms): <input type="number" style="width:60px" id="metronomeTime" value="4000" min="100">
+<label>Tempo (BPM): <input type="number" id="bpmInput" value="120" min="1" max="1000"></label>
+<input type="checkbox" id="beepboxpiano"> Use Beepbox Piano </label>
+<select  id="MetronomeMode" >
+	<option value="0">Hear Metronome After Pattern</option>
+	<option value="1">Hear Metronome After 1 Bar</option>
+</select> 
+<button id="btn2ef">Calculate Metronome Time</button>
+  <br><br>
+  Keyboard Buffer 
+  <form id="waveInputsContainer">
+  	<input type="number" class="wave-input" onkeydown="handleWaveInput(event)"></form>
+<div class="keyboard" id="keyboardContainer">
+</div>
+</div> <h2>MM3 TO BEEPBOX JSON</h2>
+   input mode <select id="TypeSelect">
+	<option value="200">250</option>
+	<option value="500">500</option>
+	<option value="A">defined/6</option>
+	<option value="B">defined/8</option>
+</select>
+  tempo: <input id="tempoData" type="text" value="120">
+  <input type="file" id="ConverterBox" accept=".mm3">
+  <button id="convertBtn">Convert</button>
+        `;
+    }
+script(container) {
+	container.querySelector("#btn1ef").addEventListener("click", ()=>{togglekeyboardpos = !togglekeyboardpos;
+const keyboard = document.getElementById('keyboard');
+if (togglekeyboardpos) document.getElementById('main2').appendChild(keyboard);
+else document.getElementById('main1').appendChild(keyboard);
+});
+container.querySelector("#btn2ef").addEventListener("click", ()=>{   calculateMetronome() });
+
+let metronomeInterval = null;
+function calculateMetronome() {
+  const bpm = parseFloat(container.querySelector("#bpmInput").value);
+  const beatsPerBar = 8;
+  if (isNaN(bpm) || bpm <= 0 || isNaN(beatsPerBar) || beatsPerBar <= 0) {
+    alert("Please enter valid BPM and beats per bar.");
+    return;
+  }
+  let beatDuration = 60000 / bpm*beatsPerBar;
+  if(container.querySelector("#MetronomeMode").value==1){
+  	beatDuration = 60000 / bpm;
+  }
+  container.querySelector("#metronomeTime").value = Math.round(beatDuration);
+}
+
+function playMetronomeClick() {
+  const osc = audioCTX2.createOscillator();
+  const gain = audioCTX2.createGain();
+  osc.frequency.value = 1000;
+  gain.gain.value = 0.1;
+
+  osc.connect(gain);
+  gain.connect(audioCTX2.destination);
+
+  osc.start();
+  osc.stop(audioCTX2.currentTime + 0.05);
+}
+
+function startMetronome() {
+  const time = parseInt(container.querySelector("#metronomeTime").value);
+  if (isNaN(time) || time < 50) return;
+
+  metronomeInterval = setInterval(() => {
+    playMetronomeClick();
+  }, time);
+}
+
+function stopMetronome() {
+  if (metronomeInterval) {
+    clearInterval(metronomeInterval);
+    metronomeInterval = null;
+  }
+}
+
+ 
+
+function blobToBase642(blob) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			const base64data = reader.result.split(',')[1];
+			resolve(base64data);
+		};
+		reader.onerror = reject;
+		reader.readAsDataURL(blob);
+	});
+}
+
+let isPlaying=false;
+let playingSources=[];
+let activeTimeouts=[]
+function setupKeyEvents() {
+  const keys = container.querySelectorAll('.key');
+  keys.forEach(key => {
+    key.onmousedown = () => {
+      key.classList.add('active');
+      const id = key.id;
+      const frequency = frequencies[id];
+      if (frequency) {
+        playSound(frequency);
+        if (isRecording) {
+          recordedNotes.push([frequency, performance.now() - startTime, parseFloat(container.querySelector('#durationL').value), 0.5, 1]);
+        }
+      }
+    };
+    key.onmouseup = key.onmouseleave = () => {
+      key.classList.remove('active');
+    };
+  });
+}
+function generateKeyboard() { 
+  const container2 = container.querySelector("#keyboardContainer");
+  container2.innerHTML = '';
+  const whiteNotes = ['c', 'd', 'e', 'f', 'g', 'a', 'h'];
+  const blackNotes = ['c#', 'd#', null, 'f#', 'g#', 'a#', null];
+  const baseFrequencies = {
+    'c': 261.63,
+    'c#': 277.18,
+    'd': 293.66,
+    'd#': 311.13,
+    'e': 329.63,
+    'f': 349.23,
+    'f#': 369.99,
+    'g': 392.00,
+    'g#': 415.30,
+    'a': 440.00,
+    'a#': 466.16,
+    'h': 493.88,
+  };
+  const octaves = parseInt(container.querySelector("#octaves").value);
+  const startOctave = parseInt(container.querySelector("#startOctave").value);
+  let keyIndex = 1;
+  let posX = 0;
+  for (let octave = startOctave; octave < startOctave + octaves; octave++) {
+    for (let i = 0; i < whiteNotes.length; i++) {
+      const note = whiteNotes[i];
+      const freq = baseFrequencies[note] * Math.pow(2, octave - 4);
+      const white = document.createElement("div");
+      white.className = "key white-key";
+       
+      white.id = `key${keyIndex}`;
+      white.innerText = note ;
+      white.style.left = `${posX}px`;
+      white.style.position = 'absolute';
+      container2.appendChild(white);
+      frequencies[`key${keyIndex}`] = freq;
+      keyIndex++;
+      posX += 50;
+    }
+  }
+  keyIndex = 1;
+  posX = 0;
+  for (let octave = startOctave; octave < startOctave + octaves; octave++) {
+    for (let i = 0; i < blackNotes.length; i++) {
+      const black = blackNotes[i];
+      if (!black) {
+        posX += 50;
+        continue;
+      }
+      const freq = baseFrequencies[black] * Math.pow(2, octave - 4);
+      const blackKey = document.createElement("div");
+      blackKey.className = "key black-key";
+      blackKey.id = `key${keyIndex + 1000}`;
+      blackKey.style.left = `${posX + 35}px`;
+      blackKey.style.position = 'absolute';
+      container2.appendChild(blackKey);
+      frequencies[`key${keyIndex + 1000}`] = freq;
+      keyIndex++;
+      posX += 50;
+    }
+  }
+  setupKeyEvents();
+}
+container.querySelector("#buildKeyboardButton").addEventListener("click", generateKeyboard);
+
+  const audioCTX2 = new (window.AudioContext || window.webkitAudioContext)();
+  const frequencies = {
+ 
+  };
+generateKeyboard()
+  let startTime = 0;  
+  let isRecording = false;
+  let recordedNotes = [];
+  function recordreset(){
+    recordedNotes = [];
+    audioCTX2.currentTime = 0;
+  }
+let audiobuff = [0,0, 0.5 ,0.5]; 
+function handleWaveInput(event) {
+  if (event.key === "Enter") {
+  	event.preventDefault();
+    const newInput = document.createElement("input");
+    newInput.type = "number";
+    newInput.className = "wave-input";
+    newInput.onkeydown = handleWaveInput;
+    container.querySelector("#waveInputsContainer").appendChild(newInput);
+    newInput.focus();
+    updateWaveArray();
+  }else if ((event.key === "Delete" || event.key === "Backspace") && event.target.value === "") {
+	const inputs = container.querySelectorAll(".wave-input");
+	if (inputs.length > 1) {
+		event.preventDefault();
+		event.target.remove();
+		updateWaveArray();
+	}
+}
+ else {
+    setTimeout(updateWaveArray, 0);
+  }
+}
+function updateWaveArray() {
+  audiobuff = Array.from(container.querySelectorAll(".wave-input"))
+    .map(inp => parseFloat(inp.value) || 0);
+}
+function loadWaveInputsFromArray() {
+  const container2 = container.querySelector("#waveInputsContainer");
+  container2.innerHTML = ''; 
+  audiobuff.forEach(value => {
+    const input = document.createElement("input");
+    input.type = "number";
+    input.className = "wave-input";
+    input.value = value;
+    input.onkeydown = handleWaveInput;
+    container2.appendChild(input);
+  });
+  updateWaveArray();
+}
+loadWaveInputsFromArray()
+function frequencyToPitch(frequency) {
+    return Math.round(12 * Math.log2(frequency / 440) + 57);
+}
+
+
+function playSound(frequency) {
+ if (container.querySelector("#beepboxpiano").checked) {
+  let duration = parseFloat(container.querySelector('#durationL').value);
+  pressPianoKey(  frequencyToPitch(frequency), duration);
+ }else{
+  const sampleRate = audioCTX2.sampleRate;
+  let duration = parseFloat(container.querySelector('#durationL').value);
+  let volume = 0.5;
+  let volumeEasing = 1;
+  let frameCount = sampleRate * (duration / 1000);
+  let buffer = audioCTX2.createBuffer(1, frameCount, sampleRate);
+  let data = buffer.getChannelData(0);
+  let waveformLength = audiobuff.length;
+  for (let i = 0; i < frameCount; i++) {
+    let time = i / sampleRate;
+    let amplitude = volume;
+    if (volumeEasing === 1) {
+      amplitude *= Math.exp(-5 * time / (duration / 1000));
+    } else if (volumeEasing > 1) {
+      amplitude *= 1 - Math.exp(-5 * time / ((duration / 1000) * volumeEasing));
+    }
+    let wavePosition = (i * frequency * waveformLength / sampleRate) % waveformLength;
+    let index = Math.floor(wavePosition);
+    let nextIndex = (index + 1) % waveformLength;
+    let frac = wavePosition - index;
+    let sample = audiobuff[index] * (1 - frac) + audiobuff[nextIndex] * frac;
+    data[i] = amplitude * sample;
+  }
+  let source = audioCTX2.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audioCTX2.destination);
+  source.start();
+ }
+}
+ 
+  container.querySelector('#startRecordingButton').addEventListener('click', () => {
+    isRecording = true;
+    startTime = performance.now();
+    recordedNotes = [];
+if (container.querySelector("#metronomeToggle").checked) {
+	startMetronome();
+} else {
+	stopMetronome();
+}
+    container.querySelector('#startRecordingButton').disabled = true;
+    container.querySelector('#stopRecordingButton').disabled = false;
+  });
+  container.querySelector('#stopRecordingButton').addEventListener('click', () => {
+    isRecording = false;
+    
+    container.querySelector('#startRecordingButton').disabled = false;
+    container.querySelector('#stopRecordingButton').disabled = true;
+    music[1].notes = recordedNotes.map(note => {
+      const [frequency, startTime, duration, volume, volumeEasing] = note;
+      return [frequency, startTime, duration, volume, volumeEasing];
+    });
+    stopMetronome();
+  });
+  function saveAsBlob() {
+    const blob = new Blob([JSON.stringify(music)], { type: 'application/octet-stream' });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'music.mm3';
+    a.click();
+    URL.revokeObjectURL(url);
+    
+if (location.href.startsWith("file:///")) {
+	NativeJava.DownloadText( JSON.stringify(music) , "music.mm3");
+}
+    
+  }
+  function removefrombuttonstext() {
+    const pianoKeys = document.querySelectorAll('.key');
+    pianoKeys.forEach(key => {
+      key.innerText = "";
+    });
+  }
+  async function playTone(audioCTX2, frequency, duration, volume, customInstrument, volumeEasing) {
+  return new Promise(resolve => {
+    const sampleRate = audioCTX2.sampleRate;
+    const frameCount = sampleRate * (duration / 1000);
+    const buffer = audioCTX2.createBuffer(1, frameCount, sampleRate);
+    const data = buffer.getChannelData(0);
+    const waveformLength = audiobuff.length;
+    for (let i = 0; i < frameCount; i++) {
+      let time = i / sampleRate;
+      let amplitude = volume;
+      if (volumeEasing === 1) {
+        amplitude *= Math.exp(-5 * time / (duration / 1000));
+      } else if (volumeEasing > 1) {
+        amplitude *= 1 - Math.exp(-5 * time / ((duration / 1000) * volumeEasing));
+      }
+      let wavePosition = (i * frequency * waveformLength / sampleRate) % waveformLength;
+      let index = Math.floor(wavePosition);
+      let nextIndex = (index + 1) % waveformLength;
+      let frac = wavePosition - index;
+      let sample = audiobuff[index] * (1 - frac) + audiobuff[nextIndex] * frac;
+      data[i] = amplitude * sample;
+    }
+    const source = audioCTX2.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCTX2.destination);
+    playingSources.push(source);
+    source.start();
+    const keyId = Object.keys(frequencies).find(k => Math.abs(frequencies[k] - frequency) < 1);
+if (keyId) document.getElementById(keyId)?.classList.add('active');
+
+setTimeout(function(){
+	if (keyId) document.getElementById(keyId)?.classList.remove('active');
+},200)
+
+source.onended = () => {
+	resolve();
+};
+  });
+}
+  async function playSection(audioCTX2, sectionId) {
+  const section = music[sectionId];
+  const { notes, instrument, nextSection, runallnotes } = section;
+  const tempo = section.tempo || music.tempo;
+
+  if (runallnotes) {
+    const promises = notes.map(([hz, timeout, length, volume, volumeEasing]) => {
+      return new Promise(resolve => {
+        const t = setTimeout(() => {
+          if (!isPlaying) return resolve();
+          playTone(audioCTX2, hz, length / tempo, volume, instrument, volumeEasing).then(resolve);
+        }, timeout / tempo);
+        activeTimeouts.push(t);
+      });
+    });
+    await Promise.all(promises);
+  } else {
+    for (const note of notes) {
+      if (!isPlaying) break;
+      const [hz, timeout, length, volume, volumeEasing] = note;
+      await playTone(audioCTX2, hz, length / tempo, volume, instrument, volumeEasing);
+      if (!isPlaying) break;
+      await new Promise(resolve => {
+        const t = setTimeout(() => resolve(), timeout / tempo);
+        activeTimeouts.push(t);
+      });
+    }
+  }
+
+  if (nextSection !== null && isPlaying) {
+    await playSection(audioCTX2, nextSection);
+  }
+}
+
+async function playMusic(name) {
+  const playButton = document.querySelector('button[onclick^="playMusic"]');
+  playingSources.forEach(src => src.stop());
+  playingSources = [];
+  activeTimeouts.forEach(timeout => clearTimeout(timeout));
+  activeTimeouts = [];
+  if (isPlaying) {
+    isPlaying = false;
+    playButton.textContent = 'play recorded music';
+    return;
+  }
+  isPlaying = true;
+  playButton.textContent = 'pause recorded music';
+
+  const runSections = name.run;
+  for (let sectionId of runSections) {
+    if (!isPlaying) break;
+    await playSection(audioCTX2, sectionId);
+  }
+
+  isPlaying = false;
+  playButton.textContent = 'play recorded music';
+}
+
+
+  var music = {
+    tempo: 1,  
+    run: [1],  
+    1: {
+      notes: [],
+      instrument: 'square',
+      nextSection: null,
+      runallnotes: 1
+    }
+  };
+container.querySelector("#ImportMusic").addEventListener("change", function (event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const importedMusic = JSON.parse(e.target.result);
+      if (importedMusic && typeof importedMusic === 'object') {
+        music = importedMusic;
+        alert("Loaded !");
+      } else {
+        alert("Error loading");
+      }
+    } catch (err) {
+      alert("Error:  " + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+  function blobToBase642(blob) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			const base64data = reader.result.split(',')[1];
+			resolve(base64data);
+		};
+		reader.onerror = reject;
+		reader.readAsDataURL(blob);
+	});
+}
+  
+  	container.querySelector("#convertBtn").addEventListener("click", () => {
+  		const ConverterBox = container.querySelector("#ConverterBox");
+  		if (!ConverterBox.files.length) return;
+  		
+  		const reader = new FileReader();
+  		reader.onload = function(e) {
+  			const mm3 = JSON.parse(e.target.result);
+  			const fruitybox = convertToFruityBox(mm3);
+  			let	jsonfull=JSON.stringify(fruitybox, null, 2)
+  			const blob = new Blob([jsonfull], { type: "application/json" });
+  			const url = URL.createObjectURL(blob);
+  			const a = document.createElement("a");
+  			a.href = url;
+  			a.download = "fruitybox.json";
+  			a.click();
+  			URL.revokeObjectURL(url);
+  			
+if (location.href.startsWith("file:///")) {
+	NativeJava.DownloadText( jsonfull , "fruitybox.json");
+}
+  			
+  		};
+  		reader.readAsText(ConverterBox.files[0]);
+  	});
+  	 
+  	function convertToFruityBox(mm3) {
+  		const notes = mm3["1"].notes;
+  		notes.sort((a, b) => a[1] - b[1]);
+  		const tempo = parseFloat(container.querySelector("#tempoData").value)||200 ;
+  		const ticksPerBeat = 8;
+  		const beatsPerBar = 8;
+  		const ticksPerBar = ticksPerBeat * beatsPerBar;
+  		const msPerTick = 60000 / tempo / ticksPerBeat;
+  		const channels = [];
+  		function createEmptyChannel(numPatterns) {
+  const patterns = Array.from({ length: numPatterns }, () => ({ notes: [] }));
+  const sequence = [...Array(numPatterns).keys()];
+return {
+	type: "pitch",
+	name: "triangle",
+	instruments: [{
+		type: "chip",
+		volume: 0,
+		eqFilter: [],
+		eqFilterType: false,
+		eqSimpleCut: 10,
+		eqSimplePeak: 0,
+		eqSubFilters0: [],
+		effects: [],
+		fadeInSeconds: 0,
+		fadeOutTicks: 48,
+		wave: "triangle",
+		envelopes: []
+	}],
+	patterns: patterns,
+	sequence: sequence,
+	octaveScrollBar: 0
+};
+}
+function hasOverlap(existingNotes, startTick, endTick) {
+  			return existingNotes.some(note => {
+  				const nStart = note.points[0].tick;
+  				const nEnd = note.points[1].tick;
+  				return (startTick < nEnd && endTick > nStart);
+});
+}
+let maxEndTick = 0;
+for (const [freq, startMs, lenMs] of notes) {
+	let msLEg = 500;
+if (container.querySelector("#TypeSelect").value == "A")  {
+	msLEg = parseInt(lenMs / 6)
+}else if (container.querySelector("#TypeSelect").value == "B") {
+	msLEg = parseInt(lenMs / 8)
+}else if ( !isNaN(container.querySelector("#TypeSelect").value) ) {
+	msLEg = parseInt(container.querySelector("#TypeSelect").value)
+}
+const clippedLenMs = Math.max(40, msLEg);
+const absEndTick = Math.round((startMs + clippedLenMs) / msPerTick);
+  if (absEndTick > maxEndTick) maxEndTick = absEndTick;
+}
+const numPatterns = Math.ceil(maxEndTick / ticksPerBar)+1;
+  		for (const [freq, startMs, lenMs] of notes) {
+  			const absStartTick = Math.round(startMs / msPerTick);
+let msLEg=500;
+if (container.querySelector("#TypeSelect").value == "A") {
+	msLEg = parseInt(lenMs / 6)
+} else if (container.querySelector("#TypeSelect").value == "B") {
+	msLEg = parseInt(lenMs / 8)
+} else if (!isNaN(container.querySelector("#TypeSelect").value)) {
+	msLEg = parseInt(container.querySelector("#TypeSelect").value)
+}
+const clippedLenMs = Math.max(40, msLEg );
+const absEndTick = Math.round((startMs + clippedLenMs) / msPerTick);
+  			const patternIndex = Math.floor(absStartTick / ticksPerBar);
+  			const startTick = absStartTick % ticksPerBar;
+  			let endTick = absEndTick % ticksPerBar;
+if (endTick <= startTick) {
+	endTick = startTick + 1;
+	if (endTick > ticksPerBar) endTick = ticksPerBar; 
+}
+const pitch = freqToPitchIndex(freq);
+ if (pitch === null) continue;
+  			let placed = false;
+  			for (let c = 0; c <= channels.length; c++) {
+  				if (channels[c] === undefined) channels[c] = createEmptyChannel(numPatterns);
+  				const pattern = channels[c].patterns[patternIndex];
+  				if (!hasOverlap(pattern.notes, startTick, endTick)) {
+  					pattern.notes.push({
+  						pitches: [pitch],
+  						points: [
+  							{ tick: startTick, pitchBend: 0, volume: 100, forMod: false },
+  							{ tick: endTick, pitchBend: 0, volume: 100, forMod: false }
+  						],
+  						continuesLastPattern: false
+  					});
+  					placed = true;
+  					break;
+  				}
+  			}
+if (!placed) {
+	const newChan = createEmptyChannel(numPatterns);
+	channels.push(newChan);
+	const pattern = newChan.patterns[patternIndex];
+	pattern.notes.push({
+		pitches: [pitch],
+		points: [
+			{ tick: startTick, pitchBend: 0, volume: 100, forMod: false },
+			{ tick: endTick, pitchBend: 0, volume: 100, forMod: false }
+		],
+		continuesLastPattern: false
+	});
+}
+}
+  		return {
+  			name: "FruitySong",
+  			format: "FruityBox",
+  			version: 5,
+  			scale: "Free",
+  			key: "C",
+  			introBars: 0,
+  			loopBars: 2,
+  			beatsPerBar,
+  			ticksPerBeat,
+  			beatsPerMinute: tempo,
+  			reverb: 0,
+  			masterGain: 1,
+  			compressionThreshold: 1,
+  			limitThreshold: 1,
+  			limitDecay: 4,
+  			limitRise: 4000,
+  			limitRatio: 1,
+  			compressionRatio: 1,
+  			layeredInstruments: false,
+  			patternInstruments: false,
+  			channels
+  		};
+  	}
+  	
+  	function freqToPitchIndex(freq) {
+  		const midi = 69 + 12 * Math.log2(freq / 440);
+  		const pitch = Math.round(midi - 12);
+  		if (pitch < 0 || pitch > 95*2) return null;
+  		return pitch;
+  	}
+	window.playMusic = (name) => playMusic(name);
+	window.recordreset = () => recordreset();
+	window.saveAsBlob = () => saveAsBlob();
+	window.removefrombuttonstext = () => removefrombuttonstext();
+	window.handleWaveInput = (e) => handleWaveInput(e);
+}
+destroy() {}
+}
+class CustomThemesPlugin {
+static title = "Custom Themes";constructor() {this.paused = false;this.ticks = 0;this._raf = null;}
+render() {
+  return `
+    <h2>Custom Themes</h2>
+    <div class="menu">
+      <label>Theme Name:</label>
+      <input id="varname2" type="text">
+
+      <label>Base theme:</label>
+
+      <label>Your Css Theme:</label>
+      <textarea id="cssInput"
+        style="white-space: pre; overflow-wrap: normal; overflow-x: scroll; width:100%; height:100px;">
+      </textarea><br>
+
+      <button id="generateButton222" disabled>Create</button>
+    </div>
+    <div id="themeList"></div>
+    
+          <select id="themeSelect"></select>
+      <button id="getCssBtn">Get CSS</button>
+  `;
+}
+script(container) {
+function normalizeCss(css) {
+  return css
+    .split('\n')
+    .map(line => line.trimStart())
+    .join('\n')
+    .trim();
+}
+
+
+	container.querySelector('#getCssBtn').onclick = () => {
+  const selected = container.querySelector('#themeSelect').value;
+  const themeVars = ColorConfig.themes[selected];
+
+  if (!themeVars) return;
+
+  container.querySelector('#cssInput').value = normalizeCss(themeVars)
+};
+
+	function renderThemeSelect() {
+  const select = container.querySelector('#themeSelect');
+  select.innerHTML = '';
+
+  Object.keys(ColorConfig.themes).forEach(themeName => {
+    const opt = document.createElement('option');
+    opt.value = themeName;
+    opt.textContent = themeName;
+    select.appendChild(opt);
+  });
+}
+
+function renderFileList2() {
+	const list = container.querySelector('#themeList');
+	list.innerHTML = '';
+	Object.keys(CustomThemes).forEach(id => {
+		const div = document.createElement('div');
+		div.className = 'file-item';
+		div.id = `file-${id}`;
+		const span = document.createElement('span');
+		span.textContent = id;
+		const btn1 = document.createElement('button');
+  btn1.textContent = 'copy';
+		const btn = document.createElement('button');
+		btn.textContent = 'X';
+		btn.onclick = () => {
+			delete CustomThemes[id];
+			  THEMESDB.remove(id);
+			container.querySelector(`#file-${id}`).remove();
+		};
+		btn1.onclick = () => {
+  container.querySelector(`#cssInput`).value=CustomThemes[id];
+  container.querySelector(`#varname2`).value=id;
+  };
+		div.appendChild(span);
+		div.appendChild(btn1);
+		div.appendChild(btn);
+		list.appendChild(div);
+	});
+}
+container.querySelector('#cssInput').addEventListener('input', (event) => {
+	if(document.getElementById('cssInput').value!=="" && container.querySelector('#varname2').value!=="" ){
+	container.querySelector('#generateButton222').disabled = false;
+	}else{
+	container.querySelector('#generateButton222').disabled = true;
+	}
+});
+container.querySelector('#varname2').addEventListener('input', (event) => {
+	if (container.querySelector('#cssInput').value !== "" && container.querySelector('#varname2').value !== "") {
+		container.querySelector('#generateButton222').disabled = false;
+	} else {
+		container.querySelector('#generateButton222').disabled = true;
+	}
+});
+
+ 
+async function audioFileToBuffer(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  const channelData = audioBuffer.getChannelData(0);
+  return Array.from(channelData);
+}
+
+function blobToBase6422(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64data = reader.result.split(',')[1];
+      resolve(base64data);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+container.querySelector('#generateButton222').addEventListener('click', async () => {
+  const name = container.querySelector('#varname2').value;
+  const css = container.querySelector('#cssInput').value;
+  CustomThemes[name] = css;
+  await THEMESDB.save(name, css); 
+  container.querySelector('#varname2').value = '';
+  container.querySelector('#cssInput').value = '';
+  container.querySelector('#generateButton222').disabled = true;
+  renderFileList2();
+  loadFiles2()
+});
+renderFileList2()
+renderThemeSelect();
+
+}
+destroy() {}
+}
+function createStorage(dbName = "myDB", storeName = "store") {
+	const dbPromise = new Promise((resolve, reject) => {
+		const request = indexedDB.open(dbName, 1);
+		request.onupgradeneeded = (event) => {
+			const db = event.target.result;
+			if (!db.objectStoreNames.contains(storeName)) {
+				db.createObjectStore(storeName);
+			}
+		};
+		request.onsuccess = () => {
+			resolve(request.result);
+		};
+		request.onerror = () => {
+			reject(request.error);
+		};
+	});
+	async function save(slot, data) {
+		const db = await dbPromise;
+		return new Promise((resolve, reject) => {
+			const tx = db.transaction([storeName], "readwrite");
+			const store = tx.objectStore(storeName);
+			const req = store.put(data, slot);
+			req.onsuccess = () => resolve();
+			req.onerror = () => reject(req.error);
+		});
+	}
+	async function remove(slot) {
+		const db = await dbPromise;
+		return new Promise((resolve, reject) => {
+			const tx = db.transaction([storeName], "readwrite");
+			const store = tx.objectStore(storeName);
+			const req = store.delete(slot);
+			req.onsuccess = () => resolve();
+			req.onerror = () => reject(req.error);
+		});
+	}
+	
+	function load(slot, callback) {
+		dbPromise.then(db => {
+			const tx = db.transaction([storeName], "readonly");
+			const store = tx.objectStore(storeName);
+			const req = store.get(slot);
+			req.onsuccess = () => callback(req.result ?? null);
+			req.onerror = () => callback(null);
+		}).catch(() => callback(null));
+	}
+	return { save, load, remove, dbPromise };
+}
+let THEMESDB = createStorage("Themes", "themes")
+async function loadFiles2() {
+	CustomThemes = {};
+	const db = await THEMESDB.dbPromise;
+	const tx = db.transaction(["themes"], "readonly");
+	const store = tx.objectStore("themes");
+	const req = store.openCursor();
+	req.onsuccess = (event) => {
+		const cursor = event.target.result;
+		if (cursor) {
+			CustomThemes[cursor.key] = cursor.value;
+			cursor.continue();
+		} else {
+			updateThemes()
+		}
+	};
+}
+setTimeout(loadFiles2, 800)
+class OtherPlugin {
+static title = "Other";constructor() {this.paused = false;this.ticks = 0;this._raf = null;}
+render() {return `
+ <button onclick='document.location.href="./midiplayer.html";
+'>Open MIDI Player</button>
+ <button onclick='document.location.href="./sample_extractor.html";
+'>Open Sample Extractor</button>
+ <button onclick='document.location.href="./sfmaker.html";
+'>Open SF2 Tools</button>
+ <button onclick='document.location.href="./record.html";
+'>Open Recorder</button>
+ <button onclick='document.location.href="./oscilloscope.html";
+'>Open Oscilloscope player</button>
+<button onclick="console_profiler123.style.display=console_profiler123.style.display=='block'?'none':'block' ">Debug Console</button>
+</div>
+        `;
+    }
+script(container) {
+if(window.console_profiler123)return;
+window.console_profiler123=document.createElement("div")
+console_profiler123.id="console-panel"
+console_profiler123.style.cssText="position:fixed;bottom:0;left:0;width:250px;height:200px;background:rgba(10,10,10,0.2);color:#0f0;font:12px monospace;z-index:9999;overflow:auto;display:none;white-space:pre-wrap;user-select:text !important; pointer-events:none;"
+document.body.appendChild(console_profiler123)
+ 
+const origLog=console.log
+console.log=function(...args){
+ origLog.apply(console,args)
+ const msg=args.map(a=>(typeof a==="object"?JSON.stringify(a):a)).join(" ")
+ const div=document.createElement("div")
+ div.style.color="#0f0"
+ div.textContent=msg
+ console_profiler123.appendChild(div)
+ console_profiler123.scrollTop=console_profiler123.scrollHeight
+}
+
+
+window.addEventListener("error", e => {
+ const div = document.createElement("div")
+ div.style.color = "red"
+ div.textContent = `${e.message} @${e.filename}:${e.lineno}:${e.colno}`
+ console_profiler123.appendChild(div)
+ console_profiler123.scrollTop = console_profiler123.scrollHeight
+})
+
+window.addEventListener("unhandledrejection", e => {
+ const div = document.createElement("div")
+ div.style.color = "orange"
+ div.textContent = `UnhandledPromiseRejection: ${e.reason}`
+ console_profiler123.appendChild(div)
+ console_profiler123.scrollTop = console_profiler123.scrollHeight
+})
+
+
+function toggleDebug(){
+ ttgl34_ui5tyFrtVghyjk_67=ttgl34_ui5tyFrtVghyjk_67==0?1:0
+}}
+destroy() {}
+}
+class SelectPlugin {
+  constructor(_doc) {
+    this._doc = _doc;
+    this.plugins = {
+      samplesOffline: SamplesOfflinePlugin,
+      sampleEditor: SampleEditorPlugin,
+      fadeoutPlugin: FadeoutPlugin,
+      reversePlugin: ReversePlugin,
+      advEditor: AdvancedEditorPlugin,
+      whistleToNotes: WhistleToNotesPlugin,
+      melMaker: MelMakerPlugin,
+      customThemes: CustomThemesPlugin,
+      other: OtherPlugin
+    };
+    this._samplesOffline = button$6({}, SamplesOfflinePlugin.title);
+    this._sampleEditor = button$6({}, SampleEditorPlugin.title);
+    this._fadeoutPlugin = button$6({}, FadeoutPlugin.title);
+    this._reversePlugin = button$6({}, ReversePlugin.title);
+    this._advEditor = button$6({}, AdvancedEditorPlugin.title);
+    this._whistleToNotes = button$6({}, WhistleToNotesPlugin.title);
+    this._melMaker = button$6({}, MelMakerPlugin.title);
+    this._customThemes = button$6({}, CustomThemesPlugin.title);
+    this._other = button$6({}, OtherPlugin.title);
+    this._cancelButton = button$6({ class: "cancelButton" });
+    this.container = div$6(
+      { class: "prompt noSelection", style: "width: 220px;" },
+      h2$5("Open Plugins"),
+      this._samplesOffline,
+      this._sampleEditor,
+      this._fadeoutPlugin,
+      this._reversePlugin,
+      this._advEditor,
+      this._whistleToNotes,
+      this._melMaker,
+      this._customThemes,
+      this._other,
+      this._cancelButton
+    );
+    this._cancelHandler = () => { editor._setPrompt(null);this._doc.undo();    }
+    this._samplesOfflineHandler = () => this.openPlugin("samplesOffline");
+    this._sampleEditorHandler = () => this.openPlugin("sampleEditor");
+    this._fadeoutHandler = () => this.openPlugin("fadeoutPlugin");
+    this._reverseHandler = () => this.openPlugin("reversePlugin");
+    this._advEditorHandler = () => this.openPlugin("advEditor");
+    this._whistleHandler = () => this.openPlugin("whistleToNotes");
+    this._melMakerHandler = () => this.openPlugin("melMaker");
+    this._customThemesHandler = () => this.openPlugin("customThemes");
+    this._otherHandler = () => this.openPlugin("other");
+    this._cancelButton.addEventListener("click", this._cancelHandler);
+    this._samplesOffline.addEventListener("click", this._samplesOfflineHandler);
+    this._sampleEditor.addEventListener("click", this._sampleEditorHandler);
+    this._fadeoutPlugin.addEventListener("click", this._fadeoutHandler);
+    this._reversePlugin.addEventListener("click", this._reverseHandler);
+    this._advEditor.addEventListener("click", this._advEditorHandler);
+    this._whistleToNotes.addEventListener("click", this._whistleHandler);
+    this._melMaker.addEventListener("click", this._melMakerHandler);
+    this._customThemes.addEventListener("click", this._customThemesHandler);
+    this._other.addEventListener("click", this._otherHandler);
+    editor.doc._pendingPlugin = null;
+  }
+  cleanUp() {
+    this._cancelButton.removeEventListener("click", this._cancelHandler);
+    this._samplesOffline.removeEventListener("click", this._samplesOfflineHandler);
+    this._sampleEditor.removeEventListener("click", this._sampleEditorHandler);
+    this._fadeoutPlugin.removeEventListener("click", this._fadeoutHandler);
+    this._reversePlugin.removeEventListener("click", this._reverseHandler);
+    this._advEditor.removeEventListener("click", this._advEditorHandler);
+    this._whistleToNotes.removeEventListener("click", this._whistleHandler);
+    this._melMaker.removeEventListener("click", this._melMakerHandler);
+    this._customThemes.removeEventListener("click", this._customThemesHandler);
+    this._other.removeEventListener("click", this._otherHandler);
+  }
+  openPlugin(id) {
+    const PluginClass = this.plugins[id];
+    const plugin = new PluginClass();
+    this._cancelHandler()
+    editor.doc.prompt = null;
+    editor.doc._pendingPlugin = {
+        id,
+        plugin,
+        title: PluginClass.title,
+        html: plugin.render()
+    };
+    setTimeout(function(){
+    editor._openPrompt(`plugin:${id}`);
+    },100);
+    }
+
+}
    class SelectLanguage {
   	constructor(_doc) {
   		this._doc = _doc;
@@ -52450,7 +61229,7 @@ async function autoTranslatePage(targetLang,opts={api:"https://libretranslate.de
                 this._doc.prompt = null;
                 this._doc.undo();
                 if (doReload) {
-                    setTimeout(() => { window.location.reload(); }, 50);
+                    setTimeout(() => {cleanMemoryBeforeNavigation(); window.location.reload(); }, 50);
                 }
             };
             this.cleanUp = () => {
@@ -52528,15 +61307,36 @@ async function autoTranslatePage(targetLang,opts={api:"https://libretranslate.de
     class ThemePrompt {
         constructor(_doc) {
             this._doc = _doc;
-            this._themeSelect = select$4({ style: "width: 100%;" }, optgroup$1({ label: "Default Themes" }, option$4({ value: "slarmoosbox" }, "Slarmoo's Box"), option$4({ value: "forest" }, "Forest"), option$4({ value: "canyon" }, "Canyon"), option$4({ value: "midnight" }, "Midnight"), option$4({ value: "beachcombing" }, "Beachcombing"), option$4({ value: "violet verdant" }, "Violet Verdant"), option$4({ value: "sunset" }, "Sunset"), option$4({ value: "autumn" }, "Autumn"), option$4({ value: "fruit" }, "Shadowfruit"), option$4({ value: "toxic" }, "Toxic"), option$4({ value: "roe" }, "Roe"), option$4({ value: "moonlight" }, "Moonlight"), option$4({ value: "portal" }, "Portal"), option$4({ value: "fusion" }, "Fusion"), option$4({ value: "inverse" }, "Inverse"), option$4({ value: "nebula" }, "Nebula"), option$4({ value: "roe light" }, "Roe Light"), option$4({ value: "amoled dark" }, "High Contrast Dark"), option$4({ value: "energized" }, "Energized"), option$4({ value: "neapolitan" }, "Neapolitan"), option$4({ value: "poly" }, "Poly"), option$4({ value: "blutonium" }, "Blutonium"), option$4({ value: "greyscale" }, "Greyscale"), option$4({ value: "slushie" }, "Slushie")),  optgroup$1({ label: "Mod Themes" }, option$4({ value: "dark classic" }, "BeepBox Dark"), option$4({ value: "light classic" }, "BeepBox Light"), option$4({ value: "dark competition" }, "BeepBox Competition Dark"), option$4({ value: "jummbox classic" }, "JummBox Dark"), option$4({ value: "modbox classic" }, "Modbox"), option$4({ value: "sandbox classic" }, "Sandbox"), option$4({ value: "harrybox" }, "Haileybox"), option$4({ value: "brucebox" }, "Brucebox"), option$4({ value: "shitbox 3.0" }, "Shitbox 1.0/3.0"), option$4({ value: "shitbox 2.0" }, "Shitbox 2.0"), option$4({ value: "nerdbox" }, "NerdBox"), option$4({ value: "zefbox" }, "Zefbox"), option$4({ value: "cardboardbox classic" }, "Cardboardbox"), option$4({ value: "blubox classic" }, "Blubox"), option$4({ value: "dogebox classic" }, "Dogebox"), option$4({ value: "wackybox" }, "Wackybox"), option$4({ value: "todbox dark mode" }, "Todbox Dark Mode"), option$4({ value: "mainbox 1.0" }, "Mainbox"), option$4({ value: "microbox" }, "MicroBox"), option$4({ value: "paandorasbox" }, "PaandorasBox"), option$4({ value: "foxbox" }, "FoxBox"), option$4({ value: "midbox" }, "Midbox"), option$4({ value: "dogebox2" }, "Dogebox2"), option$4({ value: "abyssbox classic" }, "AbyssBox Classic"), option$4({ value: "abyssbox light" }, "AbyssBox Light"), option$4({ value: "nepbox" }, "Nepbox"), option$4({ value: "ultrabox dark" }, "UltraBox"), option$4({ value: "voxonium" }, "Voxonium"), option$4({ value: "axobox" }, "AxoBox"), option$4({ value: "lemmbox dark" }, "LemmBox")), optgroup$1({ label: "Misc" }, option$4({ value: "azur lane" }, "Azur Lane"), option$4({ value: "custom" }, "Custom")) , optgroup$1({label:"Fruity Themes"}, 
+            this._themeSelect = select$4({ style: "width: 100%;" }, optgroup$1({ label: "Default Themes" }, option$4({ value: "slarmoosbox" }, "Slarmoo's Box"), option$4({ value: "forest" }, "Forest"), option$4({ value: "canyon" }, "Canyon"), option$4({ value: "midnight" }, "Midnight"), option$4({ value: "beachcombing" }, "Beachcombing"), option$4({ value: "violet verdant" }, "Violet Verdant"), option$4({ value: "sunset" }, "Sunset"), option$4({ value: "autumn" }, "Autumn"), option$4({ value: "fruit" }, "Shadowfruit"), option$4({ value: "toxic" }, "Toxic"), option$4({ value: "roe" }, "Roe"), option$4({ value: "moonlight" }, "Moonlight"), option$4({ value: "portal" }, "Portal"), option$4({ value: "fusion" }, "Fusion"), option$4({ value: "inverse" }, "Inverse"), option$4({ value: "nebula" }, "Nebula"), option$4({ value: "roe light" }, "Roe Light"), option$4({ value: "amoled dark" }, "High Contrast Dark"), option$4({ value: "energized" }, "Energized"), option$4({ value: "neapolitan" }, "Neapolitan"), option$4({ value: "poly" }, "Poly"), option$4({ value: "blutonium" }, "Blutonium"), option$4({ value: "greyscale" }, "Greyscale"), option$4({ value: "slushie" }, "Slushie")),  optgroup$1({ label: "Mod Themes" }, option$4({ value: "dark classic" }, "BeepBox Dark"), option$4({ value: "light classic" }, "BeepBox Light"), option$4({ value: "dark competition" }, "BeepBox Competition Dark"), option$4({ value: "jummbox classic" }, "JummBox Dark"), option$4({ value: "modbox classic" }, "Modbox"), option$4({ value: "sandbox classic" }, "Sandbox"), option$4({ value: "harrybox" }, "Haileybox"), option$4({ value: "brucebox" }, "Brucebox"), option$4({ value: "shitbox 3.0" }, "Shitbox 1.0/3.0"), option$4({ value: "shitbox 2.0" }, "Shitbox 2.0"), option$4({ value: "nerdbox" }, "NerdBox"), option$4({ value: "zefbox" }, "Zefbox"), option$4({ value: "cardboardbox classic" }, "Cardboardbox"), option$4({ value: "blubox classic" }, "Blubox"), option$4({ value: "dogebox classic" }, "Dogebox"), option$4({ value: "wackybox" }, "Wackybox"), option$4({ value: "todbox dark mode" }, "Todbox Dark Mode"), option$4({ value: "mainbox 1.0" }, "Mainbox"), option$4({ value: "microbox" }, "MicroBox"), option$4({ value: "paandorasbox" }, "PaandorasBox"), option$4({ value: "foxbox" }, "FoxBox"), option$4({ value: "midbox" }, "Midbox"), option$4({ value: "dogebox2" }, "Dogebox2"), option$4({ value: "abyssbox classic" }, "AbyssBox Classic"), option$4({ value: "abyssbox light" }, "AbyssBox Light"), option$4({ value: "nepbox" }, "Nepbox"), option$4({ value: "ultrabox dark" }, "UltraBox"), option$5({value:"jummbox light"},"Jumm Box Light"), option$5({value:"dogebox dark"},"Dogebox Dark"), option$5({value:"fogbox"},"FogBox"),  option$4({ value: "voxonium" }, "Voxonium"), option$4({ value: "axobox" }, "AxoBox"), option$4({ value: "lemmbox dark" }, "LemmBox")), optgroup$1({ label: "Misc" }, option$4({ value: "azur lane" }, "Azur Lane"), option$4({ value: "custom" }, "Custom")) ,
+            optgroup$1({label:"AbyssBox Themes"},
+            	option$5({value:"2012 Video Tutorial"},"2012 Video Tutorial"),
+            	option$5({value:"Scratch"},"Scratch"),
+            	option$5({value:"Deuteranopia"},"Deuteranopia"),
+            	option$5({value:"Tritanopia"},"Tritanopia"),
+            	option$5({value:"Protanopia"},"Protanopia"),
+            	option$5({value:"Windows Xp"},"Windows XP"),
+            	option$5({value:"Terminal 2.0 (AB)"},"Terminal 2.0 (AB)"),
+            	option$5({value:"corporate light"},"Corporate Light"),
+            	option$5({value:"corporate dark"},"Corporate Dark"),
+            	option$5({value:"Skeuomorphic"},"Skeuomorphic"),
+            	option$5({value:"woodland"},"Woodland"),
+            	option$5({value:"Frutiger Aero"},"Frutiger Aero"),
+            	option$5({value:"Frutiger Aero Night"},"Frutiger Aero Night"),
+            	option$5({value:"Half-Life"},"Half Life"),
+            	option$5({value:"Undertale"},"Undertale"),
+            	option$5({value:"Doom 1993"},"Doom"),
+            	
+            ),
+            optgroup$1({label:"Studio Themes"}, 
 option$5({ value: "canyon" }, "Canyon"), option$5({ value: "midnight" }, "Midnight"), option({ value: "beachcombing" }, "Beachcombing"),
  	option$5({ value: "funky" }, "Funky"),
  	option$5({ value: "funkylight" }, "Funky Light"),
- 	option$5({ value: "githubdark" }, "Github DarK"),
+ 	option$5({ value: "githubdark" }, "Github Dark"),
  	option$5({ value: "mirage" }, "Mirage"),
  	option$5({ value: "Mirage" }, "Mirage2"),
+ 	option$5({ value: "Citrus" }, "Citrus"),
  	option$5({ value: "dark-monoKai" }, "MonoKai"),
- 	option$5({ value: "dark-dracula" }, "Dracula"),
+ 	option$5({ value: "dark-dracula" }, "Dracula"), 
  	option$5({ value: "neon" }, "Neon"),
  	option$5({ value: "greenish" }, "Greenish Dark"),
  	option$5({ value: "yellowed" }, "Yellow Light"),
@@ -52568,7 +61368,14 @@ option$5({ value: "canyon" }, "Canyon"), option$5({ value: "midnight" }, "Midnig
  	option({ value: "Edit" }, "Edit"),
  	option({ value: "Steel" }, "Steel"),
  	option({ value: "Texture" }, "Texture"),
-            ),
+	option$5({ value: "FruityBox Nano" }, "Nano"),
+	option$5({ value: "FruityBox Contrast" }, "Contrast"),
+	option$5({ value: "FruityBox Standard" }, "Standard"),
+	option$5({ value: "FruityBox Standard Blue" }, "Standard Blue"),
+	option$5({ value: "FruityBox" }, "Classic"),
+	option$5({ value: "FruityBox Dark" }, "Contrast Classic"),
+	option$5({ value: "FruityBoxLight" }, "Classic Light"),
+),
             optgroup$1({ label: "Rest" }, ) ); 
             
             
@@ -52872,6 +61679,16 @@ const existingThemeValues = new Set(
                         message = div$5(h2$4("Octave Shift"), p("This setting makes instruments play higher or lower pitches than the ones displayed in the pattern editor. Be careful that you don't confuse yourself!"), p("You can combine this with envelopes to bend pitch over time, or play multiple simultaneous instruments with different pitch shifts for interesting layered sounds."), p("The intervals created by this setting are in \"just intonation\" which means they stay in phase with the original pitch instead of shifting in and out of phase over time. If you want the shifting, add the detune effect!"));
                     }
                     break;
+                    case "functionHD":
+                    {
+                        message = div$5(h2$4("Head Of The Function"), p("This setting creates inputs and adjustable in mod sliders"), p("Paste your sliders etc example 'I1'(min,max,step),'I2'([1,2,'A') etc etc "), p("ITS USELESS WITHOUT FN ALGORITHM"));
+                    }
+                    break;
+                    case "functionFN":
+                    {
+                        message = div$5(h2$4("Function Algorithm"), p("This setting makes instruments wave different by the algorithm you use"), p("In FN tag paste your algorithm. For example this is the example formula 'p.v * safe(b[p.i+2]) / 1' p.v is value p.i is index safe is safe function so you don't get undefined and error "), p("ITS MORE AUTOMATED IF YOU USE HEAD"));
+                    }
+                    break;
                 case "distortion":
                     {
                         message = div$5(h2$4("Distortion"), p("This is the famous electric guitar effect! However, there are some things to be aware of."), p("First, most chords don't sound right when combined with heavy distortion. The only chords commonly used with distorted electric guitars are \"power chords\" which consist of a root note, a \"fifth\" note above that, and/or any octaves of those two notes."), p("Second, the distortion sound depends a lot on filtering. In particular, I recommend enabling the note filter effect, and adding both high-pass and low-pass points to the note filter. (Note filters are applied first, then distortion which transforms the sound based on that filtering, then the EQ filter is applied last.)"), p("Finally, I recommend adjusting the fade-out setting to allow the end of each note to overlap a little bit with the beginning of the next, but not too much!"));
@@ -53090,6 +61907,26 @@ const existingThemeValues = new Set(
                 case "RingModHz":
                     {
                         message = div$5(h2$4("Ring Modulation (Hertz)"), p(`This setting changes the Hertz of the multiplied frequency.`));
+                    }
+                    break;
+                case "phaserMix":
+                    {
+                        message = div$9(h2$7("Phaser Mix"), p$1(`This setting adds holes (aka notches) or peaks in the frequency spectrum to the waveform its given. The placement of these peaks and notches in the waveform can be changed by using envelopes and/or modulators.`));
+                    }
+                    break;
+                case "phaserFreq":
+                    {
+                        message = div$9(h2$7("Phaser Frequency"), p$1(`This setting controls the frequency of the the peaks and notches of the phaser.`));
+                    }
+                    break;
+                case "phaserFeedback":
+                    {
+                        message = div$9(h2$7("Phaser Feedback"), p$1(`This setting effects how pronounced the Feedback of the Phaser is, this is done by adding the Feedback of the Phaser back into itself.`));
+                    }
+                    break;
+                case "phaserStages":
+                    {
+                        message = div$9(h2$7("Phaser Stages"), p$1(`This slider changes how many all-passes there are in the phaser. An all-pass is created by splitting an audio signal into paths, every path after the first one that is created is called an all-pass.`), p$1(`The minimum value of this slider is 1, the reason being that 1 all-pass is the exact same as having no phaser at all, if there were 0 all-passes then the audio would cease to exist.`));
                     }
                     break;
                 case "ringModChipWave":
@@ -53919,18 +62756,13 @@ open.onclick = () => {
 
 }
 
-
-
-
-    class VisualLoopControlsPrompt {
+  class VisualLoopControlsPromptOLD {
         constructor(_doc, _songEditor) {
             this._waveformCanvasWidth = 500;
             this._waveformCanvasHeight = 200;
             this._handleCanvasHeight = 20;
             this._instrument = null;
             this._waveformData = null;
-            this._zoomYanabled=false;
-            this._zoomedYAxis=false
             this._waveformDataLength = null;
             this._initialChipWaveLoopMode = null;
             this._initialChipWaveStartOffset = null;
@@ -53952,11 +62784,6 @@ open.onclick = () => {
             this._overlayIsMouseDown = false;
             this._overlaySelectionX0 = null;
             this._overlaySelectionX1 = null;
-            
- this._waveformViewportYOffset = 0
-this._waveformViewportYRange = this._waveformViewportY1 - this._waveformViewportY0
-this._waveformViewportYMaxOffset = 0
-
             this._startOffsetValidator = (v) => {
                 return Math.max(0, Math.min(this._waveformDataLength, Math.floor(v)));
             };
@@ -54021,52 +62848,36 @@ this._waveformViewportYMaxOffset = 0
                 ctx.fill();
             });
             this._chipWaveIsUnavailable = true;
-this._zoomInYButton = button$4({ type: "button", title: "Zoom In Y", style: "height: var(--button-size); margin-left: 0.5em;" }, "YZoom")
- this._zoomInYButton.addEventListener("click",()=>{
- if(!this._waveformData)return
- this._zoomYanabled=!this._zoomYanabled;
- this._zoomYanabled?this._zoomInYButton.style.border="2px solid white":this._zoomInYButton.style.border=""
- localStorage.setItem("zoomY", this._zoomYanabled);
- this._render()
-})
-const savedZoomY = localStorage.getItem("zoomY");
-this._zoomYanabled = savedZoomY === "true";
-this._zoomYanabled?this._zoomInYButton.style.border="2px solid white":this._zoomInYButton.style.border=""
-
             this._waveformCanvas = canvas$1({ width: this._waveformCanvasWidth, height: this._waveformCanvasHeight, style: "cursor: default; position: static; width: 100%;" });
             this._waveformContext = null;
             this._overlayCanvas = canvas$1({ width: this._waveformCanvasWidth, height: this._waveformCanvasHeight, style: "cursor: default; position: absolute; top: 0; left: 0; width: 100%;" });
-this._labelingContainer=document.createElement("div")
+            this._overlayContext = null;
+            this._waveformContainer = div$8({ style: `position: relative; margin-bottom: 0.5em; margin-left: auto; margin-right: auto; width: 100%; outline: 1px solid ${ColorConfig.uiWidgetBackground};` }, this._waveformCanvas, this._overlayCanvas);
+            this._viewportOffsetSlider = input$5({ style: "width: 100%; flex-grow: 1; margin: 0;", type: "range", min: "0", max: "1", value: "0", step: "0.00001" });
+            this._zoomInButton = button$8({ type: "button", title: "Zoom In", style: "height: var(--button-size); margin-left: 0.5em;" }, SVG.svg({ width: "20", height: "20", viewBox: "-10 -10 20 20", "pointer-events": "none", style: "width: 100%; height: 100%;" }, SVG.circle({ cx: -1, cy: -1, r: 6, "stroke-width": 2, stroke: ColorConfig.primaryText, fill: "none" }), SVG.path({ stroke: ColorConfig.primaryText, "stroke-width": 2, d: "M 3 3 L 7 7 M -1 -4 L -1 2 M -4 -1 L 2 -1", fill: "none" })));
+            this._zoomOutButton = button$8({ type: "button", title: "Zoom Out", style: "height: var(--button-size); margin-left: 0.5em;" }, SVG.svg({ width: "20", height: "20", viewBox: "-10 -10 20 20", "pointer-events": "none", style: "width: 100%; height: 100%;" }, SVG.circle({ cx: -1, cy: -1, r: 6, "stroke-width": 2, stroke: ColorConfig.primaryText, fill: "none" }), SVG.path({ stroke: ColorConfig.primaryText, "stroke-width": 2, d: "M 3 3 L 7 7 M -4 -1 L 2 -1", fill: "none" })));
+            this._zoom100Button = button$8({ type: "button", title: "Zoom 100%", style: "height: var(--button-size); margin-left: 0.5em;" }, "100%");
+            this._loopModeSelect = select$4({ style: "width: 100%; flex-grow: 1; margin-left: 0.5em;" }, option$4({ value: 0 }, "Loop"), option$4({ value: 1 }, "Ping-Pong"), option$4({ value: 2 }, "Play Once"), option$4({ value: 3 }, "Play Loop Once"));
+            this._startOffsetStepper = input$5({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveStartOffset, min: "0", step: "1" });
+            this._loopStartStepper = input$5({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveLoopStart, min: "0", step: "1" });
+            this._loopEndStepper = input$5({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveLoopEnd, min: "0", step: "1" });
+            this._playBackwardsBox = input$5({ type: "checkbox", style: "width: 1em; padding: 0; margin-left: auto; margin-right: auto;" });
+            this._playSongButton = button$8({ style: "width: 55%;", type: "button" });
+            this._cancelButton = button$8({ class: "cancelButton" });
+            this._okayButton = button$8({ class: "okayButton", style: "width: 25%;" }, "Okay");
+            this._sampleIsLoadingMessage = div$8({ style: "margin-bottom: 0.5em; display: none;" }, "Sample is loading");
+            this._labelingContainer=document.createElement("div")
 this._labelingContainer.style.cssText="position:fixed;top:0;left:0;z-index:9999;display:none; width:100%; height:100vh; overflow:hidden; background:rgba(0,0,0,0.15)"
 document.body.append(this._labelingContainer)
 this._pointLabeling=new PointLabeling(this._labelingContainer )
-            this._overlayContext = null;
-            this._waveformContainer = div$4({ style: `position: relative; margin-bottom: 0.5em; margin-left: auto; margin-right: auto; width: 100%; outline: 1px solid ${ColorConfig.uiWidgetBackground};` }, this._waveformCanvas, this._overlayCanvas);
-            this._viewportOffsetSlider = input$3({ style: "width: 100%; flex-grow: 1; margin: 0;", type: "range", min: "0", max: "1", value: "0", step: "0.00001" });
-            this._zoomInButton = button$4({ type: "button", title: "Zoom In", style: "height: var(--button-size); margin-left: 0.5em;" }, SVG.svg({ width: "20", height: "20", viewBox: "-10 -10 20 20", "pointer-events": "none", style: "width: 100%; height: 100%;" }, SVG.circle({ cx: -1, cy: -1, r: 6, "stroke-width": 2, stroke: ColorConfig.primaryText, fill: "none" }), SVG.path({ stroke: ColorConfig.primaryText, "stroke-width": 2, d: "M 3 3 L 7 7 M -1 -4 L -1 2 M -4 -1 L 2 -1", fill: "none" })));
-            this._zoomOutButton = button$4({ type: "button", title: "Zoom Out", style: "height: var(--button-size); margin-left: 0.5em;" }, SVG.svg({ width: "20", height: "20", viewBox: "-10 -10 20 20", "pointer-events": "none", style: "width: 100%; height: 100%;" }, SVG.circle({ cx: -1, cy: -1, r: 6, "stroke-width": 2, stroke: ColorConfig.primaryText, fill: "none" }), SVG.path({ stroke: ColorConfig.primaryText, "stroke-width": 2, d: "M 3 3 L 7 7 M -4 -1 L 2 -1", fill: "none" })));
-            this._zoom100Button = button$4({ type: "button", title: "Zoom 100%", style: "height: var(--button-size); margin-left: 0.5em;" }, "100%");
-            this._addLabelButton=button$4({type:"button",title:"Add Label"},"Labeling")
+this._addLabelButton=button$4({type:"button",title:"Add Label"},"Labeling")
 this._addLabelButton.addEventListener("click", () => {
  const visible = this._labelingContainer.style.display === "block"
  this._labelingContainer.style.display = visible ? "none" : "block"
  this._pointLabeling._open()
 })
-            this._loopModeSelect = select$3({ style: "width: 100%; flex-grow: 1; margin-left: 0.5em;" }, option$3({ value: 0 }, "Loop"), option$3({ value: 1 }, "Ping-Pong"), option$3({ value: 2 }, "Play Once"), option$3({ value: 3 }, "Play Loop Once"));
-            this._startOffsetStepper = input$3({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveStartOffset, min: "0", step: "1" });
-            this._loopStartStepper = input$3({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveLoopStart, min: "0", step: "1" });
-            this._loopEndStepper = input$3({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveLoopEnd, min: "0", step: "1" });
-            this._playBackwardsBox = input$3({ type: "checkbox", style: "width: 1em; padding: 0; margin-left: auto; margin-right: auto;" });
-            this._playSongButton = button$4({ style: "width: 55%;", type: "button" });
-            this._cancelButton = button$4({ class: "cancelButton" });
-            this._okayButton = button$4({ class: "okayButton", style: "width: 25%;" }, "Okay");
-            this._sampleIsLoadingMessage = div$4({ style: "margin-bottom: 0.5em; display: none;" }, "Sample is loading");
-            
-            this._loopControlsContainer = div$4(div$4({ style: "display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, div$4({ style: `width: 100%; margin-bottom: 0.5em; text-align: center; color: ${ColorConfig.secondaryText};` }, "You can also zoom by dragging horizontally on the waveform.")), this._startOffsetHandle.canvas, this._waveformContainer, this._loopStartHandle.canvas, this._loopEndHandle.canvas, div$4({ style: "display: flex; flex-direction: row; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, this._viewportOffsetSlider, this._zoomInButton, this._zoomOutButton, this._zoom100Button,this._zoomInYButton), 
-            div$4({ style: "display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right: color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop Mode"), this._loopModeSelect), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Offset"), this._startOffsetStepper), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop Start"), this._loopStartStepper), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop End"), this._loopEndStepper),div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Backwards"), this._playBackwardsBox), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em; justify-content: center;" },
-            this._playSongButton , div$4({style:"display:flex;gap:0.5em;margin-left:2px;"},this._addLabelButton)
-            )));
-            this.container = div$4({ class: "prompt noSelection", style: "width: 500px;" }, div$4(h2$3({ style: "margin-bottom: 0.5em;" }, "Loop Controls"), this._sampleIsLoadingMessage, this._loopControlsContainer, div$4({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton)), this._cancelButton);
+            this._loopControlsContainer = div$8(div$8({ style: "display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, div$8({ style: `width: 100%; margin-bottom: 0.5em; text-align: center; color: ${ColorConfig.secondaryText};` }, "You can also zoom by dragging horizontally on the waveform.")), this._startOffsetHandle.canvas, this._waveformContainer, this._loopStartHandle.canvas, this._loopEndHandle.canvas, div$8({ style: "display: flex; flex-direction: row; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, this._viewportOffsetSlider, this._zoomInButton, this._zoomOutButton, this._zoom100Button), div$8({ style: "display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, div$8({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$8({ style: `flex-shrink: 0; text-align: right: color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop Mode"), this._loopModeSelect), div$8({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$8({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Offset"), this._startOffsetStepper), div$8({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$8({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop Start"), this._loopStartStepper), div$8({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$8({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop End"), this._loopEndStepper), div$8({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$8({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Backwards"), this._playBackwardsBox), div$8({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em; justify-content: center;" }, this._playSongButton , div$4({style:"display:flex;gap:0.5em;margin-left:2px;"},this._addLabelButton))));
+            this.container = div$8({ class: "prompt noSelection", style: "width: 500px;" }, div$8(div$8({ class: "promptTitle" }, h2$6({ class: "loop-controlsExt", style: "text-align: inherit;" }, ""), h2$6({ class: "loop-controlsTitle" }, "Loop Controls")), this._sampleIsLoadingMessage, this._loopControlsContainer, div$8({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton)), this._cancelButton);
             this.gotMouseUp = false;
             this._waveformSampleLookup = (x) => {
                 const n = this._waveformDataLength;
@@ -54513,9 +63324,696 @@ this._addLabelButton.addEventListener("click", () => {
                 this._loopStartHandle.render();
                 this._loopEndHandle.render();
                 this._renderOverlay();
+            };
+            this._doc = _doc;
+            this._songEditor = _songEditor;
+            this._waveformContext = this._waveformCanvas.getContext("2d");
+            this._overlayContext = this._overlayCanvas.getContext("2d");
+            this._instrument = this._doc.song.channels[this._doc.channel].instruments[this._doc.getCurrentInstrument()];
+            const rawChipWave = Config.rawRawChipWaves[this._instrument.chipWave]; // const rawChipWave = Config.rawRawChipWaves[this._instrument.chipWave];
+            const customSampleIsLoading = (Config.chipWaves[this._instrument.chipWave].isCustomSampled === true) && sampleLoadingState.statusTable[this._instrument.chipWave] !== 1 && !Config.chipWaves[this._instrument.chipWave].isCustomLoaded;
+            if (customSampleIsLoading) {
+                this._sampleIsLoadingMessage.style.display = "";
+                this._loopControlsContainer.style.display = "none";
+                this._chipWaveIsUnavailable = true;
+            }
+            else {
+                this._sampleIsLoadingMessage.style.display = "none";
+                this._loopControlsContainer.style.display = "";
+                this._chipWaveIsUnavailable = false;
+                this._waveformData = rawChipWave.samples;
+                this._waveformDataLength = this._waveformData.length - 1;
+                this._initialChipWaveLoopMode = this._instrument.chipWaveLoopMode;
+                this._initialChipWaveStartOffset = this._instrument.chipWaveStartOffset;
+                this._initialChipWaveLoopStart = this._instrument.chipWaveLoopStart;
+                this._initialChipWaveLoopEnd = this._instrument.chipWaveLoopEnd;
+                this._initialChipWavePlayBackwards = this._instrument.chipWavePlayBackwards;
+                this._chipWaveLoopMode = this._initialChipWaveLoopMode;
+                this._chipWaveStartOffset = this._initialChipWaveStartOffset;
+                this._chipWaveLoopStart = this._initialChipWaveLoopStart;
+                this._chipWaveLoopEnd = this._initialChipWaveLoopEnd;
+                this._chipWavePlayBackwards = this._initialChipWavePlayBackwards;
+                const verticalBounds = this._waveformSamplesLookup(0, this._waveformDataLength);
+                const maxVerticalBound = Math.max(Math.abs(verticalBounds[0]), Math.abs(verticalBounds[1])) + 0.01;
+                verticalBounds[0] = -maxVerticalBound;
+                verticalBounds[1] = maxVerticalBound;
+                this._waveformViewportX0 = 0;
+                this._waveformViewportX1 = this._waveformDataLength;
+                this._waveformViewportY0 = verticalBounds[0];
+                this._waveformViewportY1 = verticalBounds[1];
+                this._waveformViewportWidth = this._waveformViewportX1 - this._waveformViewportX0;
+                this._waveformViewportOffset = 0;
+                this._waveformViewportMaxOffset = this._waveformDataLength - this._waveformViewportWidth;
+                this._startOffsetHandle.update(this._chipWaveStartOffset);
+                this._loopStartHandle.update(this._chipWaveLoopStart);
+                this._loopEndHandle.update(this._chipWaveLoopEnd);
+                this._propagateViewportUpdate();
+            }
+            this._updatePlaySongButton();
+            this._render();
+            this._reconfigureLoopControls();
+            this.container.addEventListener("keydown", this._whenKeyPressed);
+            this._okayButton.addEventListener("click", this._saveChanges);
+            this._cancelButton.addEventListener("click", this._close);
+            this._viewportOffsetSlider.addEventListener("input", this._whenViewportOffsetSliderChanges);
+            this._zoomInButton.addEventListener("click", this._whenZoomInClicked);
+            this._zoomOutButton.addEventListener("click", this._whenZoomOutClicked);
+            this._zoom100Button.addEventListener("click", this._whenZoom100Clicked);
+            this._loopModeSelect.addEventListener("change", this._whenLoopModeSelectChanges);
+            this._startOffsetStepper.addEventListener("change", this._whenStartOffsetStepperChanges);
+            this._loopStartStepper.addEventListener("change", this._whenLoopStartStepperChanges);
+            this._loopEndStepper.addEventListener("change", this._whenLoopEndStepperChanges);
+            this._playBackwardsBox.addEventListener("input", this._whenPlayBackwardsBoxChanges);
+            this._playSongButton.addEventListener("click", this._togglePlaySong);
+            window.addEventListener("mousemove", this._whenOverlayMouseMoves);
+            this._overlayCanvas.addEventListener("mousedown", this._whenOverlayMouseIsDown);
+            window.addEventListener("mouseup", this._whenOverlayMouseIsUp);
+            this._overlayCanvas.addEventListener("touchstart", this._whenOverlayTouchIsDown);
+            this._overlayCanvas.addEventListener("touchmove", this._whenOverlayTouchMoves);
+            this._overlayCanvas.addEventListener("touchend", this._whenOverlayTouchIsUp);
+            this._overlayCanvas.addEventListener("touchcancel", this._whenOverlayTouchIsUp);
+        this._pointLabeling._ldE(this)
+        }
+_drawLabelingMarkers(ctx, w, h, vx0, vx1) {
+	const labels = this._pointLabeling.returnLabels()
+	if (!labels) return
+	ctx.save()
+	ctx.strokeStyle = "#fff"
+	ctx.fillStyle = "#fff"
+	ctx.font = "12px sans-serif"
+	for (const l of labels) {
+		const pos = parseFloat(l.pos)
+		if (isNaN(pos)) continue
+		const x = (pos - vx0) * w / (vx1 - vx0)
+		if (x < 0 || x > w) continue
+		ctx.beginPath()
+		ctx.moveTo(x, 0)
+		ctx.lineTo(x, h)
+		ctx.stroke()
+		ctx.fillText(l.name || "", x + 4, 12)
+	}
+	ctx.restore()
+}
+    }
+
+
+    class VisualLoopControlsPrompt { 
+        constructor(_doc, _songEditor) {
+            this._waveformCanvasWidth = 500;
+            this._waveformCanvasHeight = 200;
+            this._handleCanvasHeight = 20;
+            this._instrument = null;
+            this._waveformData = null;
+            this._zoomYanabled=false;
+            this._zoomedYAxis=false
+            this._waveformDataLength = null;
+            this._initialChipWaveLoopMode = null;
+            this._initialChipWaveStartOffset = null;
+            this._initialChipWaveLoopStart = null;
+            this._initialChipWaveLoopEnd = null;
+            this._initialChipWavePlayBackwards = null;
+            this._chipWaveLoopMode = 0;
+            this._chipWaveStartOffset = 0;
+            this._chipWaveLoopStart = 0;
+            this._chipWaveLoopEnd = 0;
+            this._chipWavePlayBackwards = false;
+            this._waveformViewportX0 = 0;
+            this._waveformViewportX1 = 1;
+            this._waveformViewportY0 = -1.01;
+            this._waveformViewportY1 = 1.01;
+            this._waveformViewportWidth = 1;
+            this._waveformViewportOffset = 0;
+            this._waveformViewportMaxOffset = 0;
+            this._overlayIsMouseDown = false;
+            this._overlaySelectionX0 = null;
+            this._overlaySelectionX1 = null;
+            
+ this._waveformViewportYOffset = 0
+this._waveformViewportYRange = this._waveformViewportY1 - this._waveformViewportY0
+this._waveformViewportYMaxOffset = 0
+
+            this._startOffsetValidator = (v) => {
+                return Math.max(0, Math.min(this._waveformDataLength, Math.floor(v)));
+            };
+            this._loopStartValidator = (v) => {
+                return Math.max(0, Math.min(this._waveformDataLength, Math.min(this._chipWaveLoopEnd - 2, Math.floor(v))));
+            };
+            this._loopEndValidator = (v) => {
+                return Math.max(0, Math.min(this._waveformDataLength, Math.max(this._chipWaveLoopStart + 2, Math.floor(v))));
+            };
+            this._startOffsetHandle = new VisualLoopControlsHandle(this._chipWaveStartOffset, this._waveformCanvasWidth, this._handleCanvasHeight, this._waveformViewportX0, this._waveformViewportX1, this._startOffsetValidator, (v) => {
+                this._chipWaveStartOffset = v;
+                this._instrument.chipWaveStartOffset = this._chipWaveStartOffset;
+                this._renderOverlay();
+                this._reconfigureLoopControls();
+            }, () => {
+                this.gotMouseUp = true;
+                setTimeout(() => { this.gotMouseUp = false; }, 10);
+            }, (cnv, ctx, x, y, w, h) => {
+                const th = h / 4;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + w, y);
+                ctx.lineTo(x + w, y + h - th);
+                ctx.lineTo(x + w / 2, y + h);
+                ctx.lineTo(x, y + h - th);
+                ctx.fill();
+            });
+            this._loopStartHandle = new VisualLoopControlsHandle(this._chipWaveLoopStart, this._waveformCanvasWidth, this._handleCanvasHeight, this._waveformViewportX0, this._waveformViewportX1, this._loopStartValidator, (v) => {
+                this._chipWaveLoopStart = v;
+                this._instrument.chipWaveLoopStart = this._chipWaveLoopStart;
+                this._renderOverlay();
+                this._reconfigureLoopControls();
+            }, () => {
+                this.gotMouseUp = true;
+                setTimeout(() => { this.gotMouseUp = false; }, 10);
+            }, (cnv, ctx, x, y, w, h) => {
+                const tw = w / 4;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + w - tw, y);
+                ctx.lineTo(x + w, y + h / 2);
+                ctx.lineTo(x + w - tw, y + h);
+                ctx.lineTo(x, y + h);
+                ctx.fill();
+            });
+            this._loopEndHandle = new VisualLoopControlsHandle(this._chipWaveLoopEnd, this._waveformCanvasWidth, this._handleCanvasHeight, this._waveformViewportX0, this._waveformViewportX1, this._loopEndValidator, (v) => {
+                this._chipWaveLoopEnd = v;
+                this._instrument.chipWaveLoopEnd = this._chipWaveLoopEnd;
+                this._renderOverlay();
+                this._reconfigureLoopControls();
+            }, () => {
+                this.gotMouseUp = true;
+                setTimeout(() => { this.gotMouseUp = false; }, 10);
+            }, (cnv, ctx, x, y, w, h) => {
+                const tw = w / 4;
+                ctx.beginPath();
+                ctx.moveTo(x + w, y);
+                ctx.lineTo(x + w, y + h);
+                ctx.lineTo(x + tw, y + h);
+                ctx.lineTo(x, y + h / 2);
+                ctx.lineTo(x + tw, y);
+                ctx.fill();
+            });
+            this._chipWaveIsUnavailable = true;
+this._zoomInYButton = button$4({ type: "button", title: "Zoom In Y", style: "height: var(--button-size); margin-left: 0.5em;" }, "YZoom")
+ this._zoomInYButton.addEventListener("click",()=>{
+ if(!this._waveformData)return
+ this._zoomYanabled=!this._zoomYanabled;
+ this._zoomYanabled?this._zoomInYButton.style.border="2px solid white":this._zoomInYButton.style.border=""
+ localStorage.setItem("zoomY", this._zoomYanabled);
+ this._render()
+})
+const savedZoomY = localStorage.getItem("zoomY");
+this._zoomYanabled = savedZoomY === "true";
+this._zoomYanabled?this._zoomInYButton.style.border="2px solid white":this._zoomInYButton.style.border=""
+
+            this._waveformCanvas = canvas$1({ width: this._waveformCanvasWidth, height: this._waveformCanvasHeight, style: "cursor: default; position: static; width: 100%;" });
+            this._waveformContext = null;
+            this._overlayCanvas = canvas$1({ width: this._waveformCanvasWidth, height: this._waveformCanvasHeight, style: "cursor: default; position: absolute; top: 0; left: 0; width: 100%;" });
+this._labelingContainer=document.createElement("div") 
+this._labelingContainer.style.cssText="position:fixed;top:0;left:0;z-index:9999;display:none; width:100%; height:100vh; overflow:hidden; background:rgba(0,0,0,0.15)"
+document.body.append(this._labelingContainer)
+this._pointLabeling=new PointLabeling(this._labelingContainer )
+            this._overlayContext = null;
+            this._waveformContainer = div$4({ style: `position: relative; margin-bottom: 0.5em; margin-left: auto; margin-right: auto; width: 100%; outline: 1px solid ${ColorConfig.uiWidgetBackground};` }, this._waveformCanvas, this._overlayCanvas);
+            this._viewportOffsetSlider = input$3({ style: "width: 100%; flex-grow: 1; margin: 0;", type: "range", min: "0", max: "1", value: "0", step: "0.00001" });
+            this._zoomInButton = button$4({ type: "button", title: "Zoom In", style: "height: var(--button-size); margin-left: 0.5em;" }, SVG.svg({ width: "20", height: "20", viewBox: "-10 -10 20 20", "pointer-events": "none", style: "width: 100%; height: 100%;" }, SVG.circle({ cx: -1, cy: -1, r: 6, "stroke-width": 2, stroke: ColorConfig.primaryText, fill: "none" }), SVG.path({ stroke: ColorConfig.primaryText, "stroke-width": 2, d: "M 3 3 L 7 7 M -1 -4 L -1 2 M -4 -1 L 2 -1", fill: "none" })));
+            this._zoomOutButton = button$4({ type: "button", title: "Zoom Out", style: "height: var(--button-size); margin-left: 0.5em;" }, SVG.svg({ width: "20", height: "20", viewBox: "-10 -10 20 20", "pointer-events": "none", style: "width: 100%; height: 100%;" }, SVG.circle({ cx: -1, cy: -1, r: 6, "stroke-width": 2, stroke: ColorConfig.primaryText, fill: "none" }), SVG.path({ stroke: ColorConfig.primaryText, "stroke-width": 2, d: "M 3 3 L 7 7 M -4 -1 L 2 -1", fill: "none" })));
+            this._zoom100Button = button$4({ type: "button", title: "Zoom 100%", style: "height: var(--button-size); margin-left: 0.5em;" }, "100%");
+            this._addLabelButton=button$4({type:"button",title:"Add Label"},"Labeling")
+this._addLabelButton.addEventListener("click", () => {
+ const visible = this._labelingContainer.style.display === "block"
+ this._labelingContainer.style.display = visible ? "none" : "block"
+ this._pointLabeling._open()
+})
+            this._loopModeSelect = select$3({ style: "width: 100%; flex-grow: 1; margin-left: 0.5em;" }, option$3({ value: 0 }, "Loop"), option$3({ value: 1 }, "Ping-Pong"), option$3({ value: 2 }, "Play Once"), option$3({ value: 3 }, "Play Loop Once"));
+            this._startOffsetStepper = input$3({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveStartOffset, min: "0", step: "1" });
+            this._loopStartStepper = input$3({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveLoopStart, min: "0", step: "1" });
+            this._loopEndStepper = input$3({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveLoopEnd, min: "0", step: "1" });
+            this._playBackwardsBox = input$3({ type: "checkbox", style: "width: 1em; padding: 0; margin-left: auto; margin-right: auto;" });
+            this._playSongButton = button$4({ style: "width: 55%;", type: "button" });
+            this._cancelButton = button$4({ class: "cancelButton" });
+            this._okayButton = button$4({ class: "okayButton", style: "width: 25%;" }, "Okay");
+            this._sampleIsLoadingMessage = div$4({ style: "margin-bottom: 0.5em; display: none;" }, "Sample is loading");
+            
+            this._loopControlsContainer = div$4(div$4({ style: "display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, div$4({ style: `width: 100%; margin-bottom: 0.5em; text-align: center; color: ${ColorConfig.secondaryText};` }, "You can also zoom by dragging horizontally on the waveform.")), this._startOffsetHandle.canvas, this._waveformContainer, this._loopStartHandle.canvas, this._loopEndHandle.canvas, div$4({ style: "display: flex; flex-direction: row; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, this._viewportOffsetSlider, this._zoomInButton, this._zoomOutButton, this._zoom100Button,this._zoomInYButton), 
+            div$4({ style: "display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right: color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop Mode"), this._loopModeSelect), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Offset"), this._startOffsetStepper), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop Start"), this._loopStartStepper), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop End"), this._loopEndStepper),div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Backwards"), this._playBackwardsBox), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em; justify-content: center;" },
+            this._playSongButton , div$4({style:"display:flex;gap:0.5em;margin-left:2px;"},this._addLabelButton)
+            )));
+            this.container = div$4({ class: "prompt noSelection", style: "width: 500px;" }, div$4(h2$3({ style: "margin-bottom: 0.5em;" }, "Loop Controls"), this._sampleIsLoadingMessage, this._loopControlsContainer, div$4({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton)), this._cancelButton);
+            this.gotMouseUp = false;
+            this._waveformSampleLookup = (x) => {
+                const n = this._waveformDataLength;
+                if (x >= 0 && x < n) {
+                    return this._waveformData[Math.floor(x)];
+                }
+                else {
+                    return 0;
+                }
+            };
+            this._waveformSamplesLookup = (x0, x1) => {
+                const n = this._waveformDataLength;
+                const a = Math.max(0, Math.min(n, Math.ceil(x0)));
+                const b = Math.max(0, Math.min(n, Math.ceil(x1)));
+                if (a >= b)
+                    return [0, 0];
+                let y0 = this._waveformData[a];
+                let y1 = y0;
+                for (let i = a + 1; i < b; i++) {
+                    const v = this._waveformData[i];
+                    y0 = Math.min(y0, v);
+                    y1 = Math.max(y1, v);
+                }
+                return [y0, y1];
+            };
+            this.cleanUp = () => {
+                this._startOffsetHandle.cleanUp();
+                this._loopStartHandle.cleanUp();
+                this._loopEndHandle.cleanUp();
+                this.container.removeEventListener("keydown", this._whenKeyPressed);
+                this._okayButton.removeEventListener("click", this._saveChanges);
+                this._cancelButton.removeEventListener("click", this._close);
+                this._viewportOffsetSlider.removeEventListener("input", this._whenViewportOffsetSliderChanges);
+                this._zoomInButton.removeEventListener("click", this._whenZoomInClicked);
+                this._zoomOutButton.removeEventListener("click", this._whenZoomOutClicked);
+                this._zoom100Button.removeEventListener("click", this._whenZoom100Clicked);
+                this._loopModeSelect.removeEventListener("change", this._whenLoopModeSelectChanges);
+                this._startOffsetStepper.removeEventListener("change", this._whenStartOffsetStepperChanges);
+                this._loopStartStepper.removeEventListener("change", this._whenLoopStartStepperChanges);
+                this._loopEndStepper.removeEventListener("change", this._whenLoopEndStepperChanges);
+                this._playBackwardsBox.removeEventListener("input", this._whenPlayBackwardsBoxChanges);
+                this._playSongButton.removeEventListener("click", this._togglePlaySong);
+                this._overlayCanvas.removeEventListener("mousemove", this._whenOverlayMouseMoves);
+                this._overlayCanvas.removeEventListener("mousedown", this._whenOverlayMouseIsDown);
+                this._overlayCanvas.removeEventListener("mouseup", this._whenOverlayMouseIsUp);
+                this._overlayCanvas.removeEventListener("touchstart", this._whenOverlayTouchIsDown);
+                this._overlayCanvas.removeEventListener("touchmove", this._whenOverlayTouchMoves);
+                this._overlayCanvas.removeEventListener("touchend", this._whenOverlayTouchIsUp);
+                this._overlayCanvas.removeEventListener("touchcancel", this._whenOverlayTouchIsUp);
+            };
+            this._close = () => {
+                this._doc.prompt = null;
+                this._doc.undo();
+            };
+            this._saveChanges = () => {
+                if (!this._chipWaveIsUnavailable) {
+                    this._doc.prompt = null;
+                    this._instrument.chipWaveLoopMode = this._initialChipWaveLoopMode;
+                    this._instrument.chipWaveStartOffset = this._initialChipWaveStartOffset;
+                    this._instrument.chipWaveLoopStart = this._initialChipWaveLoopStart;
+                    this._instrument.chipWaveLoopEnd = this._initialChipWaveLoopEnd;
+                    this._instrument.chipWavePlayBackwards = this._initialChipWavePlayBackwards;
+                    const group = new ChangeGroup();
+                    group.append(new ChangeChipWaveLoopMode(this._doc, this._chipWaveLoopMode));
+                    group.append(new ChangeChipWaveStartOffset(this._doc, this._chipWaveStartOffset));
+                    group.append(new ChangeChipWaveLoopStart(this._doc, this._chipWaveLoopStart));
+                    group.append(new ChangeChipWaveLoopEnd(this._doc, this._chipWaveLoopEnd));
+                    group.append(new ChangeChipWavePlayBackwards(this._doc, this._chipWavePlayBackwards));
+                    this._doc.record(group, true);
+                }
+                else {
+                    this._doc.prompt = null;
+                    this._doc.undo();
+                }
+            };
+            this._togglePlaySong = () => {
+                this._songEditor.togglePlay();
+                this._updatePlaySongButton();
+            };
+            this._renderWaveform = () => { 
+                if (this._chipWaveIsUnavailable)
+                    return;
+                const cnv = this._waveformCanvas;
+                const ctx = this._waveformContext;
+                const w = cnv.width;
+                const h = cnv.height;
+                const vx0 = this._waveformViewportX0;
+                const vx1 = this._waveformViewportX1;
+                const vy0 = this._waveformViewportY0;
+                const vy1 = this._waveformViewportY1;
+                const sampleWidth = (vx1 - vx0) / w;
+                ctx.clearRect(0, 0, w, h);
+                ctx.fillStyle = ColorConfig.getComputed("--ui-widget-background");
+                ctx.fillRect(0, h / 2, w, 1);
+                const waveformColor = ColorConfig.getComputed("--primary-text");
+                if (sampleWidth < 1) {
+                    ctx.strokeStyle = waveformColor;
+                    ctx.lineWidth = 1;
+                    let firstMove = true;
+                    ctx.beginPath();
+                    for (let cx = 0; cx < w; cx++) {
+                        const wx = vx0 + cx * sampleWidth;
+                        const wy = this._waveformSampleLookup(wx);
+                        const cy = h - (wy - vy0) * h / (vy1 - vy0);
+                        if (firstMove) {
+                            ctx.moveTo(cx, cy);
+                            firstMove = false;
+                        }
+                        else {
+                            ctx.lineTo(cx, cy);
+                        }
+                    }
+                    ctx.stroke();
+                }
+                else {
+                    ctx.fillStyle = waveformColor;
+                    let pcy0 = null;
+                    let pcy1 = null;
+                    for (let cx = 0; cx < w; cx++) {
+                        const wx = vx0 + cx * sampleWidth;
+                        const [wy0, wy1] = this._waveformSamplesLookup(wx - sampleWidth / 2, wx + sampleWidth / 2);
+                        const cy0 = Math.max(-1, Math.min(h, h - (wy1 - vy0) * h / (vy1 - vy0)));
+                        const cy1 = Math.max(-1, Math.min(h, h - (wy0 - vy0) * h / (vy1 - vy0)));
+                        const cy0i = Math.floor(cy0);
+                        const cy1i = Math.max(Math.ceil(cy1), cy0i + 1);
+                        const ocy0 = pcy1 == null ? cy0i : Math.min(cy0i, pcy1);
+                        const ocy1 = pcy0 == null ? cy1i : Math.max(cy1i, pcy0);
+                        const bh = Math.max(1, ocy1 - ocy0);
+                        ctx.fillRect(cx, ocy0, 1, bh);
+                        pcy0 = ocy0;
+                        pcy1 = ocy1;
+                    }
+                }
+            };
+            this._renderOverlay = () => {
+                const cnv = this._overlayCanvas;
+                const ctx = this._overlayContext;
+                const w = cnv.width;
+                const h = cnv.height;
+                const vx0 = this._waveformViewportX0;
+                const vx1 = this._waveformViewportX1;
+                const so = this._chipWaveStartOffset;
+                const ls = this._chipWaveLoopStart;
+                const le = this._chipWaveLoopEnd;
+                ctx.clearRect(0, 0, w, h);
+                ctx.fillStyle = ColorConfig.getComputed("--loop-accent");
+                const obx = Math.floor((so - vx0) * w / (vx1 - vx0));
+                const oby = 0;
+                const obw = 1;
+                const obh = h;
+                ctx.fillRect(obx, oby, obw, obh);
+                ctx.fillStyle = ColorConfig.getComputed("--loop-accent");
+                ctx.globalAlpha = 0.5;
+                const lbx0 = Math.floor((ls - vx0) * w / (vx1 - vx0));
+                const lbx1 = Math.floor((le - vx0) * w / (vx1 - vx0));
+                const lbx = lbx0;
+                const lby = 0;
+                const lbw = lbx1 - lbx0;
+                const lbh = h;
+                ctx.fillRect(lbx, lby, lbw, lbh);
+                ctx.globalAlpha = 1;
+                if (this._overlaySelectionX0 != null && this._overlaySelectionX1 != null) {
+                    ctx.fillStyle = ColorConfig.getComputed("--box-selection-fill");
+                    ctx.globalAlpha = 0.5;
+                    ctx.fillRect(this._overlaySelectionX0, 0, this._overlaySelectionX1 - this._overlaySelectionX0, h);
+                    ctx.globalAlpha = 1;
+                }
+                this._drawLabelingMarkers(ctx,w,h,vx0,vx1)
+            };
+            this._reconfigureLoopControls = () => {
+                this._loopModeSelect.value = "" + this._chipWaveLoopMode;
+                this._startOffsetStepper.value = "" + this._chipWaveStartOffset;
+                this._loopStartStepper.value = "" + this._chipWaveLoopStart;
+                this._loopEndStepper.value = "" + this._chipWaveLoopEnd;
+                this._playBackwardsBox.checked = this._chipWavePlayBackwards;
+            };
+            this._whenViewportOffsetSliderChanges = (event) => {
+                const rawOffset = Math.max(0, Math.min(1, +event.target.value));
+                const newViewportOffset = Math.max(0, Math.min(this._waveformViewportMaxOffset, rawOffset * this._waveformViewportMaxOffset));
+                this._waveformViewportOffset = Math.min(this._waveformViewportMaxOffset, newViewportOffset);
+                this._viewportOffsetSlider.value = "" + (this._waveformViewportOffset / this._waveformViewportMaxOffset);
+                this._waveformViewportX0 = 0 + this._waveformViewportOffset;
+                this._waveformViewportX1 = this._waveformViewportWidth + this._waveformViewportOffset;
+                this._propagateViewportUpdate();
+                this._render();
+            };
+            this._whenZoomInClicked = (event) => {
+                const newViewportWidth = Math.max(1, Math.min(this._waveformDataLength, this._waveformViewportWidth / 2));
+                this._waveformViewportWidth = newViewportWidth;
+                this._waveformViewportMaxOffset = this._waveformDataLength - this._waveformViewportWidth;
+                const centerX = this._waveformViewportX0 + (this._waveformCanvasWidth / 2) * (this._waveformViewportX1 - this._waveformViewportX0) / this._waveformCanvasWidth;
+                this._waveformViewportOffset = Math.max(0, Math.min(this._waveformViewportMaxOffset, centerX - (this._waveformCanvasWidth / 2) * this._waveformViewportWidth / this._waveformCanvasWidth));
+                this._waveformViewportX0 = 0 + this._waveformViewportOffset;
+                this._waveformViewportX1 = this._waveformViewportWidth + this._waveformViewportOffset;
+                this._viewportOffsetSlider.value = "" + (this._waveformViewportOffset / this._waveformViewportMaxOffset);
+                this._propagateViewportUpdate();
+                this._render();
+            };
+            this._whenZoomOutClicked = (event) => {
+                const newViewportWidth = Math.max(1, Math.min(this._waveformDataLength, this._waveformViewportWidth * 2));
+                this._waveformViewportWidth = newViewportWidth;
+                this._waveformViewportMaxOffset = this._waveformDataLength - this._waveformViewportWidth;
+                const centerX = this._waveformViewportX0 + (this._waveformCanvasWidth / 2) * (this._waveformViewportX1 - this._waveformViewportX0) / this._waveformCanvasWidth;
+                this._waveformViewportOffset = Math.max(0, Math.min(this._waveformViewportMaxOffset, centerX - (this._waveformCanvas.width / 2) * this._waveformViewportWidth / this._waveformCanvasWidth));
+                this._waveformViewportX0 = 0 + this._waveformViewportOffset;
+                this._waveformViewportX1 = this._waveformViewportWidth + this._waveformViewportOffset;
+                if (this._waveformViewportWidth === this._waveformDataLength) {
+                    this._viewportOffsetSlider.value = "0";
+                }
+                else {
+                    this._viewportOffsetSlider.value = "" + (this._waveformViewportOffset / this._waveformViewportMaxOffset);
+                }
+                this._propagateViewportUpdate();
+                this._render();
+            };
+            this._whenZoom100Clicked = (event) => {
+                const newViewportWidth = this._waveformDataLength;
+                this._waveformViewportWidth = newViewportWidth;
+                this._waveformViewportMaxOffset = this._waveformDataLength - this._waveformViewportWidth;
+                this._waveformViewportOffset = Math.max(0, Math.min(this._waveformViewportMaxOffset, 0));
+                this._waveformViewportX0 = 0 + this._waveformViewportOffset;
+                this._waveformViewportX1 = this._waveformViewportWidth + this._waveformViewportOffset;
+                if (this._waveformViewportWidth === this._waveformDataLength) {
+                    this._viewportOffsetSlider.value = "0";
+                }
+                else {
+                    this._viewportOffsetSlider.value = "" + (this._waveformViewportOffset / this._waveformViewportMaxOffset);
+                }
+                this._propagateViewportUpdate();
+                this._render();
+            };
+            this._whenLoopModeSelectChanges = (event) => {
+                const element = event.target;
+                const newValue = +element.value;
+                this._chipWaveLoopMode = newValue;
+                this._instrument.chipWaveLoopMode = this._chipWaveLoopMode;
+            };
+            this._whenStartOffsetStepperChanges = (event) => {
+                const element = event.target;
+                const newValue = this._startOffsetValidator(+element.value);
+                this._chipWaveStartOffset = newValue;
+                this._instrument.chipWaveStartOffset = this._chipWaveStartOffset;
+                element.value = "" + newValue;
+                this._startOffsetHandle.update(newValue);
+                this._startOffsetHandle.render();
+                this._renderOverlay();
+            };
+            this._whenLoopStartStepperChanges = (event) => {
+                const element = event.target;
+                const newValue = this._loopStartValidator(+element.value);
+                this._chipWaveLoopStart = newValue;
+                this._instrument.chipWaveLoopStart = this._chipWaveLoopStart;
+                element.value = "" + newValue;
+                this._loopStartHandle.update(newValue);
+                this._loopStartHandle.render();
+                this._renderOverlay();
+            };
+            this._whenLoopEndStepperChanges = (event) => {
+                const element = event.target;
+                const newValue = this._loopEndValidator(+element.value);
+                this._chipWaveLoopEnd = newValue;
+                this._instrument.chipWaveLoopEnd = this._chipWaveLoopEnd;
+                element.value = "" + newValue;
+                this._loopEndHandle.update(newValue);
+                this._loopEndHandle.render();
+                this._renderOverlay();
+            };
+            this._whenPlayBackwardsBoxChanges = (event) => {
+                const element = event.target;
+                const newValue = element.checked;
+                this._chipWavePlayBackwards = newValue;
+                this._instrument.chipWavePlayBackwards = this._chipWavePlayBackwards;
+            };
+            this._whenOverlayMouseMoves = (event) => {
+                if (!this._overlayIsMouseDown)
+                    return;
+                const w = this._overlayCanvas.width;
+                const bounds = this._overlayCanvas.getBoundingClientRect();
+                const canvasXScale = w / bounds.width;
+                const mx = ((event.clientX || event.pageX) - bounds.left) * canvasXScale;
+                this._overlaySelectionX1 = mx;
+                this._renderOverlay();
+            };
+            this._whenOverlayMouseIsDown = (event) => {
+                this._overlayIsMouseDown = true;
+                const w = this._overlayCanvas.width;
+                const bounds = this._overlayCanvas.getBoundingClientRect();
+                const canvasXScale = w / bounds.width;
+                const mx = ((event.clientX || event.pageX) - bounds.left) * canvasXScale;
+                this._overlaySelectionX0 = mx;
+                this._overlaySelectionX1 = mx;
+                this._renderOverlay();
+            };
+            this._whenOverlayMouseIsUp = (event) => {
+                if (!this._overlayIsMouseDown)
+                    return;
+                this.gotMouseUp = true;
+                setTimeout(() => { this.gotMouseUp = false; }, 10);
+                this._overlayIsMouseDown = false;
+                const w = this._overlayCanvas.width;
+                const vx0 = this._waveformViewportX0;
+                const vx1 = this._waveformViewportX1;
+                const bounds = this._overlayCanvas.getBoundingClientRect();
+                const canvasXScale = w / bounds.width;
+                const mx = ((event.clientX || event.pageX) - bounds.left) * canvasXScale;
+                this._overlaySelectionX1 = mx;
+                this._overlaySelectionX0 = Math.max(0, Math.min(w, this._overlaySelectionX0));
+                this._overlaySelectionX1 = Math.max(0, Math.min(w, this._overlaySelectionX1));
+                if (this._overlaySelectionX0 > this._overlaySelectionX1) {
+                    const t = this._overlaySelectionX0;
+                    this._overlaySelectionX0 = this._overlaySelectionX1;
+                    this._overlaySelectionX1 = t;
+                }
+                let zoomAreaIsTooSmall = false;
+                if (this._overlaySelectionX1 - this._overlaySelectionX0 > 2) {
+                    const wosx0 = vx0 + this._overlaySelectionX0 * (vx1 - vx0) / w;
+                    const wosx1 = vx0 + this._overlaySelectionX1 * (vx1 - vx0) / w;
+                    const newViewportWidth = Math.max(1, Math.min(this._waveformDataLength, wosx1 - wosx0));
+                    this._waveformViewportWidth = newViewportWidth;
+                    this._waveformViewportMaxOffset = this._waveformDataLength - this._waveformViewportWidth;
+                    const centerX = vx0 + (this._overlaySelectionX0) * (this._waveformViewportX1 - this._waveformViewportX0) / this._waveformCanvasWidth;
+                    this._waveformViewportOffset = Math.max(0, Math.min(this._waveformViewportMaxOffset, centerX));
+                    this._waveformViewportX0 = 0 + this._waveformViewportOffset;
+                    this._waveformViewportX1 = this._waveformViewportWidth + this._waveformViewportOffset;
+                    if (this._waveformViewportWidth === this._waveformDataLength) {
+                        this._viewportOffsetSlider.value = "0";
+                    }
+                    else {
+                        this._viewportOffsetSlider.value = "" + (this._waveformViewportOffset / this._waveformViewportMaxOffset);
+                    }
+                }
+                else {
+                    zoomAreaIsTooSmall = true;
+                }
+                this._overlaySelectionX0 = null;
+                this._overlaySelectionX1 = null;
+                if (!zoomAreaIsTooSmall) {
+                    this._propagateViewportUpdate();
+                    this._render();
+                }
+                this._renderOverlay();
+            };
+            this._whenOverlayTouchIsDown = (event) => {
+                event.preventDefault();
+                this._overlayIsMouseDown = true;
+                const w = this._overlayCanvas.width;
+                const bounds = this._overlayCanvas.getBoundingClientRect();
+                const canvasXScale = w / bounds.width;
+                const mx = (event.touches[0].clientX - bounds.left) * canvasXScale;
+                this._overlaySelectionX0 = mx;
+                this._overlaySelectionX1 = mx;
+                this._renderOverlay();
+            };
+            this._whenOverlayTouchMoves = (event) => {
+                if (!this._overlayIsMouseDown)
+                    return;
+                event.preventDefault();
+                const w = this._overlayCanvas.width;
+                const bounds = this._overlayCanvas.getBoundingClientRect();
+                const canvasXScale = w / bounds.width;
+                const mx = (event.touches[0].clientX - bounds.left) * canvasXScale;
+                this._overlaySelectionX1 = mx;
+                this._renderOverlay();
+            };
+            this._whenOverlayTouchIsUp = (event) => {
+                event.preventDefault();
+                if (!this._overlayIsMouseDown)
+                    return;
+                this.gotMouseUp = true;
+                setTimeout(() => { this.gotMouseUp = false; }, 10);
+                this._overlayIsMouseDown = false;
+                const w = this._overlayCanvas.width;
+                const vx0 = this._waveformViewportX0;
+                const vx1 = this._waveformViewportX1;
+                this._overlaySelectionX0 = Math.max(0, Math.min(w, this._overlaySelectionX0));
+                this._overlaySelectionX1 = Math.max(0, Math.min(w, this._overlaySelectionX1));
+                if (this._overlaySelectionX0 > this._overlaySelectionX1) {
+                    const t = this._overlaySelectionX0;
+                    this._overlaySelectionX0 = this._overlaySelectionX1;
+                    this._overlaySelectionX1 = t;
+                }
+                let zoomAreaIsTooSmall = false;
+                if (this._overlaySelectionX1 - this._overlaySelectionX0 > 2) {
+                    const wosx0 = vx0 + this._overlaySelectionX0 * (vx1 - vx0) / w;
+                    const wosx1 = vx0 + this._overlaySelectionX1 * (vx1 - vx0) / w;
+                    const newViewportWidth = Math.max(1, Math.min(this._waveformDataLength, wosx1 - wosx0));
+                    this._waveformViewportWidth = newViewportWidth;
+                    this._waveformViewportMaxOffset = this._waveformDataLength - this._waveformViewportWidth;
+                    const centerX = vx0 + (this._overlaySelectionX0) * (this._waveformViewportX1 - this._waveformViewportX0) / this._waveformCanvasWidth;
+                    this._waveformViewportOffset = Math.max(0, Math.min(this._waveformViewportMaxOffset, centerX));
+                    this._waveformViewportX0 = 0 + this._waveformViewportOffset;
+                    this._waveformViewportX1 = this._waveformViewportWidth + this._waveformViewportOffset;
+                    if (this._waveformViewportWidth === this._waveformDataLength) {
+                        this._viewportOffsetSlider.value = "0";
+                    }
+                    else {
+                        this._viewportOffsetSlider.value = "" + (this._waveformViewportOffset / this._waveformViewportMaxOffset);
+                    }
+                }
+                else {
+                    zoomAreaIsTooSmall = true;
+                }
+                this._overlaySelectionX0 = null;
+                this._overlaySelectionX1 = null;
+                if (!zoomAreaIsTooSmall) {
+                    this._propagateViewportUpdate();
+                    this._render();
+                }
+                this._renderOverlay();
+            };
+            this._whenKeyPressed = (event) => {
+                if (event.target.tagName != "BUTTON" && event.keyCode == 13) {
+                    this._saveChanges();
+                }
+                if (event.keyCode == 32) {
+                    this._togglePlaySong();
+                    event.preventDefault();
+                }
+            };
+            this._updatePlaySongButton = () => {
+                if (this._doc.synth.playing) {
+                    this._playSongButton.classList.remove("playButton");
+                    this._playSongButton.classList.add("pauseButton");
+                    this._playSongButton.title = "Pause (Space)";
+                    this._playSongButton.innerText = "Pause";
+                }
+                else {
+                    this._playSongButton.classList.remove("pauseButton");
+                    this._playSongButton.classList.add("playButton");
+                    this._playSongButton.title = "Play (Space)";
+                    this._playSongButton.innerText = "Play";
+                }
+            };
+            this._propagateViewportUpdate = () => {
+                this._startOffsetHandle.updateViewport(this._waveformViewportX0, this._waveformViewportX1);
+                this._loopStartHandle.updateViewport(this._waveformViewportX0, this._waveformViewportX1);
+                this._loopEndHandle.updateViewport(this._waveformViewportX0, this._waveformViewportX1);
+            };
+            this._render = () => {
+                if (this._chipWaveIsUnavailable)
+                    return;
+                this._renderWaveform();
+                this._startOffsetHandle.render();
+                this._loopStartHandle.render();
+                this._loopEndHandle.render();
+                this._renderOverlay();
+                 
 this._zoomedYAxis=true
  if(this._zoomedYAxis && this._zoomYanabled){
   let min=Infinity,max=-Infinity
+  
+  
   const vx0=Math.floor(this._waveformViewportX0)
   const vx1=Math.ceil(this._waveformViewportX1)
   for(let i=vx0;i<vx1&&i<this._waveformDataLength;i++){
@@ -54715,10 +64213,22 @@ _drawLabelingMarkers(ctx, w, h, vx0, vx1) {
             this._entryContainer = div$2();
             this._addMultipleSamplesButton = button$2({ style: "height: auto; min-height: var(--button-size); margin-left: 0.5em;" }, "Add multiple samples");
             this._addSamplesAreaBottom = div$2({ style: "margin-top: 0.5em;" }, this._addSampleButton, this._addMultipleSamplesButton);
-            this._instructionsLink = a({ href: "#" }, "Here's more information and some instructions on how to use custom samples in Slarmoo's Box.");
-            this._description = div$2(div$2({ style: "margin-bottom: 0.5em; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; user-select: text; cursor: text;" }, "In order to use the old Slarmoo's Box samples, you should add ", code("legacySamples"), " as an URL. You can also use ", code("nintariboxSamples"), " and ", code("marioPaintboxSamples"), " for more built-in sample packs."), div$2({ style: "margin-bottom: 0.5em;" }, "The order of these samples is important - if you change it you'll break your song!"), div$2({ style: "margin-bottom: 0.5em;" }, this._instructionsLink));
+            this._instructionsLink = a({ href: "#" }, "Here's more information and some instructions on how to use custom samples in Studio's Box.");
+            this._description = div$2(
+  { style: "margin-bottom: 0.5em; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; user-select: text; cursor: text;" },
+  "You can use these built-in samples: ",
+  span$2({ style: "color:yellow; margin-right: 0.3em;" }, "legacySamples"),
+  ", ",
+  span$2({ style: "color:pink; margin-right: 0.3em;" }, "nintariboxSamples"),
+  ", ",
+  span$2({ style: "color:aqua; margin-right: 0.3em;" }, "marioPaintboxSamples"),
+  " or Studio Box built-in samples: ",
+  span$2({ style: "color:lime; margin-right: 0.3em;" }, "studioSamples"),
+  div$2({ style: "margin-bottom: 0.5em;" }, "Or a URL sample, for example from free file hosting like filegarden. "),
+  div$2( { style: "margin-bottom: 0.5em;" },"The order of these samples isnt important ."),
+  div$2( { style: "margin-bottom: 0.5em;" },  this._instructionsLink));
             this._closeInstructionsButton = button$2({ style: "height: auto; min-height: var(--button-size); width: 100%;" }, "Close instructions");
-            this._instructionsArea = div$2({ style: "display: none; margin-top: 0; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; user-select: text; cursor: text; overflow-y: auto;" }, h2$1("Add Samples"), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, "In Slarmoo's Box, custom samples are loaded from arbitrary URLs."), div$2({ style: `margin-top: 0.5em; margin-bottom: 0.5em; color: ${ColorConfig.secondaryText};` }, "(Technically, the web server behind the URL needs to support ", a({ href: "https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS", target: "_blank", }, "CORS"), ", but you don't need to know about that: ", " the sample just won't load if that's not the case)"), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, details(summary("Why arbitrary URLs?"), a({ href: "https://pandoras-box-archive.neptendo.repl.co/" }, "A certain BeepBox mod"), " did this with one central server, but it went down, taking down", " the samples with it, though thankfully it got archived.", " This is always an issue with servers: it may run out of space,", " stop working, and so on. With arbitrary URLs, you can always ", " change them to different ones if they stop working.")), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, "As for where to upload your samples, here are some suggestions:", ul({ style: "text-align: left;" }, li(a({ href: "https://filegarden.com" }, "File Garden")), li(a({ href: "https://www.dropbox.com" }, "Dropbox"), " (domain needs to be ", code("https://dl.dropboxusercontent.com"), ")"))), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, "Static website hosting services may also work (such as ", a({ href: "https://pages.github.com" }, "GitHub Pages"), ")", " but those require a bit more setup."), div$2({ style: "margin-top: 0.5em; margin-bottom: 1em;" }, "Finally, if have a soundfont you'd like to get samples from, consider using this ", a({ href: "./sample_extractor.html", target: "_blank" }, "sample extractor"), "."), div$2({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between; margin-top: 0.5em;" }, this._closeInstructionsButton));
+            this._instructionsArea = div$2({ style: "display: none; margin-top: 0; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; user-select: text; cursor: text; overflow-y: auto;" }, h2$1("Add Samples"), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, "In Slarmoo's Box, custom samples are loaded from arbitrary URLs."), div$2({ style: `margin-top: 0.5em; margin-bottom: 0.5em; color: ${ColorConfig.secondaryText};` }, "(Technically, the web server behind the URL needs to support ", a({ href: "https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS", target: "_blank", }, "CORS"), ", but you don't need to know about that: ", " the sample just won't load if that's not the case)"), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, details(summary("Why arbitrary URLs?"), a({ href: "https://pandoras-box-archive.neptendo.repl.co/" }, "A certain BeepBox mod"), " did this with one central server, but it went down, taking down", " the samples with it, though thankfully it got archived.", " This is always an issue with servers: it may run out of space,", " stop working, and so on. With arbitrary URLs, you can always ", " change them to different ones if they stop working.")), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, "As for where to upload your samples, here are some suggestions:", ul({ style: "text-align: left;" }, li(a({ href: "https://filegarden.com" }, "File Garden")), li(a({ href: "https://www.dropbox.com" }, "Dropbox"), " (domain needs to be ", code("https://dl.dropboxusercontent.com"), ")"))), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, "Static website hosting services may also work (such as ", a({ href: "https://pages.github.com" }, "GitHub Pages"), ")", " but those require a bit more setup."), div$2({ style: "margin-top: 0.5em; margin-bottom: 1em;" }, "Finally, if have a soundfont you'd like to get samples from, consider using this ", a({ href: "./sample_extractor.html", target: "_blank" }, "sample extractor"), "."), "Or My Sf2 Tool in the plugins menu" ,div$2({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between; margin-top: 0.5em;" }, this._closeInstructionsButton));
             this._addSamplesArea = div$2({ style: "overflow-y: auto;" }, h2$1("Add Samples"), div$2({ style: "display: flex; flex-direction: column; align-items: center; margin-bottom: 0.5em;" }, this._description, div$2({ style: "width: 100%; max-height: 450px; overflow-y: scroll;" }, this._entryContainer), this._addSamplesAreaBottom), div$2({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton));
             this._bulkAddTextarea = textarea({
                 style: "width: 100%; height: 100%; resize: none; box-sizing: border-box;",
@@ -54748,7 +64258,7 @@ _drawLabelingMarkers(ctx, w, h, vx0, vx1) {
                 EditorConfig.customSamples = urlData.split("|").filter(x => x !== "");
                 Config.willReloadForCustomSamples = true;
                 window.location.hash = this._doc.song.toBase64String();
-                setTimeout(() => { location.reload(); }, 50);
+                setTimeout(() => {cleanMemoryBeforeNavigation(); location.reload(); }, 50);
             };
             this._whenAddSampleClicked = (event) => {
                 const entryIndex = this._entries.length;
@@ -54954,6 +64464,7 @@ _drawLabelingMarkers(ctx, w, h, vx0, vx1) {
                 let useLegacySamples = false;
                 let useNintariboxSamples = false;
                 let useMarioPaintboxSamples = false;
+                let useStudioBoxSamples = false;
                 const parsedEntries = [];
                 for (const url of urls) {
                     if (url === "")
@@ -55004,7 +64515,22 @@ _drawLabelingMarkers(ctx, w, h, vx0, vx1) {
                                 chipWavePlayBackwards: false,
                             });
                         }
-                        useMarioPaintboxSamples = true;
+                        useMarioPaintboxSamples = true; 
+                    }else if (url.toLowerCase() === "studiosamples") {
+                        if (!useStudioBoxSamples) {
+                            parsedEntries.push({
+                                url: "studiosamples",
+                                sampleRate: 44100,
+                                rootKey: 60,
+                                percussion: false,
+                                chipWaveLoopStart: null,
+                                chipWaveLoopEnd: null,
+                                chipWaveStartOffset: null,
+                                chipWaveLoopMode: null,
+                                chipWavePlayBackwards: false,
+                            });
+                        }
+                        useStudioBoxSamples = true;
                     }
                     else {
                         let urlSliced = url;
@@ -55110,9 +64636,8 @@ _drawLabelingMarkers(ctx, w, h, vx0, vx1) {
                 const chipWaveLoopMode = entry.chipWaveLoopMode;
                 const chipWavePlayBackwards = entry.chipWavePlayBackwards;
                 const urlInLowerCase = url.toLowerCase();
-                const isBundledSamplePack = (urlInLowerCase === "legacysamples"
-                    || urlInLowerCase === "nintariboxsamples"
-                    || urlInLowerCase === "mariopaintboxsamples");
+                const isBundledSamplePack = (urlInLowerCase === "legacysamples"|| urlInLowerCase === "nintariboxsamples"
+                || urlInLowerCase === "mariopaintboxsamples" || urlInLowerCase === "studiosamples");
                 const options = [];
                 if (sampleRate !== 44100)
                     options.push("s" + sampleRate);
@@ -56351,18 +65876,19 @@ class CustomSelectModal{
             this._volumeBarContainer = SVG.svg({ style: `touch-action: none; overflow: visible; margin: auto; max-width: 20vw;`, width: "160px", height: "100%", preserveAspectRatio: "none", viewBox: "0 0 160 12" }, this._defs, this._outVolumeBarBg, this._outVolumeBar, this._outVolumeCap);
             this._volumeBarBox = div({ class: "playback-volume-bar", style: "height: 12px; align-self: center;" }, this._volumeBarContainer);
             this._fileMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "File"), option({ value: "new" }, "+ New Blank Song (⇧`)"), option({ value: "import" }, "↑ Import Song... (" + EditorConfig.ctrlSymbol + "O)"), option({ value: "export" }, "↓ Export Song... (" + EditorConfig.ctrlSymbol + "S)"), option({ value: "copyUrl" }, "⎘ Copy Song URL"), option({ value: "shareUrl" }, "⤳ Share Song URL"), option({ value: "configureShortener" }, "🛠 Customize Url Shortener..."), option({ value: "shortenUrl" }, "… Shorten Song URL"), option({ value: "viewPlayer" }, "▶ View in Song Player (⇧P)"), option({ value: "copyEmbed" }, "⎘ Copy HTML Embed Code"), option({ value: "songRecovery" }, "⚠ Recover Recent Song... (`)"));
-            this._editMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "Edit"), option({ value: "undo" }, "Undo (Z)"), option({ value: "redo" }, "Redo (Y)"), option({ value: "copy" }, "Copy Pattern (C)"), option({ value: "pasteNotes" }, "Paste Pattern Notes (V)"),   option({ value: "pasteNumbers" }, "Paste Pattern Numbers (" + EditorConfig.ctrlSymbol + "⇧V)"), option({ value: "insertBars" }, "Insert Bar (⏎)"), option({ value: "deleteBars" }, "Delete Selected Bars (⌫)"), option({ value: "insertChannel" }, "Insert Channel (" + EditorConfig.ctrlSymbol + "⏎)"), option({ value: "deleteChannel" }, "Delete Selected Channels (" + EditorConfig.ctrlSymbol + "⌫)"), option({ value: "selectChannel" }, "Select Channel (⇧A)"), option({ value: "selectAll" }, "Select All (A)"),option$6({ value: "selectMore" }, "Select More (XY)"),  option({ value: "duplicatePatterns" }, "Duplicate Reused Patterns (D)"), option({ value: "transposeUp" }, "Move Notes Up (+ or ⇧+)"), option({ value: "transposeDown" }, "Move Notes Down (- or ⇧-)"), option$6({ value: "transposeOctaveUp" }, "Move Notes Up Octave +"), option$6({ value: "transposeOctaveDown" }, "Move Notes Down Octave -")  , option({ value: "moveNotesSideways" }, "Move All Notes Sideways... (W)"), option({ value: "generateEuclideanRhythm" }, "Generate Euclidean Rhythm... (" + EditorConfig.ctrlSymbol + "E)"), option({ value: "beatsPerBar" }, "Change Beats Per Bar... (⇧B)"), option({ value: "barCount" }, "Change Song Length... (L)"), option({ value: "channelSettings" }, "Channel Settings... (Q)"), option({ value: "limiterSettings" }, "Limiter Settings... (⇧L)"), option({ value: "addExternal" }, "Add Custom Samples... (⇧Q)"));
-            this._optionsMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "Preferences"), optgroup({ label: "Technical" }, option({ value: "autoPlay" }, "Auto Play on Load"), option({ value: "autoFollow" }, "Auto Follow Playhead"), option({ value: "enableNotePreview" }, "Hear Added Notes"), option({ value: "notesOutsideScale" }, "Place Notes Out of Scale"), option({ value: "setDefaultScale" }, "Set Current Scale as Default"), option({ value: "alwaysFineNoteVol" }, "Always Fine Note Volume"), option({ value: "enableChannelMuting" }, "Enable Channel Muting"), option({ value: "instrumentCopyPaste" }, "Enable Copy/Paste Buttons"), option({ value: "instrumentImportExport" }, "Enable Import/Export Buttons"), option({ value: "displayBrowserUrl" }, "Enable Song Data in URL"), option({ value: "closePromptByClickoff" }, "Close Prompts on Click Off"),
+            this._editMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "Edit Song"), option({ value: "undo" }, "Undo (Z)"), option({ value: "redo" }, "Redo (Y)"), option({ value: "copy" }, "Copy Pattern (C)"), option({ value: "pasteNotes" }, "Paste Pattern Notes (V)"),   option({ value: "pasteNumbers" }, "Paste Pattern Numbers (" + EditorConfig.ctrlSymbol + "⇧V)"), option({ value: "insertBars" }, "Insert Bar (⏎)"), option({ value: "deleteBars" }, "Delete Selected Bars (⌫)"), option({ value: "insertChannel" }, "Insert Channel (" + EditorConfig.ctrlSymbol + "⏎)"), option({ value: "deleteChannel" }, "Delete Selected Channels (" + EditorConfig.ctrlSymbol + "⌫)"), option({ value: "selectChannel" }, "Select Channel (⇧A)"), option({ value: "selectAll" }, "Select All (A)"),option$6({ value: "selectMore" }, "Select More (XY)"),  option({ value: "duplicatePatterns" }, "Duplicate Reused Patterns (D)"), option({ value: "transposeUp" }, "Move Notes Up (+ or ⇧+)"), option({ value: "transposeDown" }, "Move Notes Down (- or ⇧-)"), option$6({ value: "transposeOctaveUp" }, "Move Notes Up Octave +"), option$6({ value: "transposeOctaveDown" }, "Move Notes Down Octave -")  , option({ value: "moveNotesSideways" }, "Move All Notes Sideways... (W)"), option({ value: "generateEuclideanRhythm" }, "Generate Euclidean Rhythm... (" + EditorConfig.ctrlSymbol + "E)"), option({ value: "beatsPerBar" }, "Change Beats Per Bar... (⇧B)"), option({ value: "barCount" }, "Change Song Length... (L)"), option({ value: "channelSettings" }, "Channel Settings... (Q)"), option({ value: "limiterSettings" }, "Limiter Settings... (⇧L)"), option({ value: "addExternal" }, "Add Custom Samples... (⇧Q)"));
+            this._optionsMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "Settings"), optgroup({ label: "Technical" }, option({ value: "autoPlay" }, "Auto Play on Load"), option({ value: "autoFollow" }, "Auto Follow Playhead"), option({ value: "enableNotePreview" }, "Hear Added Notes"), option({ value: "notesOutsideScale" }, "Place Notes Out of Scale"), option({ value: "setDefaultScale" }, "Set Current Scale as Default"), option({ value: "alwaysFineNoteVol" }, "Always Fine Note Volume"), option({ value: "enableChannelMuting" }, "Enable Channel Muting"), option({ value: "instrumentCopyPaste" }, "Enable Copy/Paste Buttons"), option({ value: "instrumentImportExport" }, "Enable Import/Export Buttons"), option({ value: "displayBrowserUrl" }, "Enable Song Data in URL"), option({ value: "closePromptByClickoff" }, "Close Prompts on Click Off"),
             
             option({ value: "increaseAllPins" }, "Increase All Pins ."),  
             
             option({ value: "recordingSetup" }, "Note Recording..."), option({ value: "whistleRecord" }, "Record With Whistle ")),
-                  optgroup({ label: "Appearance" }, option({ value: "showFifth" }, 'Highlight "Fifth" Note'), option({ value: "notesFlashWhenPlayed" }, "Notes Flash When Played"), option({ value: "instrumentButtonsAtTop" }, "Instrument Buttons at Top"), option({ value: "frostedGlassBackground" }, "Frosted Glass Prompt Backdrop"), option({ value: "useCustomSelectPrompt" }, "Custom Select Modal"), option({ value: "showChannels" }, "Show All Channels"), option({ value: "showScrollBar" }, "Show Octave Scroll Bar"), option$6({ value: "differentMod" }, "Better Mod Visuals"),
-            option({ value: "showInstrumentScrollbars" }, "Show Intsrument Scrollbars"), option({ value: "showLetters" }, "Show Piano Keys"), option({ value: "displayVolumeBar" }, "Show Playback Volume"), option({ value: "showOscilloscope" }, "Show Oscilloscope"), option({ value: "showSampleLoadingStatus" }, "Show Sample Loading Status"), option({ value: "showDescription" }, "Show Description"), option({ value: "layout" }, "Set Layout..."), option({ value: "colorTheme" }, "Set Theme..."), option({ value: "customTheme" }, "Custom Theme..."),/* option({ value: "setLanguage" }, "Set Language...")*/));
+                  optgroup({ label: "Appearance" }, option({ value: "showFifth" }, 'Highlight "Fifth" Note'), option({ value: "notesFlashWhenPlayed" }, "Notes Flash When Played"), option({ value: "instrumentButtonsAtTop" }, "Instrument Buttons at Top"), option({ value: "frostedGlassBackground" }, "Frosted Glass Prompt Backdrop"),option({ value: "pianoKeyboard" }, "Better Piano Roll ."),   option({ value: "useCustomSelectPrompt" }, "Custom Select Modal"), option({ value: "showChannels" }, "Show All Channels"), option({ value: "showScrollBar" }, "Show Octave Scroll Bar"), option$6({ value: "differentMod" }, "Better Mod Visuals"),
+            option({ value: "showInstrumentScrollbars" }, "Show Intsrument Scrollbars"), option({ value: "showLetters" }, "Show Piano Keys"), option({ value: "displayVolumeBar" }, "Show Playback Volume"), option({ value: "showOscilloscope" }, "Show Oscilloscope"), option({ value: "showSampleLoadingStatus" }, "Show Sample Loading Status"), option({ value: "showDescription" }, "Show Description"), option({ value: "oldButtonSheme" }, "Old Buttons Positions ."), option({ value: "newloopeditor" }, "Not Centered Loop Editor ."),  
+              option({ value: "openPlugins" }, "Open Plugins"), option({ value: "layout" }, "Set Layout..."), option({ value: "colorTheme" }, "Set Theme..."), option({ value: "customTheme" }, "Custom Theme..."),/* option({ value: "setLanguage" }, "Set Language...")*/));
             this._scaleSelect = buildOptions(select(), Config.scales.map(scale => scale.name));
             this._keySelect = buildOptions(select(), Config.keys.map(key => key.name).reverse());
             this._octaveStepper = input({ style: "width: 59.5%;", type: "number", min: Config.octaveMin, max: Config.octaveMax, value: "0" });
-            this._tempoSlider = new Slider(input({ style: "margin: 0; vertical-align: middle;", type: "range", min: "1", max: 320*3 , value: "160", step: "1" }), this.doc, (oldValue, newValue) => new ChangeTempo(this.doc, oldValue, newValue), false);
+            this._tempoSlider = new Slider(input({ style: "margin: 0; vertical-align: middle;", type: "range", min: "1", max: 640 , value: "160", step: "1" }), this.doc, (oldValue, newValue) => new ChangeTempo(this.doc, oldValue, newValue), false);
             this._tempoStepper = input({ style: "width: 4em; font-size: 80%; margin-left: 0.4em; vertical-align: middle;", type: "number", step: "1" });
             this._songEqFilterEditor = new FilterEditor(this.doc, false, false, true);
             this._songEqFilterZoom = button({ style: "margin-left:0em; padding-left:0.2em; height:1.5em; max-width: 12px;", onclick: () => this._openPrompt("customSongEQFilterSettings") }, "+");
@@ -56396,6 +65922,14 @@ class CustomSelectModal{
             this._echoDelaySlider = new Slider(input({ style: "margin: 0;", type: "range", min: "0", max: Config.echoDelayRange - 1, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangeEchoDelay(this.doc, oldValue, newValue), false);
             this._echoDelayRow = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("echoDelay") }, "Echo Delay:"), this._echoDelaySlider.container);
             this._rhythmSelect = buildOptions(select(), Config.rhythms.map(rhythm => rhythm.name));
+            this._phaserMixSlider = new Slider(input({ style: "margin: 0;", type: "range", min: "0", max: Config.phaserMixRange - 1, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangePhaserMix(this.doc, oldValue, newValue), false);  
+            this._phaserMixRow = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("phaserMix") }, span("Phaser:")), this._phaserMixSlider.container);
+            this._phaserFreqSlider = new Slider(input({ style: "margin: 0;", type: "range", min: "0", max: Config.phaserFreqRange - 1, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangePhaserFreq(this.doc, oldValue, newValue), false);
+            this._phaserFreqRow = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("phaserFreq") }, span(" Freq:")), this._phaserFreqSlider.container);
+            this._phaserFeedbackSlider = new Slider(input({ style: "margin: 0;", type: "range", min: "0", max: Config.phaserFeedbackRange - 1, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangePhaserFeedback(this.doc, oldValue, newValue), false);
+            this._phaserFeedbackRow = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("phaserFeedback") }, span(" Feedback:")), this._phaserFeedbackSlider.container);
+            this._phaserStagesSlider = new Slider(input({ style: "margin: 0;", type: "range", min: Config.phaserMinStages, max: Config.phaserMaxStages, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangePhaserStages(this.doc, oldValue, newValue), false);
+            this._phaserStagesRow = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("phaserStages") }, span(" Stages:")), this._phaserStagesSlider.container);
             this._pitchedPresetSelect = buildPresetOptions(false, "pitchPresetSelect");
             this._drumPresetSelect = buildPresetOptions(true, "drumPresetSelect");
             this._algorithmSelect = buildOptions(select(), Config.algorithms.map(algorithm => algorithm.name));
@@ -56417,6 +65951,8 @@ class CustomSelectModal{
             this._panDelayRow = div({ class: "selectRow dropFader" }, span({ class: "tip", style: "margin-left:4px;", onclick: () => this._openPrompt("panDelay") }, "‣ Delay:"), this._panDelaySlider.container);
             this._panDropdownGroup = div({ class: "editor-controls", style: "display: none;" }, this._panDelayRow);
             this._chipWaveSelect = buildOptions(select(), Config.chipWaves.map(wave => wave.name)); 
+            this._chipWaveError = p({ style:"font-size:5px;" , class: "tip" }, "")
+            
             this._chipNoiseSelect = buildOptions(select(), Config.chipNoises.map(wave => wave.name));
             this._useChipWaveAdvancedLoopControlsBox = input({ type: "checkbox", style: "width: 1em; padding: 0; margin-left: 0.4em; margin-right: 4em;" });
             this._chipWaveLoopModeSelect = buildOptions(select(), ["Loop", "Ping-Pong", "Play Once", "Play Loop Once"]);
@@ -56486,6 +66022,11 @@ class CustomSelectModal{
             this._octaveShiftMarkerContainer = div({ style: "display: flex; position: relative;" }, this._octaveShiftSlider.container, div({ class: "pitchShiftMarkerContainer" }, this._octaveShiftTonicMarkers, this._octaveShiftFifthMarkers));
             this._octaveShiftBox = input$8({ style: "width: 4em; font-size: 80%; ", id: "pitchShiftBox", type: "number", step: "1", min: "0", max: "24", value: "0" });
             this._octaveShiftRow = div$d({ class: "selectRow" }, div$d({ style: "color: " + ColorConfig.secondaryText + "; margin-top: -3px;" }, this._octaveShiftBox), span$4({ class: "tip",style:"font-size:6px", onclick: () => this._openPrompt("octaveShift") }, "Ocatve Shift:"), this._octaveShiftMarkerContainer);
+             this._fnInput = textarea({ id: "function", style: `width: 19em;height: 40px;box-sizing: border-box;font-size: 30%;border: none;background: var(--ui-widget-background);color: var(--secondary-text);outline: none;resize: none;font-family: monospace;white-space: pre-wrap;overflow-x: auto;overflow-y: hidden scroll;`});
+             this._fnInput.value= `sampleL=0`
+              this._outInterface = div$1({id: "interface",style: `width: 100%;box-sizing: border-box;font-size: 80%;background: var(--ui-widget-background);color: var(--secondary-text);`});
+              this._ioWrapper = div$d({  style: `display: flex;flex-direction: column;width: 23em;gap: 0.4em; align-items: center;`}, this._fnInput, this._outInterface);
+             this._functionRow = div$d({ class: "selectRow" },div$d({ style: "color:" + ColorConfig.secondaryText + "; margin-top:-3px;" }),span$4({class: "tip",style: "font-size:8px",onclick: () => this._openPrompt("functionFN")}, "Function:"),this._ioWrapper);
             
             this._pitchShiftBox = input$8({ style: "width: 4em; font-size: 80%; ", id: "pitchShiftBox", type: "number", step: "1", min: "0", max: "24", value: "0" });
             this._pitchShiftRow = div$d({ class: "selectRow" }, div$d({ style: "color: " + ColorConfig.secondaryText + "; margin-top: -3px;" }, this._pitchShiftBox), span$4({ class: "tip", style:"font-size:6px", onclick: () => this._openPrompt("pitchShift") }, "Pitch Shift:"), this._pitchShiftMarkerContainer);
@@ -56526,9 +66067,15 @@ class CustomSelectModal{
             this._arpeggioSpeedDisplay = span({ style: `color: ${ColorConfig.secondaryText}; font-size: smaller; text-overflow: clip;` }, "x1");
             this._arpeggioSpeedSlider = new Slider(input({ style: "margin: 0;", type: "range", min: "0", max: Config.modulators.dictionary["arp speed"].maxRawVol, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangeArpeggioSpeed(this.doc, oldValue, newValue), false);
             this._arpeggioSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip", style: "margin-left:4px;", onclick: () => this._openPrompt("arpeggioSpeed") }, "‣ Spd:"), this._arpeggioSpeedDisplay, this._arpeggioSpeedSlider.container);
+            
+this._strumSpeedDisplay = span({ style: `color: ${ColorConfig.secondaryText}; font-size: smaller; text-overflow: clip;` }, "x1");
+this._strumSpeedSlider = new Slider(input({ style: "margin: 0;", type: "range", min: "0", max: Config.modulators.dictionary["arp speed"].maxRawVol, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangeArpeggioSpeed(this.doc, oldValue, newValue), false);
+this._strumSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip", style: "margin-left:4px;", onclick: () => this._openPrompt("arpeggioSpeed") }, "‣ Spd:"), this._strumSpeedDisplay, this._strumSpeedSlider.container);
+
             this._twoNoteArpBox = input({ type: "checkbox", style: "width: 1em; padding: 0; margin-right: 4em;" });
             this._twoNoteArpRow = div({ class: "selectRow dropFader" }, span({ class: "tip", style: "margin-left:4px;", onclick: () => this._openPrompt("twoNoteArpeggio") }, "‣ Fast Two-Note:"), this._twoNoteArpBox);
             this._chordDropdownGroup = div({ class: "editor-controls", style: "display: none;" }, this._arpeggioSpeedRow, this._twoNoteArpRow);
+            this._chordStrumDropdownGroup = div({ class: "editor-controls", style: "display: none;" }, this._strumSpeedRow);
             this._vibratoSelect = buildOptions(select(), Config.vibratos.map(vibrato => vibrato.name));
             this._vibratoDropdown = button({ style: "margin-left:0em; height:1.5em; width: 10px; padding: 0px; font-size: 8px;", onclick: () => this._toggleDropdownMenu(0) }, "▼");
             this._vibratoSelectRow = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("vibrato") }, "Vibrato:"), this._vibratoDropdown, div({ class: "selectContainer", style: "width: 61.5%;" }, this._vibratoSelect));
@@ -56604,7 +66151,7 @@ class CustomSelectModal{
             this._feedbackAmplitudeSlider = new Slider(input({ type: "range", min: "0", max: Config.operatorAmplitudeMax, value: "0", step: "1", title: "Feedback Amplitude" }), this.doc, (oldValue, newValue) => new ChangeFeedbackAmplitude(this.doc, oldValue, newValue), false);
             this._feedbackRow2 = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("feedbackVolume") }, "Fdback Vol:"), this._feedbackAmplitudeSlider.container);
             this._addEnvelopeButton = button({ type: "button", class: "add-envelope" });
-            this._customInstrumentSettingsGroup = div({ class: "editor-controls" }, this._panSliderRow, this._panDropdownGroup, this._chipWaveSelectRow, this._chipNoiseSelectRow, this._useChipWaveAdvancedLoopControlsRow, this._chipWaveLoopModeSelectRow, this._chipWaveLoopStartRow, this._chipWaveLoopEndRow, this._chipWaveStartOffsetRow, this._chipWavePlayBackwardsRow, this._customWaveDraw, this._eqFilterTypeRow, this._eqFilterRow, this._eqFilterSimpleCutRow, this._eqFilterSimplePeakRow, this._fadeInOutRow, this._algorithmSelectRow, this._algorithm6OpSelectRow, this._phaseModGroup, this._feedbackRow1, this._feedback6OpRow1, this._feedbackRow2, this._spectrumRow, this._harmonicsRow, this._drumsetGroup, this._supersawDynamismRow, this._supersawSpreadRow, this._supersawShapeRow, this._pulseWidthRow, this._pulseWidthDropdownGroup, this._stringSustainRow, this._unisonSelectRow, this._unisonDropdownGroup, div({ style: `padding: 2px 0; margin-left: 2em; display: flex; align-items: center;` }, span({ style: `flex-grow: 1; text-align: center;` }, span({ class: "tip", onclick: () => this._openPrompt("effects") }, "Effects")), div({ class: "effects-menu" }, this._effectsSelect)), this._transitionRow, this._transitionDropdownGroup, this._chordSelectRow, this._chordDropdownGroup, this._pitchShiftRow, this._octaveShiftRow ,  this._detuneSliderRow, this._vibratoSelectRow, this._vibratoDropdownGroup, this._noteFilterTypeRow, this._noteFilterRow, this._noteFilterSimpleCutRow, this._noteFilterSimplePeakRow, this._distortionRow, this._aliasingRow, this._bitcrusherQuantizationRow, this._bitcrusherFreqRow, this._chorusRow, this._echoSustainRow, this._echoDelayRow, this._reverbRow, this._ringModContainerRow, this._granularContainerRow, div({ style: `padding: 2px 0; margin-left: 2em; display: flex; align-items: center;` }, span({ style: `flex-grow: 1; text-align: center;` }, span({ class: "tip", onclick: () => this._openPrompt("envelopes") }, "Envelopes")), this._envelopeDropdown, this._addEnvelopeButton), this._envelopeDropdownGroup, this.envelopeEditor.container);
+            this._customInstrumentSettingsGroup = div({ class: "editor-controls" }, this._panSliderRow, this._panDropdownGroup, this._chipWaveSelectRow, this._chipWaveError, this._chipNoiseSelectRow, this._useChipWaveAdvancedLoopControlsRow, this._chipWaveLoopModeSelectRow, this._chipWaveLoopStartRow, this._chipWaveLoopEndRow, this._chipWaveStartOffsetRow, this._chipWavePlayBackwardsRow, this._customWaveDraw, this._eqFilterTypeRow, this._eqFilterRow, this._eqFilterSimpleCutRow, this._eqFilterSimplePeakRow, this._fadeInOutRow, this._algorithmSelectRow, this._algorithm6OpSelectRow, this._phaseModGroup, this._feedbackRow1, this._feedback6OpRow1, this._feedbackRow2, this._spectrumRow, this._harmonicsRow, this._drumsetGroup, this._supersawDynamismRow, this._supersawSpreadRow, this._supersawShapeRow, this._pulseWidthRow, this._pulseWidthDropdownGroup, this._stringSustainRow, this._unisonSelectRow, this._unisonDropdownGroup, div({ style: `padding: 2px 0; margin-left: 2em; display: flex; align-items: center;` }, span({ style: `flex-grow: 1; text-align: center;` }, span({ class: "tip", onclick: () => this._openPrompt("effects") }, "Effects")), div({ class: "effects-menu" }, this._effectsSelect)), this._transitionRow, this._transitionDropdownGroup, this._chordSelectRow, this._chordStrumDropdownGroup,this._chordDropdownGroup, this._pitchShiftRow, this._octaveShiftRow , this._functionRow,  this._detuneSliderRow, this._vibratoSelectRow, this._vibratoDropdownGroup, this._noteFilterTypeRow, this._noteFilterRow, this._noteFilterSimpleCutRow, this._noteFilterSimplePeakRow, this._distortionRow, this._aliasingRow, this._bitcrusherQuantizationRow, this._bitcrusherFreqRow, this._chorusRow, this._echoSustainRow, this._echoDelayRow, this._reverbRow, this._ringModContainerRow,  this._phaserMixRow, this._phaserFreqRow, this._phaserFeedbackRow, this._phaserStagesRow,  this._granularContainerRow, div({ style: `padding: 2px 0; margin-left: 2em; display: flex; align-items: center;` }, span({ style: `flex-grow: 1; text-align: center;` }, span({ class: "tip", onclick: () => this._openPrompt("envelopes") }, "Envelopes")), this._envelopeDropdown, this._addEnvelopeButton), this._envelopeDropdownGroup, this.envelopeEditor.container);
             this._instrumentCopyGroup = div({ class: "editor-controls" }, div({ class: "selectRow" }, this._instrumentCopyButton, this._instrumentPasteButton));
             this._instrumentExportGroup = div({ class: "editor-controls" }, div({ class: "selectRow" }, this._instrumentExportButton, this._instrumentImportButton));
             
@@ -56636,7 +66183,23 @@ class CustomSelectModal{
             this._trackAndMuteContainer = div({ class: "trackAndMuteContainer" }, this._muteEditor.container, this._trackContainer, this._trackVisibleArea);
             this._barScrollBar = new BarScrollBar(this.doc);
             this._trackArea = div({ class: "track-area" }, this._trackAndMuteContainer, this._barScrollBar.container);
-            this._menuArea = div({ class: "menu-area" }, div({ class: "selectContainer menu file" }, this._fileMenu), div({ class: "selectContainer menu edit" }, this._editMenu), div({ class: "selectContainer menu preferences" }, this._optionsMenu));
+            this._editMenu.options[0].textContent = "Edit Song";
+            this._optionsMenu.options[0].textContent = "Settings"
+            function setPreferencesIcon(svgString) {
+               const encoded = encodeURIComponent(svgString);
+               document.documentElement.style.setProperty(
+               "--preferences-gear-symbol",
+               `url("data:image/svg+xml,${encoded}")`
+               );
+            }
+ 
+            this._menuArea = div({ class: "menu-area" }, div({ class: "selectContainer menu file" }, this._fileMenu), div({ class: "selectContainer menu preferences" }, this._optionsMenu) ,div({ class: "selectContainer menu edit" }, this._editMenu)); 
+            if(this.doc.prefs.oldButtonSheme){
+            	this._editMenu.options[0].textContent = "Edit";
+             setPreferencesIcon('<svg xmlns="http:\/\/www.w3.org/2000\/svg" width="26" height="26" viewBox="-13 -13 26 26"><path d="M 5.78 -1.6 L 7.93 -0.94 L 7.93 0.94 L 5.78 1.6 L 4.85 3.53 L 5.68 5.61 L 4.21 6.78 L 2.36 5.52 L 0.27 5.99 L -0.85 7.94 L -2.68 7.52 L -2.84 5.28 L -4.52 3.95 L -6.73 4.28 L -7.55 2.59 L -5.9 1.07 L -5.9 -1.07 L -7.55 -2.59 L -6.73 -4.28 L -4.52 -3.95 L -2.84 -5.28 L -2.68 -7.52 L -0.85 -7.94 L 0.27 -5.99 L 2.36 -5.52 L 4.21 -6.78 L 5.68 -5.61 L 4.85 -3.53 M 2.92 0.67 L 2.92 -0.67 L 2.35 -1.87 L 1.3 -2.7 L 0 -3 L -1.3 -2.7 L -2.35 -1.87 L -2.92 -0.67 L -2.92 0.67 L -2.35 1.87 L -1.3 2.7 L -0 3 L 1.3 2.7 L 2.35 1.87 z" fill="gray"\/><\/svg>')	
+            	this._optionsMenu.options[0].textContent = "Preferences"
+            	this._menuArea = div({ class: "menu-area" }, div({ class: "selectContainer menu file" }, this._fileMenu),div({ class: "selectContainer menu edit" }, this._editMenu), div({ class: "selectContainer menu preferences" }, this._optionsMenu) ); 
+            }
             this._sampleLoadingBar = div({ style: `width: 0%; height: 100%; background-color: ${ColorConfig.indicatorPrimary};` });
             this._sampleLoadingBarContainer = div({ style: `width: 80%; height: 4px; overflow: hidden; margin-left: auto; margin-right: auto; margin-top: 0.5em; cursor: pointer; background-color: ${ColorConfig.indicatorSecondary};` }, this._sampleLoadingBar);
             this._sampleLoadingStatusContainer = div({ style: "cursor: pointer;" }, div({ style: `margin-top: 0.5em; text-align: center; color: ${ColorConfig.secondaryText};` }, "Sample Loading Status"), div({ class: "selectRow", style: "height: 6px; margin-bottom: 0.5em;" }, this._sampleLoadingBarContainer));
@@ -56729,6 +66292,7 @@ class CustomSelectModal{
                 this._instrumentCopyGroup.style.display = this.doc.prefs.instrumentCopyPaste ? "" : "none";
                 this._instrumentExportGroup.style.display = this.doc.prefs.instrumentImportExport ? "" : "none";
                 this._instrumentSettingsArea.style.scrollbarWidth = this.doc.prefs.showInstrumentScrollbars ? "" : "none";
+ 
                 if (document.getElementById('text-content'))
                     document.getElementById('text-content').style.display = this.doc.prefs.showDescription ? "" : "none";
                 if (this.doc.getFullScreen()) {
@@ -56739,6 +66303,8 @@ class CustomSelectModal{
                     const beatWidth = Math.max(minBeatWidth, Math.min(maxBeatWidth, targetBeatWidth));
                     const patternEditorWidth = beatWidth * this.doc.song.beatsPerBar;
                     const beepboxEditorContainer = document.getElementById("beepboxEditorContainer");
+ 
+                    
                     if (this.doc.prefs.showDescription == false) {
                         beepboxEditorContainer.style.paddingBottom = "0";
                         beepboxEditorContainer.style.borderStyle = "none";
@@ -56791,12 +66357,13 @@ class CustomSelectModal{
                   ( prefs.increaseAllPins ? textOnIcon : textOffIcon) + "Increase All Pins",
                   
                     textSpacingIcon + "Note Recording...",
-                    "Whistle Record",
+                    textSpacingIcon +  "Whistle Recording",
                     textSpacingIcon + "Appearance",
                     (prefs.showFifth ? textOnIcon : textOffIcon) + 'Highlight "Fifth" Note',
                     (prefs.notesFlashWhenPlayed ? textOnIcon : textOffIcon) + "Notes Flash When Played",
                     (prefs.instrumentButtonsAtTop ? textOnIcon : textOffIcon) + "Instrument Buttons at Top",
                     (prefs.frostedGlassBackground ? textOnIcon : textOffIcon) + "Frosted Glass Prompt Backdrop",
+                    ( prefs.pianoKeyboard ? textOnIcon : textOffIcon) + "Better Piano Roll",
                     (prefs.useCustomSelectPrompt ? textOnIcon : textOffIcon) + "Use Custom Select Prompt",
                     (prefs.showChannels ? textOnIcon : textOffIcon) + "Show All Channels",
                     (prefs.showScrollBar ? textOnIcon : textOffIcon) + "Show Octave Scroll Bar",
@@ -56807,6 +66374,9 @@ class CustomSelectModal{
                     (prefs.showOscilloscope ? textOnIcon : textOffIcon) + "Show Oscilloscope",
                     (prefs.showSampleLoadingStatus ? textOnIcon : textOffIcon) + "Show Sample Loading Status",
                     (prefs.showDescription ? textOnIcon : textOffIcon) + "Show Description",
+                    ( prefs.oldButtonSheme ? textOnIcon : textOffIcon) + "Old Menu Sheme (↻)",
+                    ( prefs.newloopeditor ? textOnIcon : textOffIcon) + "Not Centered Loop Editor",
+                    textSpacingIcon + "Open Plugins",
                     textSpacingIcon + "Set Layout...",
                     textSpacingIcon + "Set Theme...",
                     textSpacingIcon + "Custom Theme...",
@@ -57007,19 +66577,20 @@ class CustomSelectModal{
                             this._chipWaveStartOffsetRow.style.display = "none";
                             this._chipWavePlayBackwardsRow.style.display = "none";
                         }
-let instrlast = instrument.chipWave;
-setSelectedValue(this._chipWaveSelect, instrument.chipWave);
-var objectObject = buildOptions(select$6(), Config.chipWaves.map(wave => wave.name))
-this._chipWaveSelect.innerHTML = objectObject.innerHTML
-setSelectedValue(this._chipWaveSelect, instrlast);
-
+                        let instrlast = instrument.chipWave;
+                       setSelectedValue(this._chipWaveSelect, instrument.chipWave);
+                       
+                       var objectObject = buildOptions(select$6(), Config.chipWaves.map(wave => wave.name))
+                       this._chipWaveSelect.innerHTML = objectObject.innerHTML
+                       setSelectedValue(this._chipWaveSelect, instrlast);
+                        if(instrument.wavenotfound){this._chipWaveError.innerText="Error loading: '"+instrument.wavenotfound+"'"}else{this._chipWaveError.innerText=""}
                         this._useChipWaveAdvancedLoopControlsBox.checked = instrument.isUsingAdvancedLoopControls ? true : false;
                         setSelectedValue(this._chipWaveLoopModeSelect, instrument.chipWaveLoopMode);
                         this._chipWaveLoopStartStepper.value = instrument.chipWaveLoopStart + "";
                         this._chipWaveLoopEndStepper.value = instrument.chipWaveLoopEnd + "";
                         this._chipWaveStartOffsetStepper.value = instrument.chipWaveStartOffset + "";
                         this._chipWavePlayBackwardsBox.checked = instrument.chipWavePlayBackwards ? true : false;
-                    }
+                    }else{ instrument.wavenotfound=null;if(instrument.wavenotfound){this._chipWaveError.innerText="Error loading: '"+instrument.wavenotfound+"'"}else{this._chipWaveError.innerText=""} }
                     if (instrument.type == 9) {
                         this._customWaveDraw.style.display = "";
                         this._chipWaveSelectRow.style.display = "none";
@@ -57145,19 +66716,24 @@ setSelectedValue(this._chipWaveSelect, instrlast);
                     }
                     if (effectsIncludeChord(instrument.effects)) {
                         this._chordSelectRow.style.display = "flex";
-                        this._chordDropdown.style.display = instrument.chord == Config.chords.dictionary["arpeggio"].index ? "" : "none";
-                        if (this._openChordDropdown) {
+                        this._chordDropdown.style.display = instrument.chord == Config.chords.dictionary["arpeggio"].index  ? "" : "none";
+                       
+                       /* if (this._openChordDropdown) {
+                        	if (instrument.chord == Config.chords.dictionary["custom strum"].index) {
+                                this._chordStrumDropdownGroup.style.display = "";
+                            } else
                             if (instrument.chord == Config.chords.dictionary["arpeggio"].index) {
                                 this._chordDropdownGroup.style.display = "";
-                            }
+                            }  
                             else if (instrument.chord == Config.chords.dictionary["monophonic"].index) {
                                 this._chordDropdownGroup.style.display = "";
                                 setSelectedValue(this._chordSelect, instrument.chord);
                             }
                             else {
                                 this._chordDropdownGroup.style.display = "none";
+                                this._chordStrumDropdownGroup.style.display = "none";
                             }
-                        }
+                        }*/
                         if (instrument.chord == Config.chords.dictionary["monophonic"].index) {
                             this._monophonicNoteInputBox.value = instrument.monoChordTone + 1 + "";
                             this._monophonicNoteInputBox.style.display = "";
@@ -57195,6 +66771,17 @@ setSelectedValue(this._chipWaveSelect, instrlast);
                     else {
                         this._octaveShiftRow.style.display = "none";
                     }
+                    
+                    if (effectsIncludeFunction(instrument.effects)) {
+                        this._functionRow.style.display = "";
+                        if(instrument.customfunction[1]){
+                        editor._fnInput.value = instrument.customfunction[1]
+                        }
+                    }
+                    else {
+                        this._functionRow.style.display = "none";
+                    }
+                    
                     if (effectsIncludeDetune(instrument.effects)) {
                         this._detuneSliderRow.style.display = "";
                         this._detuneSlider.updateValue(instrument.detune - Config.detuneCenter);
@@ -57303,6 +66890,22 @@ setSelectedValue(this._chipWaveSelect, instrlast);
                     else {
                         this._reverbRow.style.display = "none";
                     }
+                    if (effectsIncludePhaser(instrument.effects)) {
+                        this._phaserMixRow.style.display = "";
+                        this._phaserMixSlider.updateValue(instrument.phaserMix);
+                        this._phaserFreqRow.style.display = "";
+                        this._phaserFreqSlider.updateValue(instrument.phaserFreq);
+                        this._phaserFeedbackRow.style.display = "";
+                        this._phaserFeedbackSlider.updateValue(instrument.phaserFeedback);
+                        this._phaserStagesRow.style.display = "";
+                        this._phaserStagesSlider.updateValue(instrument.phaserStages);
+                    }
+                    else {
+                        this._phaserMixRow.style.display = "none";
+                        this._phaserFreqRow.style.display = "none";
+                        this._phaserFeedbackRow.style.display = "none";
+                        this._phaserStagesRow.style.display = "none";
+                    }
                     if (effectsIncludeRingModulation(instrument.effects)) {
                         this._ringModContainerRow.style.display = "";
                         this._ringModSlider.updateValue(instrument.ringModulation);
@@ -57323,7 +66926,8 @@ setSelectedValue(this._chipWaveSelect, instrlast);
                     else {
                         this._granularContainerRow.style.display = "none";
                     }
-                    if (instrument.type == 0 || instrument.type == 9 || instrument.type == 5 || instrument.type == 7 || instrument.type == 3 || instrument.type == 6 || instrument.type == 2 || instrument.type == 4) {
+                     
+                    if (instrument.type == 0 || instrument.type == 9 || instrument.type == 5 || instrument.type == 7 || instrument.type == 3 || instrument.type == 6 || instrument.type == 2 || instrument.type == 4 ) {
                         this._unisonSelectRow.style.display = "";
                         setSelectedValue(this._unisonSelect, instrument.unison);
                         this._unisonVoicesInputBox.value = instrument.unisonVoices + "";
@@ -57366,6 +66970,10 @@ if (instrument.pitchShift) {
 }
 if (instrument.octaveShift) {
 	this._octaveShiftBox.value = instrument.octaveShift
+}
+if(instrument.customfunction){
+	if(instrument.customfunction[1]){this._fnInput.value = instrument.customfunction[1]}
+ if(instrument.customfunction[0]){}
 }
                     this._instrumentName.value=this.doc.song.channels[this.doc.channel].name
                     
@@ -57548,6 +67156,7 @@ if (instrument.octaveShift) {
                                 settingList.push("mix volume");
                                 let tgtInstrumentTypes = [];
                                 let anyInstrumentAdvancedEQ = false, anyInstrumentSimpleEQ = false, anyInstrumentAdvancedNote = false, anyInstrumentSimpleNote = false, anyInstrumentArps = false, anyInstrumentPitchShifts = false,anyInstrumentOctaveShifts = false, anyInstrumentDetunes = false, anyInstrumentVibratos = false, anyInstrumentNoteFilters = false, anyInstrumentDistorts = false, anyInstrumentBitcrushes = false, anyInstrumentPans = false, anyInstrumentChorus = false, anyInstrumentEchoes = false, anyInstrumentReverbs = false, anyInstrumentRingMods = false, anyInstrumentGranulars = false,
+                                anyInstrumentPhasers = false, 
                                 anyInstrumentCustomUnison = false, anyInstrumentHasEnvelopes = false;
                                 let allInstrumentPitchShifts = true,allInstrumentOctaveShifts = true, allInstrumentNoteFilters = true, allInstrumentDetunes = true, allInstrumentVibratos = true, allInstrumentDistorts = true, allInstrumentBitcrushes = true, allInstrumentPans = true, allInstrumentChorus = true, allInstrumentEchoes = true, allInstrumentReverbs = true, allInstrumentRingMods = true, allInstrumentGranulars = true;
                                 let instrumentCandidates = [];
@@ -57561,10 +67170,10 @@ if (instrument.octaveShift) {
                                 }
                                 for (let i = 0; i < instrumentCandidates.length; i++) {
                                     let instrumentIndex = instrumentCandidates[i];
-let thisinstrument = channel.instruments[instrumentCandidates[i]];
-if (thisinstrument.unison === Config.unisons.length) {
-	anyInstrumentCustomUnison = true;
-}
+                                 let thisinstrument = channel.instruments[instrumentCandidates[i]];
+                                 if (thisinstrument.unison === Config.unisons.length) {
+                                    	anyInstrumentCustomUnison = true;
+                                 }
                                     
                                     if (!tgtInstrumentTypes.includes(channel.instruments[instrumentIndex].type))
                                         tgtInstrumentTypes.push(channel.instruments[instrumentIndex].type);
@@ -57644,6 +67253,12 @@ if (thisinstrument.unison === Config.unisons.length) {
                                     }
                                     else {
                                         allInstrumentReverbs = false;
+                                    }
+                                    if (effectsIncludePhaser(channel.instruments[instrumentIndex].effects)) {
+                                        anyInstrumentPhasers = true;
+                                    }
+                                    else {
+                                        anyInstrumentPhasers = false;
                                     }
                                     if (effectsIncludeRingModulation(channel.instruments[instrumentIndex].effects)) {
                                         anyInstrumentRingMods = true;
@@ -57785,7 +67400,12 @@ if (thisinstrument.unison === Config.unisons.length) {
                                     unusedSettingList.push("+ ring modulation");
                                     unusedSettingList.push("+ ring mod hertz");
                                 }
-
+                                if (anyInstrumentPhasers) {
+                                    settingList.push("phaser"); 
+                                    settingList.push("phaser frequency");
+                                    settingList.push("phaser feedback");
+                                    settingList.push("phaser stages");
+                                }
                                 if (anyInstrumentGranulars) {
                                     settingList.push("granular");
                                     settingList.push("grain freq");
@@ -58156,7 +67776,7 @@ if (anyInstrumentOctaveShifts) {
                     }
                     return;
                 }
-                if (document.activeElement == this._songTitleInputBox.input || this._patternEditor.editingModLabel || document.activeElement == this._muteEditor._channelNameInput.input) {
+                if ((document.activeElement == this._songTitleInputBox.input || this._patternEditor.editingModLabel || document.activeElement == this._muteEditor._channelNameInput.input ) && document.activeElement !== this._fnInput) {
                     if (event.keyCode == 13 || event.keyCode == 27) {
                         this.mainLayer.focus();
                         this._patternEditor.stopEditingModLabel(event.keyCode == 27);
@@ -58166,7 +67786,7 @@ if (anyInstrumentOctaveShifts) {
                 if (document.activeElement == this._panSliderInputBox
                     || document.activeElement == this._pwmSliderInputBox
                     || document.activeElement == this._detuneSliderInputBox||
-                    document.activeElement == this._pitchShiftBox || document.activeElement == this._octaveShiftBox || document.activeElement == this._instrumentName 
+                    document.activeElement == this._pitchShiftBox || document.activeElement == this._octaveShiftBox || document.activeElement == this._fnInput ||  document.activeElement == this._instrumentName 
                     || document.activeElement == this._instrumentVolumeSliderInputBox
                     || document.activeElement == this._chipWaveLoopStartStepper
                     || document.activeElement == this._chipWaveLoopEndStepper
@@ -58185,7 +67805,7 @@ if (anyInstrumentOctaveShifts) {
                     || this.envelopeEditor.randomStepsBoxes.find((element) => element == document.activeElement)
                     || this.envelopeEditor.randomStepsBoxes.find((element) => element == document.activeElement)
                     || this.envelopeEditor.LFOStepsBoxes.find((element) => element == document.activeElement)) {
-                    if (event.keyCode == 13 || event.keyCode == 27) {
+                    if ((event.keyCode == 13 || event.keyCode == 27) && document.activeElement !== this._fnInput) {
                         this.mainLayer.focus();
                     }
                     return;
@@ -58258,6 +67878,7 @@ if (anyInstrumentOctaveShifts) {
                         else if (canPlayNotes)
                             break;
                         if (needControlForShortcuts == (event.ctrlKey || event.metaKey) && event.shiftKey) {
+                        	cleanMemoryBeforeNavigation()
                             location.href = "" + (OFFLINE ? "player.html" : "") + "#song=" + this.doc.song.toBase64String();
                             event.preventDefault();
                         }
@@ -58517,6 +68138,7 @@ if (anyInstrumentOctaveShifts) {
                             this.doc.prefs.visibleOctaves = 5;
                             this.doc.prefs.save();
                             event.preventDefault();
+                            cleanMemoryBeforeNavigation();
                             location.reload();
                         }
                         break;
@@ -58625,6 +68247,7 @@ if (anyInstrumentOctaveShifts) {
                             this.doc.prefs.colorTheme = "slarmoosbox";
                             this.doc.prefs.language="en"
                             this.doc.prefs.frostedGlassBackground = false;
+                            this.doc.prefs.pianoKeyboard=false
                             this.doc.prefs.instrumentButtonsAtTop = true;
                             this.doc.prefs.instrumentCopyPaste = true;
                             this.doc.prefs.instrumentImportExport = true;
@@ -58632,6 +68255,7 @@ if (anyInstrumentOctaveShifts) {
                             this.doc.prefs.showOscilloscope = true;
                             this.doc.prefs.save();
                             event.preventDefault();
+                            cleanMemoryBeforeNavigation();
                             location.reload();
                         }
                         else if (event.ctrlKey || event.metaKey) {
@@ -59261,6 +68885,7 @@ this._unisonSignInputBox.style.color = "white"
             };
             this._whenSetChipWave = () => {
                 this.doc.record(new ChangeChipWave(this.doc, this._chipWaveSelect.selectedIndex));
+                
             };
             this._whenSetRingModChipWave = () => {
                 this.doc.record(new ChangeRingModChipWave(this.doc, this._ringModWaveSelect.selectedIndex));
@@ -59374,9 +68999,11 @@ this._unisonSignInputBox.style.color = "white"
                         break;
                     case "viewPlayer":
 if (location.href.startsWith("file:///")) {
+	cleanMemoryBeforeNavigation()
 	let fileFull = "file:///android_asset/WebView/player.html#" + this.doc.song.toBase64String();
 	window.open(fileFull, "_self")
 } else {
+	cleanMemoryBeforeNavigation()
 	location.href = "./player.html" + "#" + this.doc.song.toBase64String();
 }
                         break;
@@ -59538,6 +69165,16 @@ break;
                     case "showDescription":
                         this.doc.prefs.showDescription = !this.doc.prefs.showDescription;
                         break;
+case "oldButtonSheme":
+this.doc.prefs.oldButtonSheme = !this.doc.prefs.oldButtonSheme;
+reloadsite();
+break;
+case "newloopeditor":
+this.doc.prefs.newloopeditor = !this.doc.prefs.newloopeditor;
+break;
+case "openPlugins":
+ this._openPrompt("plugins");
+break;
 case "whistleRecord":
 this.doc.prefs.whistleRecord = false; 
 this.doc.selection.whistleRecord();
@@ -59568,6 +69205,10 @@ break;
                         break;
                     case "frostedGlassBackground":
                         this.doc.prefs.frostedGlassBackground = !this.doc.prefs.frostedGlassBackground;
+                        break;
+                    case "pianoKeyboard":
+                        this.doc.prefs.pianoKeyboard = !this.doc.prefs.pianoKeyboard;
+                        rebuiltKeyboard()
                         break;
                 }
                 this._optionsMenu.selectedIndex = 0;
@@ -59833,6 +69474,20 @@ this._pitchShiftBox.addEventListener("input", () => {
 		));
 	}
 });
+let fnhandler=()=>{
+	const parsed = (this._fnInput.value);
+if ((parsed)) {
+	this.doc.record(new ChangeFunction(
+		this.doc,
+		1,
+		parsed,
+		this.doc.song.channels[this.doc.channel].instruments[this.doc.getCurrentInstrument()].customfunction[1],
+	));
+}
+}
+this._fnInput.addEventListener("input", () => {
+	fnhandler()
+}); 
 this._octaveShiftBox.addEventListener("input", () => {
 	const parsed = Number(this._octaveShiftBox.value);
 	if (!isNaN(parsed)) {
@@ -60177,6 +69832,14 @@ this._instrumentName.addEventListener("input", () => {
                     return this._ringModSlider;
                 case Config.modulators.dictionary["ring mod hertz"].index:
                     return this._ringModHzSlider;
+                case Config.modulators.dictionary["phaser"].index:
+                    return this._phaserMixSlider;
+                case Config.modulators.dictionary["phaser frequency"].index:
+                    return this._phaserFreqSlider;
+                case Config.modulators.dictionary["phaser feedback"].index:
+                    return this._phaserFeedbackSlider;
+                case Config.modulators.dictionary["phaser stages"].index:
+                    return this._phaserStagesSlider;
                 case Config.modulators.dictionary["granular"].index:
                     return this._granularSlider;
                 case Config.modulators.dictionary["grain freq"].index:
@@ -60198,7 +69861,7 @@ this._instrumentName.addEventListener("input", () => {
                 return;
             this._currentPromptName = promptName;
             if (this.prompt) {
-                if (this._wasPlaying && !(this.prompt instanceof TipPrompt || this.prompt instanceof LimiterPrompt || this.prompt instanceof CustomScalePrompt || this.prompt instanceof CustomChipPrompt || this.prompt instanceof CustomFilterPrompt || this.prompt instanceof VisualLoopControlsPrompt || this.prompt instanceof SustainPrompt || this.prompt instanceof HarmonicsEditorPrompt || this.prompt instanceof SpectrumEditorPrompt)) {
+                if (this._wasPlaying && !(this.prompt instanceof TipPrompt || this.prompt instanceof LimiterPrompt || this.prompt instanceof CustomScalePrompt || this.prompt instanceof CustomChipPrompt || this.prompt instanceof CustomFilterPrompt|| this.prompt instanceof VisualLoopControlsPromptOLD || this.prompt instanceof VisualLoopControlsPrompt|| this.prompt instanceof SustainPrompt || this.prompt instanceof HarmonicsEditorPrompt || this.prompt instanceof SpectrumEditorPrompt)) {
                     this.doc.performance.play();
                 }
                 this._wasPlaying = false;
@@ -60280,8 +69943,41 @@ this._instrumentName.addEventListener("input", () => {
                     case "language":
                         this.prompt = new SelectLanguage(this.doc);
                         break;
-                    case "visualLoopControls":
-                        this.prompt = new VisualLoopControlsPrompt(this.doc, this);
+                    case "plugins":
+                        this.prompt = new SelectPlugin(this.doc);
+                        break;
+case "plugin:samplesOffline":
+case "plugin:sampleEditor":
+case "plugin:fadeoutPlugin":
+case "plugin:reversePlugin":
+case "plugin:advEditor":
+case "plugin:whistleToNotes":
+case "plugin:melMaker":
+case "plugin:customThemes":
+case "plugin:other": {
+    const data = editor.doc._pendingPlugin;
+    if (!data) {
+        console.error("No pending plugin!");
+        break;
+    }
+    const { title, html, plugin } = data;
+    const win = new PluginContainer(title, html, () => {
+        if (plugin && plugin.destroy) plugin.destroy();
+        editor.doc._pendingPlugin = null;
+        editor._setPrompt(null);
+    }, this.doc);
+    this.prompt = win;
+    if (plugin && plugin.script) {
+        plugin.script(win.content);
+    }
+    break;
+}
+                   case "visualLoopControls":
+                   	if(!this.doc.prefs.newloopeditor){
+                        this.prompt = new VisualLoopControlsPromptOLD(this.doc, this);
+                   	}else{
+                   		   this.prompt = new VisualLoopControlsPrompt(this.doc, this);
+                   	}
                         break;
                     case "sampleLoadingStatus":
                         this.prompt = new SampleLoadingStatusPrompt(this.doc);
@@ -60303,11 +69999,16 @@ this._instrumentName.addEventListener("input", () => {
                         break;
                 }
                 if (this.prompt) {
-                    if (!(this.prompt instanceof TipPrompt || this.prompt instanceof LimiterPrompt || this.prompt instanceof CustomChipPrompt || this.prompt instanceof CustomFilterPrompt || this.prompt instanceof VisualLoopControlsPrompt || this.prompt instanceof SustainPrompt || this.prompt instanceof HarmonicsEditorPrompt || this.prompt instanceof SpectrumEditorPrompt)) {
+                    if (!(this.prompt instanceof TipPrompt || this.prompt instanceof LimiterPrompt || this.prompt instanceof CustomChipPrompt || this.prompt instanceof CustomFilterPrompt|| this.prompt instanceof VisualLoopControlsPromptOLD|| this.prompt instanceof VisualLoopControlsPrompt || this.prompt instanceof SustainPrompt || this.prompt instanceof HarmonicsEditorPrompt || this.prompt instanceof SpectrumEditorPrompt)) {
                         this._wasPlaying = this.doc.synth.playing;
                         this.doc.performance.pause();
                     }
                     this._promptContainer.style.display = "";
+
+
+
+ 
+
                     if (this.doc.prefs.frostedGlassBackground == true) {
 this._promptContainerBG.style.display = "block"
 this._promptContainerBG.style.backgroundColor = "rgba(0,0,0,0.01)"
@@ -60582,7 +70283,7 @@ this._promptContainerBG.style.filter = "none"
         }
     }
 
-    const editor = new SongEditor();
+    var editor = new SongEditor();
  
 const activePitchTimeouts = new Map(); 
 
@@ -60624,7 +70325,10 @@ function playPitch(pitch, duration = 200) {
  
 
 
-
+reloadsite = function (){
+ cleanMemoryBeforeNavigation()
+ location.reload()
+}
 pressPianoKey = function(pitchIndex, duration = 200) {
     playPitch(pitchIndex, duration);
 }
@@ -60734,3 +70438,7 @@ pressPianoKey = function(pitchIndex, duration = 200) {
     alert(error)
 }
 }
+
+
+
+
