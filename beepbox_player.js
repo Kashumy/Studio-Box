@@ -226,15 +226,18 @@ let loadedBB = 0
 let pageloaded = 0
 
 const scripts = [
- "./StudioSamples.js",
- "./samples.js",
- "./samples2.js",
- "./samples3.js",
- "./drumsamples.js",
- "./wario_samples.js",
- "./kirby_samples.js",
- "./nintaribox_samples.js",
- "./mario_paintbox_samples.js"
+	"./StudioSamplesVol1.js",
+	"./StudioSamplesVol2.js",
+	"./StudioSamplesVol3.js",
+	"./StudioSamplesVol4.js",
+	"./samples.js",
+	"./samples2.js",
+	"./samples3.js",
+	"./drumsamples.js",
+	"./wario_samples.js",
+	"./kirby_samples.js",
+	"./nintaribox_samples.js",
+	"./mario_paintbox_samples.js"
 ];
 
 function loadScriptsSequentially() {

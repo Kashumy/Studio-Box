@@ -249,7 +249,10 @@ request.onsuccess = function(event) {
  loadFiles();
 };
 const scripts = [
-    "./StudioSamples.js",
+    "./StudioSamplesVol1.js",
+    "./StudioSamplesVol2.js",
+    "./StudioSamplesVol3.js",
+    "./StudioSamplesVol4.js",
     "./samples.js",
     "./samples2.js",
     "./samples3.js",
