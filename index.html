@@ -15,11 +15,11 @@
  
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FruityBox DAW</title>
-    <meta name="application-name" content="Fruity Box" />
+    <title>StudioBox DAW</title>
+    <meta name="application-name" content="Studio Box" />
     <meta name="apple-mobile-web-app-title" content="Paandora's Box">
-	<meta name="description" content="FruityBox Box is an online DAW for sketching and sharing your music." />
-    <meta name="keywords" content="chiptune, instrumental, music, song, melody, composition, tool, free, square wave, NES, NSF, JummBox, jummbox, BeepBox, beepbox, Slarmoo, FruityBox " />
+	<meta name="description" content="Studio Box is an online DAW for sketching and sharing your music." />
+    <meta name="keywords" content="chiptune, instrumental, music, song, melody, composition, tool, free, square wave, NES, NSF, JummBox, jummbox, BeepBox, beepbox, Slarmoo, Studio Box " />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -37,11 +37,10 @@
             background: var(--editor-background, black);
             overflow-x: hidden;
             font-size: large;
-             
             font-family: 'B612', sans-serif;
             line-height: 1.3;
+            ;
         }
- 
 
 #plugins-content {
 	margin: 0px;
@@ -56,6 +55,9 @@
 }
 #introduction{
 	color: var(--primary-text, #999) !important;
+}
+.texttext {
+ color: var(--primary-text, #999) !important;
 }
 button{
  background:var(--ui-widget-background, #444);
@@ -125,7 +127,10 @@ select {
             align-items: center;
             align-content: center;
         }
-
+ 
+body{
+	display:none;
+}
         #beepboxEditorContainer {
             min-height: 645px;
             overflow: auto;
@@ -219,14 +224,20 @@ select {
         }
     </style>
 </head> 
- 
-<script  src="./calmsounds1.js" defer></script>
-<script  src="./samplesofchillsounds.js" defer></script>
-<script  src="./test.js" defer></script>
-<script  src="./rawsamples.js" defer></script>
-<script  src="./sample1.js" defer></script>
-<script  src="./mysamples.js" defer></script> 
- 
+
+ <script src="./StudioSamplesVol1.js" defer></script>
+ <script src="./StudioSamplesVol2.js" defer></script>
+ <script src="./StudioSamplesVol3.js" defer></script>
+ <script src="./StudioSamplesVol4.js" defer></script>
+ <script src="./samples.js" defer></script>
+ <script src="./samples2.js" defer></script>
+ <script src="./samples3.js" defer></script>
+ <script src="./drumsamples.js" defer></script>
+ <script src="./wario_samples.js" defer></script>
+ <script src="./kirby_samples.js" defer></script>
+ <script src="./nintaribox_samples.js" defer></script>
+ <script src="./mario_paintbox_samples.js" defer></script>
+  
  
  
  
@@ -234,41 +245,48 @@ select {
 
     <div id="beepboxEditorContainer">
         <noscript>
-            Sorry, FruityBox requires a JavaScript-enabled browser.
+            Sorry, Studio Box requires a JavaScript-enabled browser.
         </noscript>
     </div>
     <div id="text-content">
         <section>  
 
             <h1>
-<font class="fbox" >Fruity Box</font>
+<font class="fbox" >Studio Box</font>
 <script> document.querySelectorAll('.fbox')[0].style.color = Math.random()<0.05 ? 'white' : 'hsl('+Math.floor(Math.random()*360)+',100%,50%)' </script>
 <span id="jummboxPlant" style=" color:#62a13b"></span>
             </h1>
 			
 			<strong id="introduction">
-				<center><t id="randomtext">FruityBox That's because i like all of fruit's</t></font></center>
+				<center><t id="randomtext">Studio Box That's because its Studio</t></font></center>
             </strong>
 			
 			<p>
-                <center><font color="#ed908a">FruityBox is distribution  of <a href="https://slarmoo.github.io/slarmoosbox/website" target="_blank">Slarmoo's box</a> </font></center>
+                <center><font color="#ed908a">Studio Box is distribution  of <a href="https://slarmoo.github.io/slarmoosbox/website" target="_blank">Slarmoo's box</a> </font></center>
 			</p>
 
 			<p>
-				<font color="#edbebb">FruityBox was made to create music with more customisation !</font>
+				<font color="#edbebb">Studio Box was made to create music with more customisation !</font>
 			</p>
 			<p>
 				<font color="#edbebb">The original program beepbox made by <font color="#adeeeb">John Neski</font> </font> <br>
-				<font color="#edbebb">Mod is maded by <font color="#adeeeb">Kashumy Github/Krystian</font> </font>
+				<font color="#edbebb">Mod is maded by <font color="#adeeeb">Kashumy Github</font> </font>
             </p>
             <p id="introduction">
-             FruityBox is a tool for making and sharing your music. Make sure that your volume is turned up, then press the play button! <br>
-             Open Plugins in preferences i adds a bunch of things like Offline samples , Whistle to notes , Keyboard , Mini Audio Editors ETC
+             Studio Box is a tool for making and sharing your music. Make sure that your volume is turned up, then press the play button! <br>
+             Open Plugins in Settings i adds a bunch of things like Offline samples , Whistle to notes , Keyboard , Mini Audio Editors, Recorder , Midi Player, More custom themes .
+
             </p>
-			<p style="text-align: center;"></p>
-            <p>
-  
-            </p>
+            <h1 class="texttext">Whats In Studio Box</h1>
+		         	<details style="text-align: center;" class="texttext">
+             Studio Box added a lot of things like Different Mod showing value of pin size in time.
+             Offline Samples , Sf2 tool with my sf2gen js class.
+             It adds New Piano Roll Settings Making piano more realistic.
+             Added Plugins I think they are pretty Cool.
+             It maybe will have a Function Effect synthesizer but still in development <br>
+             Added Whistle Not Notes I don't think its useful because its very buggy LOl <br>
+             Studio box is Experimental But its already a very good daw 
+		         	</details>
         </section>
 
         <div class="column-container">
@@ -280,36 +298,34 @@ select {
         </div>
         </div>
 <script>
-let randomarr2=["≽(◕ ᴗ ◕)≼", "≽(ᴗ _ ᴗ)≼", "≽(⌐ _ ⌐)≼", "≽(ᵕ ‿ ᵕ)≼", "♥️","💚","🌺","🌷","🌹","💐","🌿","🌾","🌵","🍀","☘️","🌲","🌳","🪨","⛰️","✨","🍉","🍑","🍊","🍒","🍓","🥭","🍍","🍌","🌽","🍋","🥑","🫐","🍇","🚴","👋","💀","`\\(`^`)/`","☕","🎤"]
-let randomarr=["Wacky Box!",
-"FruityBox That's because of the fruit's inside of it","You can 'Make A Music' ",
-"Lol I installed Ransomware :D","WHO READS DESCRIPTION",
-"Im a chiptune do you?",
-"Added Some Weird Changes But thats no matter.",
-"Did you know ol version of FruityBox is less responsible with json songs from slarmoo LOL",
-"...",
-" Is Your JavaScript Enabled ? ",
-"I just putted here random useless long text just to make you read this for no reason . Also did you know you can disable showdescription in preferences",
-"Please don't feed the synthesizer",
-"404 Melody Not Found","808 Error not found ",
-"You can use samples!",
-"I accidentally made dubstep...",
-"Forgot to save json music 😬",
-"Maded Earrape on accident ..",
-"W",
-"Please, for the love of God, do not increase the master gain and lower the second ratio.",
-"Why are you reading this?",
-"Too much bass is never enough",
-"Now featuring at least one sound",
-"The melody you made is now sent to space. Lol im joking this is not consistent with user privacy ",
-"Composed entirely in a caffeine frenzy",
-"Making music with the blender is Crazy.",
-"We don't steal your data ! Just Like in the other beepbox mods",
- "Dont make repetitive patterns you can make better song by instant changing it."
+let randomarr2 = ["≽(◕ ᴗ ◕)≼", "≽(ᴗ _ ᴗ)≼", "≽(⌐ _ ⌐)≼", "≽(ᵕ ‿ ᵕ)≼", "♥️", "💚", "🌺", "🌷", "🌹", "💐", "🌿", "🌾", "🌵", "🍀", "☘️", "🌲", "🌳", "🪨", "⛰️", "✨", "🍉", "🍑", "🍊", "🍒", "🍓", "🥭", "🍍", "🍌", "🌽", "🍋", "🥑", "🫐", "🍇", "🚴", "👋", "💀", "`\\(`^`)/`", "☕", "🎤","🥸🤌🏽"]
+let randomarr = ["Slarmoos Box! And Abyssbox",
+ "StudioBox That's because its Studio", "You can 'Make A Music' ",
+ "Lol I installed Ransomware :D", "WHO READS DESCRIPTION",
+ "Im a chiptune do you?",
+ "Added Some Weird Changes But thats no matter.",
+ "Did you know old version of Studiobox is less responsible with json songs from slarmoo LOL",
+ "...",
+ " Is Your JavaScript Enabled ? ",
+ "I just putted here random useless long text just to make you read this for no reason . Also did you know you can disable showdescription in preferences",
+ "Please don't feed the synthesizer",
+ "404 Melody Not Found", "808 Error not found ",
+ "You can use samples!",
+ "I accidentally made dubstep...",
+ "Forgot to save json music TwT",
+ "Maded Earrape on accident ..",
+ "W",
+ "Please, for the love of God, do not increase the master gain and lower the second ratio.",
+ "Why are you reading this?",
+ "Too much bass is never enough",
+ "Now featuring at least one sound",
+ "Composed entirely in a caffeine frenzy",
+ "Making music with the blender is Crazy.",
+ "Cogito ergo sum"
 ]
-document.getElementById("randomtext").innerText= randomarr[parseInt(Math.random()*randomarr.length)]
+document.getElementById("randomtext").innerText = randomarr[parseInt(Math.random() * randomarr.length)]
 
-document.getElementById("jummboxPlant").innerText= randomarr2[parseInt(Math.random()*randomarr2.length)]
+document.getElementById("jummboxPlant").innerText = randomarr2[parseInt(Math.random() * randomarr2.length)]
 </script>
     <script type="text/javascript">
 

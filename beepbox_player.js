@@ -202,7 +202,7 @@ request.onupgradeneeded = function(event) {
 	db = event.target.result;
 	db.createObjectStore("files", { keyPath: "id" });
 };
-request.onsuccess = function(event) {
+request.onsuccess = function(event) { 
 	db = event.target.result;
 	loadFiles();
 };
@@ -221,41 +221,101 @@ function deleteFile(id) {
 
 
 let pressPianoKey=function (){}
+
+let loadedBB = 0
+let pageloaded = 0
+
+const scripts = [
+	"./StudioSamplesVol1.js",
+	"./StudioSamplesVol2.js",
+	"./StudioSamplesVol3.js",
+	"./StudioSamplesVol4.js",
+	"./samples.js",
+	"./samples2.js",
+	"./samples3.js",
+	"./drumsamples.js",
+	"./wario_samples.js",
+	"./kirby_samples.js",
+	"./nintaribox_samples.js",
+	"./mario_paintbox_samples.js"
+];
+
+function loadScriptsSequentially() {
+    let promise = Promise.resolve();
+    scripts.forEach(src => {
+        promise = promise.then(() => new Promise(resolve => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = false; 
+            script.onload = () => resolve();
+            script.onerror = () => resolve();
+            document.head.appendChild(script);
+        }));
+    });
+    return promise;
+}
+
 function loadFiles() {
 	const transaction = db.transaction(["files"], "readonly");
-	const store = transaction.objectStore("files");
+	const store = transaction.objectStore("files"); 
 	const countRequest = store.count();
 	countRequest.onsuccess = function() {
 		const total = countRequest.result;
 		let loaded = 0;
 		const request = store.openCursor();
-		request.onsuccess = function(event) {
+		document.querySelector("body").style.display="flex"
+		request.onsuccess = async function(event) {
 			const cursor = event.target.result;
 			if (cursor) {
 				const file = cursor.value;
 				filesMap[cursor.key] = {
 					name: file.name,
 					buffer: file.buffer,
-					...(file.rootNote ?
-						{ rootNote: file.rootNote } :
-						{ extradetune: file.extradetune ?? -12 }),
+		  			...(file.rootNote
+          ? {rootNote: file.rootNote}
+          : {extradetune: file.extradetune ?? -12}),
 					expression: file.expression || 2.0,
 				};
 				loaded++;
-				loadingText.innerText = `Loading sample: ${file.name}`;
+				loadingText.innerText = `${file.name} `;
 				const percent = Math.round((loaded / total) * 100);
 				progressFill.style.width = percent + "%";
 				cursor.continue();
 			} else {
 				allfilesloaded = 1;
-				setTimeout(() => { loadingText.innerText = "All samples loaded successfully" }, 50);
-				RUNBEEPBOX()
-				setTimeout(() => {
+				
+				if(window.location.hash){
+				await loadScriptsSequentially();
+				}
+if (document.readyState !== "loading") {
+	setTimeout(() => {
+		loadingScreen.style.opacity = "0";
+		setTimeout(() => {
+			loadingScreen.style.display = "none";
+		}, 600);
+	}, 500);
+}
+				if(loadedBB==0){
+					if (document.readyState === "loading") {
+						setTimeout(() => { loadingText.innerText = "Loading Page" }, 50);
+     document.addEventListener('DOMContentLoaded', () => {
+      	setTimeout(() => { loadingText.innerText = "All samples loaded successfully" }, 50);
+      	setTimeout(() => {
 					loadingScreen.style.opacity = "0";
 					setTimeout(() => {
 						loadingScreen.style.display = "none";
 					}, 600);
 				}, 500);
+    	  RUNBEEPBOX()
+      });
+    }else{
+    setTimeout(() => { loadingText.innerText = "All samples loaded successfully" }, 50);
+				 RUNBEEPBOX()
+    }
+				} else if(loadedBB==1){
+				updateSampledWaves()
+				}
+				
 			}
 		};
 	};
@@ -417,19 +477,22 @@ function readBase64Int(str, index, digits) {
             });
         });
     }
-     function loadScript(url) {
-   const result = new Promise((resolve, reject) => {
-    if (!Config.willReloadForCustomSamples) {
-     const script = document.createElement("script");
-     script.src = url;
-     document.head.appendChild(script);
-     script.addEventListener("load", (event) => {
-      resolve();
-     });
-    }
-   });
-   return result;
-  } 
+ function loadScript(url) {
+ 	if (location.href.startsWith("file:///")) {
+ 		url = "file:///android_asset/WebView/" + url
+ 	}
+ 	const result = new Promise((resolve, reject) => {
+ 		if (!Config.willReloadForCustomSamples) {
+ 			const script = document.createElement("script");
+ 			script.src = url;
+ 			document.head.appendChild(script);
+ 			script.addEventListener("load", (event) => {
+ 				resolve();
+ 			});
+ 		}
+ 	});
+ 	return result;
+ }
      function loadBuiltInSamples(set) {
    const defaultIndex = 0;
    const defaultIntegratedSamples = Config.chipWaves[defaultIndex].samples;
@@ -523,13 +586,7 @@ function readBase64Int(str, index, digits) {
      sampleLoadingState.statusTable[chipWaveIndex] = 0;
      sampleLoadingState.urlTable[chipWaveIndex] = "legacySamples";
     }
-    loadScript("samples.js")
-     .then(() => loadScript("samples2.js"))
-     .then(() => loadScript("samples3.js"))
-     .then(() => loadScript("drumsamples.js"))
-     .then(() => loadScript("wario_samples.js"))
-     .then(() => loadScript("kirby_samples.js"))
-     .then(() => {
+
       const chipWaveSamples = [
        centerWave(kicksample),
        centerWave(snaresample),
@@ -613,7 +670,6 @@ function readBase64Int(str, index, digits) {
        sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
        chipWaveIndexOffset++;
       }
-     });
    }
    else if (set == 1) {
     const chipWaves = [
@@ -638,8 +694,7 @@ function readBase64Int(str, index, digits) {
      sampleLoadingState.statusTable[chipWaveIndex] = 0;
      sampleLoadingState.urlTable[chipWaveIndex] = "nintariboxSamples";
     }
-    loadScript("nintaribox_samples.js")
-     .then(() => {
+ 
       const chipWaveSamples = [
        centerWave(chronoperc1finalsample),
        centerWave(synthkickfmsample),
@@ -657,7 +712,6 @@ function readBase64Int(str, index, digits) {
        sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
        chipWaveIndexOffset++;
       }
-     });
    }
    else if (set == 2) {
     const chipWaves = [
@@ -689,8 +743,7 @@ function readBase64Int(str, index, digits) {
      sampleLoadingState.statusTable[chipWaveIndex] = 0;
      sampleLoadingState.urlTable[chipWaveIndex] = "marioPaintboxSamples";
     }
-    loadScript("mario_paintbox_samples.js")
-     .then(() => {
+    
       const chipWaveSamples = [
        centerWave(catpaintboxsample),
        centerWave(gameboypaintboxsample),
@@ -715,8 +768,110 @@ function readBase64Int(str, index, digits) {
        sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
        chipWaveIndexOffset++;
       }
-     });
+     
    }
+   else if (set == 3) { 
+
+
+  		const chipWaves = [
+  			{ name: "Realistic Piano", expression: 2, isPercussion: false, rootKey: 60 },
+  			{ name: "Acoustic Hi-Hat", expression: 2, isPercussion: false, rootKey: 60 },
+  			{ name: "Acoustic Snare", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "Acoustic Kick Shot", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "Octave Brass", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "House Drum Loop", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "Drum Kit", expression: 2,  isPercussion: false, rootKey: 60 },
+  			{ name: "Break Core Sample", expression: 2,   isPercussion: false, rootKey: 60 },
+  			{ name: "Aguda Keys", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "Jump Style Kick Drop", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "Chimer Keys", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "808 Shot", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "SQ2D", expression: 2,  isPercussion: false, rootKey: 60 },
+  			{ name: "GrittyKick", expression: 2,   isPercussion: true, rootKey: 60  },
+  		];
+  		sampleLoadingState.totalSamples += chipWaves.length;
+  		const startIndex = Config.rawRawChipWaves.length;
+
+for (const chipWave of chipWaves) {
+    const chipWaveIndex = Config.rawRawChipWaves.length;
+    const rootKey = chipWave.rootKey !== undefined ? chipWave.rootKey : 60;
+    const rawChipWave = {
+        index: chipWaveIndex,
+        name: chipWave.name,
+        expression: chipWave.expression,
+        isPercussion: chipWave.isPercussion,
+        isCustomSampled: true,
+        isCustomLoaded: true,
+        sampleRate: 44100,
+        rootKey: rootKey,
+        samples: defaultSamples
+    };
+
+    const rawRawChipWave = {
+        index: chipWaveIndex,
+        name: chipWave.name,
+        expression: chipWave.expression,
+        isPercussion: chipWave.isPercussion,
+        isCustomLoaded: true,
+        sampleRate: 44100,
+        isCustomSampled: true,
+        rootKey: rootKey,
+        samples: defaultSamples
+    };
+
+    const integratedChipWave = {
+        index: chipWaveIndex,
+        name: chipWave.name,
+        expression: chipWave.expression,
+        isPercussion: chipWave.isPercussion,
+        isCustomLoaded: true,
+        sampleRate: 44100,
+        rootKey: rootKey,
+        isCustomSampled: true,
+        samples: defaultIntegratedSamples
+    };
+
+    Config.rawRawChipWaves[chipWaveIndex] = rawRawChipWave;
+    Config.rawRawChipWaves.dictionary[chipWave.name] = rawRawChipWave;
+    Config.rawChipWaves[chipWaveIndex] = rawChipWave;
+    Config.rawChipWaves.dictionary[chipWave.name] = rawChipWave;
+    Config.chipWaves[chipWaveIndex] = integratedChipWave;
+    Config.chipWaves.dictionary[chipWave.name] = rawChipWave;
+
+    sampleLoadingState.statusTable[chipWaveIndex] = 0;
+    sampleLoadingState.urlTable[chipWaveIndex] = "studioSamples";
+}
+
+  		 
+  				const chipWaveSamples = [
+  					centerWave(RealisticPiano_mp3),
+  					centerWave(AcousticHihat_wav),
+  					centerWave(AcousticSnare1_wav),
+  					centerWave(AcousticKickShot_wav),
+  					centerWave(OctaveBrass_wav),
+  					centerWave(HouseDrumLoop_wav),
+  					centerWave(DrumKit_mp3),
+  					centerWave(BreakCore_mp3),
+  					centerWave(AgudaKey_wav),
+  					centerWave(JumpStyleKicks_wav),
+  					centerWave(ChimerKey_wav),
+  					centerWave(S808Shot_wav),
+  					centerWave(SQ2D_wav),
+  					centerWave(GrittyKick_wav),
+  				];
+  				let chipWaveIndexOffset = 0;
+  				for (const chipWaveSample of chipWaveSamples) {
+  					const chipWaveIndex = startIndex + chipWaveIndexOffset;
+  					Config.rawChipWaves[chipWaveIndex].samples = chipWaveSample;
+  					Config.rawRawChipWaves[chipWaveIndex].samples = chipWaveSample;
+  					Config.chipWaves[chipWaveIndex].samples = performIntegral(chipWaveSample);
+  					sampleLoadingState.statusTable[chipWaveIndex] = 1;
+  					sampleLoadingState.samplesLoaded++;
+  					sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
+  					chipWaveIndexOffset++;
+  				}
+  			
+  	}
    else {
     console.log("invalid set of built-in samples");
    }
@@ -833,6 +988,15 @@ function readBase64Int(str, index, digits) {
     Config.reverbRange = 32;
     Config.reverbDelayBufferSize = 16384;
     Config.reverbDelayBufferMask = _a$1.reverbDelayBufferSize - 1;
+    
+    Config.phaserMixRange = 32;
+Config.phaserFeedbackRange = 32;
+Config.phaserFreqRange = 32;
+Config.phaserMinFreq = 8.0;
+Config.phaserMaxFreq = 20000.0;
+Config.phaserMinStages = 0;
+Config.phaserMaxStages = 32;
+    
     Config.beatsPerBarMin = 1;
     Config.beatsPerBarMax = 64;
     Config.barCountMin = 1;
@@ -1029,58 +1193,61 @@ window.addEventListener('popstate', function (event) {
     cleanMemoryBeforeNavigation(event);
 });
 let isUpdatingSamples = false;
+
  updateSampledWaves = async function() {
- 	if (!filesMap) return;
- 	if (isUpdatingSamples) return;
- 	isUpdatingSamples = true;
- 	const existingNames = new Set(Config.rawChipWaves.map(s => s.name));
- 	const newSamples = [];
- 	
- 	for (const id in filesMap) {
- 		const entry = filesMap[id];
- 		if (!entry || !entry.name || !entry.buffer) continue;
- 		if (!existingNames.has(entry.name)) {
- 			const expression = entry.expression ? parseFloat(entry.expression) : 2;
- 			const extraSampleDetune = entry.extradetune ? parseFloat(entry.extradetune) : 0;
- 			const chipWaveIndex = Config.rawChipWaves.length + newSamples.length + 1;
- 			let js = {}
- 			if (!entry.rootNote) {
- 				
- 				js = {
- 					name: entry.name,
- 					expression,
- 					isSampled: true,
- 					isPercussion: false,
- 					extraSampleDetune,
- 					samples: centerWave(readSaved(entry.buffer))
- 				}
- 			} else {
- 				js = {
- 					name: entry.name,
- 					expression,
- 					isCustomSampled: true,
- 					isCustomLoaded: true,
- 					isPercussion: false,
- 					sampleRate: 44100,
- 					rootKey: parseFloat(entry.rootNote),
- 					samples: centerWave(readSaved(entry.buffer))
- 				};
- 			}
- 			newSamples.push(js);
- 		}
- 	}
- 	
- 	if (newSamples.length > 0) {
- 		Config.rawChipWaves = toNameMap([...Config.rawChipWaves, ...(newSamples)]);
- 		Config.chipWaves = rawChipToIntegrated(Config.rawChipWaves)
- 		isUpdatingSamples = false;
- 	} else {
- 		isUpdatingSamples = false;
- 	}
- 	Config.firstIndexForSamplesInChipWaveList = _a$1.chipWaves.length;
+	if (!filesMap) return;
+	if (isUpdatingSamples) return;
+	isUpdatingSamples = true;
+	const existingNames = new Set(Config.rawChipWaves.map(s => s.name));
+	const newSamples = [];
+	
+	for (const id in filesMap) {
+		const entry = filesMap[id];
+		if (!entry || !entry.name || !entry.buffer) continue;
+		if (!existingNames.has(entry.name)) {
+			const expression = entry.expression ? parseFloat(entry.expression) : 2;
+			const extraSampleDetune = entry.extradetune ? parseFloat(entry.extradetune) : 0;
+			const chipWaveIndex = Config.rawChipWaves.length + newSamples.length+1;
+let js = {}
+if(!entry.rootNote){
+	
+ js = {
+ 	name: entry.name,
+ 	expression,
+ 	isSampled: true,
+ 	isPercussion: false,
+ 	extraSampleDetune,
+ 	samples: centerWave(readSaved(entry.buffer)) 
  }
+ }else{
+ js = {
+  name: entry.name,
+  expression,
+  isCustomSampled: true ,
+  isCustomLoaded: true ,
+  isPercussion: false,
+  sampleRate: 44100,
+  rootKey:  parseFloat(entry.rootNote) , 
+  samples: centerWave(readSaved(entry.buffer))
+};
+}
+newSamples.push(js);
+		}
+	}
+	
+	if (newSamples.length > 0) {
+		Config.rawChipWaves = toNameMap([...Config.rawChipWaves, ...(newSamples)]);
+		Config.rawRawChipWaves = Config.rawChipWaves;
+		Config.chipWaves = rawChipToIntegrated(Config.rawChipWaves) 
+		isUpdatingSamples = false;
+	}else{
+		isUpdatingSamples = false;
+	}
+	Config.firstIndexForSamplesInChipWaveList = _a$1.chipWaves.length;
+}
  
 updateSampledWaves()
+loadedBB=1 
     Config.filterFreqStep = 1.0 / 4.0;
     Config.filterFreqRange = 34;
     Config.filterFreqReferenceSetting = 28;
@@ -1153,8 +1320,8 @@ updateSampledWaves()
         { name: "extraterrestrial", voices: 6, spread: 15.2, offset: -6, expression: 0.35, sign: 0.7 },
         { name: "bow", voices: 9, spread: 0.006, offset: 0, expression: 0.15, sign: 0.5 }
     ]);
-    Config.effectNames = ["reverb", "chorus", "panning", "distortion", "bitcrusher", "note filter", "echo", "pitch shift", "detune", "vibrato", "transition type", "chord type", "", "ring mod", "granular", "octave shift", "function"];
-    Config.effectOrder = [2, 10, 11, 7, 8, 9, 5, 14, 3, 4, 1, 6, 0, 13, 15, 16];
+    Config.effectNames = ["reverb", "chorus", "panning", "distortion", "bitcrusher", "note filter", "echo", "pitch shift", "detune", "vibrato", "transition type", "chord type", "", "ring mod", "granular", "octave shift", "phaser"];
+Config.effectOrder = [2, 10, 11, 7, 8, 9, 5, 14, 3, 4, 1, 6, 0, 13, 16, 15]; // every << 18 is how much bits you have to store in ser/deser effects
     Config.noteSizeMax = 6;
     Config.volumeRange = 50; 
     Config.volumeLogScale = 0.1428;
@@ -1189,7 +1356,7 @@ updateSampledWaves()
         { name: "monophonic", customInterval: false, arpeggiates: false, strumParts: 0, singleTone: true }
     ]);
     Config.maxChordSize = 9;
-    Config.operatorCount = 4;
+    Config.operatorCount = 4; 
     Config.maxPitchOrOperatorCount = Math.max(_a$1.maxChordSize, _a$1.operatorCount + 2);
     Config.algorithms = toNameMap([
         { name: "1←(2 3 4)", carrierCount: 1, associatedCarrier: [1, 1, 1, 1], modulatedBy: [[2, 3, 4], [], [], []] },
@@ -1455,14 +1622,13 @@ updateSampledWaves()
     Config.noiseInterval = 6;
     Config.pitchesPerOctave = 12;
     Config.drumCount = 12;
-    Config.pitchOctaves = 12;
+    Config.pitchOctaves = 9;
     Config.modCount = 6;
     Config.maxPitch = _a$1.pitchOctaves * _a$1.pitchesPerOctave;
 Config.maximumTonesPerChannel = _a$1.maxChordSize * 2;
 Config.justIntonationSemitones = [1.0 / 2.0, 8.0 / 15.0, 9.0 / 16.0, 3.0 / 5.0, 5.0 / 8.0, 2.0 / 3.0, 32.0 / 45.0, 3.0 / 4.0, 4.0 / 5.0, 5.0 / 6.0, 8.0 / 9.0, 15.0 / 16.0, 1.0, 16.0 / 15.0, 9.0 / 8.0, 6.0 / 5.0, 5.0 / 4.0, 4.0 / 3.0, 45.0 / 32.0, 3.0 / 2.0, 8.0 / 5.0, 5.0 / 3.0, 16.0 / 9.0, 15.0 / 8.0, 2.0].map(x => Math.log2(x) * Config.pitchesPerOctave);
 Config.pitchShiftRange = Config.justIntonationSemitones.length;
 Config.pitchShiftCenter = Config.pitchShiftRange >> 1;
-Config.pitchShiftCenter = Math.floor(16)
 
 Config.detuneCenter = 200;
 Config.detuneMax = 400;
@@ -1567,45 +1733,46 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
     Config.bitcrusherQuantizationRange = 8;
     Config.maxEnvelopeCount = 16;
     Config.defaultAutomationRange = 13;
-     Config.instrumentAutomationTargets = toNameMap([
-    { name: "none", computeIndex: null, displayName: "none", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: null },
-    { name: "noteVolume", computeIndex: 0, displayName: "note volume", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: null },
-    { name: "pulseWidth", computeIndex: 2, displayName: "pulse width", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [6, 8] },
-    { name: "stringSustain", computeIndex: 3, displayName: "sustain", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [7] },
-    { name: "unison", computeIndex: 4, displayName: "unison", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [0, 5, 7, 9, 6, 2, 3, 4] },
-    { name: "operatorFrequency", computeIndex: 5, displayName: "fm# freq", perNote: true, interleave: true, isFilter: false, maxCount: _a$1.operatorCount + 2, effect: null, compatibleInstruments: [1, 11] },
-    { name: "operatorAmplitude", computeIndex: 11, displayName: "fm# volume", perNote: true, interleave: false, isFilter: false, maxCount: _a$1.operatorCount + 2, effect: null, compatibleInstruments: [1, 11] },
-    { name: "feedbackAmplitude", computeIndex: 17, displayName: "fm feedback", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [1, 11] },
-    { name: "pitchShift", computeIndex: 18, displayName: "pitch shift", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 7, compatibleInstruments: null },
-    { name: "detune", computeIndex: 19, displayName: "detune", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 8, compatibleInstruments: null },
-    { name: "vibratoDepth", computeIndex: 20, displayName: "vibrato depth", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 9, compatibleInstruments: null },
-    { name: "noteFilterAllFreqs", computeIndex: 1, displayName: "n. filter freqs", perNote: true, interleave: false, isFilter: true, maxCount: 1, effect: 5, compatibleInstruments: null },
-    { name: "noteFilterFreq", computeIndex: 21, displayName: "n. filter # freq", perNote: true, interleave: false, isFilter: true, maxCount: _a$1.filterMaxPoints, effect: 5, compatibleInstruments: null },
-    { name: "decimalOffset", computeIndex: 37, displayName: "decimal offset", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [6, 8] },
-    { name: "supersawDynamism", computeIndex: 38, displayName: "dynamism", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [8] },
-    { name: "supersawSpread", computeIndex: 39, displayName: "spread", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [8] },
-    { name: "supersawShape", computeIndex: 40, displayName: "saw↔pulse", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [8] },
-    { name: "panning", computeIndex: 41, displayName: "panning", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 2, compatibleInstruments: null },
-    { name: "distortion", computeIndex: 42, displayName: "distortion", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 3, compatibleInstruments: null },
-    { name: "bitcrusherQuantization", computeIndex: 43, displayName: "bitcrush", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 4, compatibleInstruments: null },
-    { name: "bitcrusherFrequency", computeIndex: 44, displayName: "freq crush", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 4, compatibleInstruments: null },
-    { name: "chorus", computeIndex: 45, displayName: "chorus", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 1, compatibleInstruments: null },
-    { name: "echoSustain", computeIndex: 46, displayName: "echo", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 6, compatibleInstruments: null },
-    { name: "reverb", computeIndex: 47, displayName: "reverb", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 0, compatibleInstruments: null },
-    { name: "arpeggioSpeed", computeIndex: 48, displayName: "arpeggio speed", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 11, compatibleInstruments: null },
-    { name: "ringModulation", computeIndex: 49, displayName: "ring mod", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 13, compatibleInstruments: null },
-    { name: "ringModulationHz", computeIndex: 50, displayName: "ring mod hz", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 13, compatibleInstruments: null },
-    { name: "granular", computeIndex: 51, displayName: "granular", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
-    { name: "grainFreq", computeIndex: 52, displayName: "grain freq", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
-    { name: "grainSize", computeIndex: 53, displayName: "grain size", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
-    { name: "grainRange", computeIndex: 54, displayName: "grain range", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
-    { name: "echoDelay", computeIndex: 55, displayName: "echo delay", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 6, compatibleInstruments: null },
-    
-    { name: "grainRange", computeIndex: 54, displayName: "grain range", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
-    
-    { name: "octaveShift", computeIndex: 56, displayName: "octave shift", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 15, compatibleInstruments: null },
-    { name: "function", computeIndex: 19, displayName: "function", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null }, 
-   ]);
+       Config.instrumentAutomationTargets = toNameMap([
+    	{ name: "none", computeIndex: null, displayName: "none", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: null },
+    	{ name: "noteVolume", computeIndex: 0, displayName: "note volume", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: null },
+    	{ name: "pulseWidth", computeIndex: 2, displayName: "pulse width", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [6, 8] },
+    	{ name: "stringSustain", computeIndex: 3, displayName: "sustain", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [7] },
+    	{ name: "unison", computeIndex: 4, displayName: "unison", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [0, 5, 7, 9, 6, 2, 3, 4] },
+    	{ name: "operatorFrequency", computeIndex: 5, displayName: "fm# freq", perNote: true, interleave: true, isFilter: false, maxCount: _a$1.operatorCount + 2, effect: null, compatibleInstruments: [1, 11] },
+    	{ name: "operatorAmplitude", computeIndex: 11, displayName: "fm# volume", perNote: true, interleave: false, isFilter: false, maxCount: _a$1.operatorCount + 2, effect: null, compatibleInstruments: [1, 11] },
+    	{ name: "feedbackAmplitude", computeIndex: 17, displayName: "fm feedback", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [1, 11] },
+    	{ name: "pitchShift", computeIndex: 18, displayName: "pitch shift", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 7, compatibleInstruments: null },
+    	{ name: "detune", computeIndex: 19, displayName: "detune", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 8, compatibleInstruments: null },
+    	{ name: "vibratoDepth", computeIndex: 20, displayName: "vibrato depth", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 9, compatibleInstruments: null },
+    	{ name: "noteFilterAllFreqs", computeIndex: 1, displayName: "n. filter freqs", perNote: true, interleave: false, isFilter: true, maxCount: 1, effect: 5, compatibleInstruments: null },
+    	{ name: "noteFilterFreq", computeIndex: 21, displayName: "n. filter # freq", perNote: true, interleave: false, isFilter: true, maxCount: _a$1.filterMaxPoints, effect: 5, compatibleInstruments: null },
+    	{ name: "decimalOffset", computeIndex: 37, displayName: "decimal offset", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [6, 8] },
+    	{ name: "supersawDynamism", computeIndex: 38, displayName: "dynamism", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [8] },
+    	{ name: "supersawSpread", computeIndex: 39, displayName: "spread", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [8] },
+    	{ name: "supersawShape", computeIndex: 40, displayName: "saw↔pulse", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [8] },
+    	{ name: "panning", computeIndex: 41, displayName: "panning", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 2, compatibleInstruments: null },
+    	{ name: "distortion", computeIndex: 42, displayName: "distortion", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 3, compatibleInstruments: null },
+    	{ name: "bitcrusherQuantization", computeIndex: 43, displayName: "bitcrush", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 4, compatibleInstruments: null },
+    	{ name: "bitcrusherFrequency", computeIndex: 44, displayName: "freq crush", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 4, compatibleInstruments: null },
+    	{ name: "chorus", computeIndex: 45, displayName: "chorus", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 1, compatibleInstruments: null },
+    	{ name: "echoSustain", computeIndex: 46, displayName: "echo", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 6, compatibleInstruments: null },
+    	{ name: "reverb", computeIndex: 47, displayName: "reverb", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 0, compatibleInstruments: null },
+    	{ name: "arpeggioSpeed", computeIndex: 48, displayName: "arpeggio speed", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 11, compatibleInstruments: null },
+    	{ name: "ringModulation", computeIndex: 49, displayName: "ring mod", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 13, compatibleInstruments: null },
+    	{ name: "ringModulationHz", computeIndex: 50, displayName: "ring mod hz", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 13, compatibleInstruments: null },
+    	{ name: "granular", computeIndex: 51, displayName: "granular", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
+    	{ name: "grainFreq", computeIndex: 52, displayName: "grain freq", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
+    	{ name: "grainSize", computeIndex: 53, displayName: "grain size", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
+    	{ name: "grainRange", computeIndex: 54, displayName: "grain range", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
+    	{ name: "echoDelay", computeIndex: 55, displayName: "echo delay", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 6, compatibleInstruments: null },
+    	{ name: "octaveShift", computeIndex: 18, displayName: "octave shift", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 15, compatibleInstruments: null }, //perNote: false, very important shit
+    	{ name: "phaserFreq", perNote: false, computeIndex: 57, displayName: "phaser freq", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
+    	{ name: "phaserMix", perNote: false, computeIndex: 58, displayName: "phaser", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
+    	{ name: "phaserFeedback", perNote: false, computeIndex: 59, displayName: "phaser feedback", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
+    	{ name: "phaserStages", perNote: false, computeIndex: 60, displayName: "phaser stages", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
+    	{ name: "function", perNote: false, computeIndex: 61, displayName: "function", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 17, compatibleInstruments: null },
+    ]);
     Config.operatorWaves = toNameMap([
         { name: "sine", samples: _a$1.sineWave },
         { name: "triangle", samples: _a$1.generateTriWave() },
@@ -1629,7 +1796,7 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
         { name: "99%", samples: _a$1.generateSquareWave(0.99) },
     ]);
     Config.barEditorHeight = 10; 
-   Config.modulators = toNameMap([
+  Config.modulators = toNameMap([
         { name: "none", pianoName: "None", maxRawVol: 6, newNoteVol: 6, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
             promptName: "No Mod Setting", promptDesc: ["No setting has been chosen yet, so this modulator will have no effect. Try choosing a setting with the dropdown, then click this '?' again for more info.", "[$LO - $HI]"] },
         { name: "song volume", pianoName: "Volume", maxRawVol: 100, newNoteVol: 100, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
@@ -1758,12 +1925,32 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
               },
         { name: "unisonSign", pianoName: "unisonSign", maxRawVol: Config.unisonSignMax*10, newNoteVol: 1, forSong: false, convertRealFactor: 0, maxIndex: 0,associatedEffect: 15, valueRealAdd: -(Config.unisonSignMax*5),   divider:5,  
         promptName: "Unison Sign", promptDesc: ["This automation is for unison sign as you can see it only work for custom unison "]
-              },
-        { name: "octave shift", pianoName: "Octave Shift", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
-            promptName: "Octave Shift", promptDesc: ["This setting controls the pitch offset of your instrument controls i by octaves, just like the octave shift slider.", "At $MID your instrument will have no octave shift'ed. This increases as you decrease toward $LO pitches (half-steps) at the low end, or increases towards +$HI pitches at the high end.", "[OVERWRITING] [$LO - $HI] [pitch]"] },
-          { name: "function", pianoName: "Function", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
+              }, 
+         { name: "octave shift", pianoName: "Octave Shift", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+            promptName: "Octave Shift", promptDesc: ["This setting controls the pitch offset of your instrument controls i by octaves, just like the pitch shift slider but in octaves.", "At $MID your instrument will have no octave shift'ed. This increases as you decrease toward $LO pitches (half-steps) at the low end, or increases towards +$HI pitches at the high end.", "[OVERWRITING] [$LO - $HI] [pitch]"] },
+                { name: "phaser",
+            pianoName: "Phaser",
+            maxRawVol: Config.phaserMixRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Instrument Phaser",
+            promptDesc: ["This setting controls the Phaser Mix of your insturment, just like the Phaser slider.", "At $LO, your instrument will have no phaser. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "phaser frequency",
+            pianoName: "Phaser Frequency",
+            maxRawVol: Config.phaserFreqRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Phaser Frequency",
+            promptDesc: ["This setting controls the phaser frequency of your insturment, just like the phaser freq slider.", "At $LO, your instrument will have no phaser freq. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "phaser feedback",
+            pianoName: "Phaser Feedback",
+            maxRawVol: Config.phaserFeedbackRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Phaser Feedback",
+            promptDesc: ["This setting controls the phaser feedback of your insturment, just like the phaser feedback slider.", "At $LO, your instrument will have no phaser feedback. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "phaser stages",
+            pianoName: "Phaser Stages",
+            maxRawVol: Config.phaserMaxStages, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Phaser Stages",
+            promptDesc: ["This setting controls the number of phaser stages in your insturment, just like the phaser stages slider.", "At $LO, your instrument will have no phaser stages. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+         { name: "function", pianoName: "Function", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 17, maxIndex: 0,
             promptName: "Function", promptDesc: ["This setting controls the buffer with custom algorithm you made. p is point it has p.v value and p.i index b[] is arraybuffer of realtime audio . safe() is safe function if buffer for example doesn't exist just returns 0", "[CURRENT BUFFER VALUE]  -> [§ALGORITHM]"] },
-    ]);
+    ]); 
     function centerWave(wave) {
         let sum = 0.0;
         for (let i = 0; i < wave.length; i++)
@@ -2002,6 +2189,7 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
         result.dictionary = dictionary;
         return result;
     }
+    
     function effectsIncludeTransition(effects) {
         return (effects & (1 << 10)) != 0;
     }
@@ -2044,12 +2232,15 @@ Config.perEnvelopeSpeedIndices = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0
     function effectsIncludeGranular(effects) {
         return (effects & (1 << 14)) != 0;
     }
-    function effectsIncludeOctaveShift(effects) {
+    function effectsIncludeOctaveShift(effects) { 
        	return (effects & (1 << 15)) != 0;
     }
-    function effectsIncludeFunction(effects) {
-       	return (effects & (1 << 16)) != 0;
+    function effectsIncludePhaser(effects) { 
+      	return (effects & (1 << 16)) != 0;
     }
+    function effectsIncludeFunction(effects) {
+        return (effects & (1 << 17)) != 0;
+    } 
     function calculateRingModHertz(sliderHz, sliderHzOffset = 0) {
         if (sliderHz == 0)
             return 0;
@@ -15797,6 +15988,103 @@ body::before {
   --disabled-note-secondary: #1A1A1A;
 }
 `,
+"Citrus": `
+:root {
+  --page-margin: #1B1B1B;
+  --editor-background: #1B1B1B;
+  --hover-preview: #FFD966;
+  --playhead: #FF8C00;
+  --primary-text: #FFFFFF;
+  --secondary-text: #FFD966;
+  --inverted-text: #000000;
+  --text-selection: #FFB84D;
+  --box-selection-fill: #FFCC80;
+  --loop-accent: #FF9900;
+  --link-accent: #FFCC33;
+  --ui-widget-background: #333333;
+  --ui-widget-focus: #FFB84D;
+  --pitch-background: #222222;
+  --tonic: #FF3333;
+  --fifth-note: #FF6600;
+  --white-piano-key-color: #FFFFFF;
+  --black-piano-key-color: #000000;
+  --white-piano-key: #FFDDCC;
+  --black-piano-key: #333333;
+  --use-color-formula: false;
+
+  --track-editor-bg-pitch: #FF4444;
+  --track-editor-bg-pitch-dim: #CC2222;
+  --track-editor-bg-noise: #FFAA33;
+  --track-editor-bg-noise-dim: #CC7733;
+  --track-editor-bg-mod: #33CCFF;
+  --track-editor-bg-mod-dim: #3399CC;
+  --multiplicative-mod-slider: #33FFCC;
+  --overwriting-mod-slider: #33CC99;
+  --indicator-primary: #FFCC00;
+  --indicator-secondary: #FF9933;
+  --select2-opt-group: #FF8800;
+  --input-box-outline: #FFAA33;
+  --mute-button-normal: #CCCCCC;
+  --mute-button-mod: #999999;
+
+  --pitch1-primary-channel: #FF5555;
+  --pitch1-secondary-channel: #FF8888;
+  --pitch1-primary-note: #FFAAAA;
+  --pitch1-secondary-note: #FF6666;
+
+  --pitch2-primary-channel: #FFAA33;
+  --pitch2-secondary-channel: #FFCC66;
+  --pitch2-primary-note: #FFE0AA;
+  --pitch2-secondary-note: #FFBB66;
+
+  --pitch3-primary-channel: #33CC33;
+  --pitch3-secondary-channel: #66FF66;
+  --pitch3-primary-note: #AAFFAA;
+  --pitch3-secondary-note: #55BB55;
+
+  --pitch4-primary-channel: #33CCCC;
+  --pitch4-secondary-channel: #66FFFF;
+  --pitch4-primary-note: #AAFFFF;
+  --pitch4-secondary-note: #55BBBB;
+
+  --pitch5-primary-channel: #5555FF;
+  --pitch5-secondary-channel: #8888FF;
+  --pitch5-primary-note: #AAAAFF;
+  --pitch5-secondary-note: #6666BB;
+
+  --pitch6-primary-channel: #CC33FF;
+  --pitch6-secondary-channel: #FF66FF;
+  --pitch6-primary-note: #EEAAFF;
+  --pitch6-secondary-note: #BB66BB;
+
+  --noise1-primary-channel: #FF4444;
+  --noise1-secondary-channel: #FF7777;
+  --noise1-primary-note: #FFAAAA;
+  --noise1-secondary-note: #BB5555;
+
+  --noise2-primary-channel: #FFAA44;
+  --noise2-secondary-channel: #FFCC77;
+  --noise2-primary-note: #FFE0AA;
+  --noise2-secondary-note: #BB8844;
+
+  --mod1-primary-channel: #33CCFF;
+  --mod1-secondary-channel: #66EEFF;
+  --mod1-primary-note: #99FFFF;
+  --mod1-secondary-note: #44BBBB;
+
+  --mod2-primary-channel: #33FFAA;
+  --mod2-secondary-channel: #66FFCC;
+  --mod2-primary-note: #AAFFEE;
+  --mod2-secondary-note: #44BBBB;
+
+  --mod-label-primary: #FFFFFF;
+  --mod-label-secondary-text: #AAAAAA;
+  --mod-label-primary-text: #FFDD88;
+  --disabled-note-primary: #222222;
+  --disabled-note-secondary: #111111;
+}
+
+`,
 "FruityBox Dark": `
 :root {
   -webkit-text-stroke-width: 0.6px;
@@ -22405,6 +22693,10 @@ updateThemes()
             this.preset = 0;
             this.chipWave = 2;
             this.wave=""
+            this.phaserFreq = 0;
+            this.phaserMix = Config.phaserMixRange - 1;
+            this.phaserFeedback = 0;
+            this.phaserStages = 2; 
             this.chipwaveselected=2; 
             this.customfunction = ["",""];
             this.isUsingAdvancedLoopControls = false;
@@ -22545,6 +22837,10 @@ this.last_unisonSpread = 0
             this.type = type;
             this.preset = type;
             this.volume = 0;
+            this.phaserFreq = 0;
+            this.phaserFeedback = 0;
+            this.phaserStages = 2;
+            this.phaserMix = Config.phaserMixRange - 1; 
             this.effects = (1 << 2);
             this.customfunction = ["",""];
             this.chorus = Config.chorusRange - 1;
@@ -22895,6 +23191,12 @@ this.last_unisonSpread = 0
             if (effectsIncludeBitcrusher(this.effects)) {
                 instrumentObject["bitcrusherOctave"] = (Config.bitcrusherFreqRange - 1 - this.bitcrusherFreq) * Config.bitcrusherOctaveStep;
                 instrumentObject["bitcrusherQuantization"] = Math.round(100 * this.bitcrusherQuantization / (Config.bitcrusherQuantizationRange - 1));
+            }
+            if (effectsIncludePhaser(this.effects)) {
+                instrumentObject["phaserMix"] = Math.round(100 * this.phaserMix / (Config.phaserMixRange - 1));
+                instrumentObject["phaserFreq"] = Math.round(100 * this.phaserFreq / (Config.phaserFreqRange - 1));
+                instrumentObject["phaserFeedback"] = Math.round(100 * this.phaserFeedback / (Config.phaserFeedbackRange - 1));
+                instrumentObject["phaserStages"] = Math.round(100 * this.phaserStages / (Config.phaserMaxStages - 1));
             }
             if (effectsIncludePanning(this.effects)) {
                 instrumentObject["pan"] = Math.round(100 * (this.pan - Config.panCenter) / Config.panCenter);
@@ -23335,6 +23637,18 @@ this.last_unisonSpread = 0
             if (instrumentObject["bitcrusherQuantization"] != undefined) {
                 this.bitcrusherQuantization = clamp(0, Config.bitcrusherQuantizationRange, Math.round((Config.bitcrusherQuantizationRange - 1) * (instrumentObject["bitcrusherQuantization"] | 0) / 100));
             }
+            if (instrumentObject["phaserMix"] != undefined) {
+                this.phaserMix = clamp(0, Config.phaserMixRange, Math.round((Config.phaserMixRange - 1) * (instrumentObject["phaserMix"] | 0) / 100));
+            }
+            if (instrumentObject["phaserFreq"] != undefined) {
+                this.phaserFreq = clamp(0, Config.phaserFreqRange, Math.round((Config.phaserFreqRange - 1) * (instrumentObject["phaserFreq"] | 0) / 100));
+            }
+            if (instrumentObject["phaserFeedback"] != undefined) {
+                this.phaserFeedback = clamp(0, Config.phaserFeedbackRange, Math.round((Config.phaserFeedbackRange - 1) * (instrumentObject["phaserFeedback"] | 0) / 100));
+            }
+            if (instrumentObject["phaserStages"] != undefined) {
+                this.phaserStages = clamp(0, Config.phaserMaxStages, Math.round((Config.phaserMaxStages - 1) * (instrumentObject["phaserStages"] | 0) / 100));
+            } 
             if (instrumentObject["echoSustain"] != undefined) {
                 this.echoSustain = clamp(0, Config.echoSustainRange, Math.round((Config.echoSustainRange - 1) * (instrumentObject["echoSustain"] | 0) / 100));
             }
@@ -24448,6 +24762,12 @@ buffer.push(110,
                         buffer.push(base64IntToCharCode[instrument.distortion]);
                         buffer.push(base64IntToCharCode[+instrument.aliases]);
                     }
+                    if (effectsIncludePhaser(instrument.effects)) {
+                        buffer.push(base64IntToCharCode[instrument.phaserFreq]);
+                        buffer.push(base64IntToCharCode[instrument.phaserFeedback]);
+                        buffer.push(base64IntToCharCode[instrument.phaserStages]);
+                        buffer.push(base64IntToCharCode[instrument.phaserMix]);
+                    }
                     if (effectsIncludeBitcrusher(instrument.effects)) {
                         buffer.push(base64IntToCharCode[instrument.bitcrusherFreq], base64IntToCharCode[instrument.bitcrusherQuantization]);
                     }
@@ -24494,7 +24814,6 @@ buffer.push(119)
 let waveName = Config.chipWaves[instrument.chipWave]?.name ?? "unknown";
 let i4=0; for (let wave of Config.chipWaves) {	if (wave.name === instrument.wave) { i4=true;	}
 } if (i4==0){ waveName=instrument.wave }
-console.log(instrument.chipWave)
 function encodeWaveName(str) {
     const utf8 = new TextEncoder().encode(str);
     let bin = "";
@@ -24737,7 +25056,7 @@ buffer.push(
                                 bits.write(neededModInstrumentIndexBits, modInstrument);
                             }
                             if (status != 3) {
-                                bits.write(6, modSetting);
+                                bits.write(7, modSetting);//7 not 6
                             }
                             if (Config.modulators[instrument.modulators[mod]].name == "eq filter" || Config.modulators[instrument.modulators[mod]].name == "note filter" || Config.modulators[instrument.modulators[mod]].name == "song eq") {
                                 bits.write(6, modFilter);
@@ -24999,64 +25318,71 @@ buffer.push(
             const forceSimpleFilter = (fromBeepBox && beforeNine || fromJummBox && beforeFive);
             let willLoadLegacySamplesForOldSongs = false;
             if (fromSlarmoosBox || fromUltraBox || fromGoldBox) {
-                compressed = compressed.replaceAll("%7C", "|");
-                var compressed_array = compressed.split("|");
-                compressed = compressed_array.shift();
-                if (EditorConfig.customSamples == null || EditorConfig.customSamples.join(", ") != compressed_array.join(", ")) {
-                    Song._restoreChipWaveListToDefault();
-                    let willLoadLegacySamples = false;
-                    let willLoadNintariboxSamples = false;
-                    let willLoadMarioPaintboxSamples = false;
-                    const customSampleUrls = [];
-                    const customSamplePresets = [];
-                    sampleLoadingState.statusTable = {};
-                    sampleLoadingState.urlTable = {};
-                    sampleLoadingState.totalSamples = 0;
-                    sampleLoadingState.samplesLoaded = 0;
-                    sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
-                    for (const url of compressed_array) {
-                        if (url.toLowerCase() === "legacysamples") {
-                            if (!willLoadLegacySamples) {
-                                willLoadLegacySamples = true;
-                                customSampleUrls.push(url);
-                                loadBuiltInSamples(0);
-                            }
-                        }
-                        else if (url.toLowerCase() === "nintariboxsamples") {
-                            if (!willLoadNintariboxSamples) {
-                                willLoadNintariboxSamples = true;
-                                customSampleUrls.push(url);
-                                loadBuiltInSamples(1);
-                            }
-                        }
-                        else if (url.toLowerCase() === "mariopaintboxsamples") {
-                            if (!willLoadMarioPaintboxSamples) {
-                                willLoadMarioPaintboxSamples = true;
-                                customSampleUrls.push(url);
-                                loadBuiltInSamples(2);
-                            }
-                        }
-                        else {
-                            const parseOldSyntax = beforeThree;
-                            const ok = Song._parseAndConfigureCustomSample(url, customSampleUrls, customSamplePresets, sampleLoadingState, parseOldSyntax);
-                            if (!ok) {
-                                continue;
-                            }
-                        }
-                    }
-                    if (customSampleUrls.length > 0) {
-                        EditorConfig.customSamples = customSampleUrls;
-                    }
-                    if (customSamplePresets.length > 0) {
-                        const customSamplePresetsMap = toNameMap(customSamplePresets);
-                        EditorConfig.presetCategories[EditorConfig.presetCategories.length] = {
-                            name: "Custom Sample Presets",
-                            presets: customSamplePresetsMap,
-                            index: EditorConfig.presetCategories.length,
-                        };
-                    }
-                }
-            }
+ compressed = compressed.replaceAll("%7C", "|");
+ var compressed_array = compressed.split("|");
+ compressed = compressed_array.shift();
+ if (EditorConfig.customSamples == null || EditorConfig.customSamples.join(", ") != compressed_array.join(", ")) {
+  Song._restoreChipWaveListToDefault();
+  let willLoadLegacySamples = false;
+  let willLoadNintariboxSamples = false;
+  let willLoadMarioPaintboxSamples = false;
+  let willLoadStudioSamples = false;
+  const customSampleUrls = [];
+  const customSamplePresets = [];
+  sampleLoadingState.statusTable = {};
+  sampleLoadingState.urlTable = {};
+  sampleLoadingState.totalSamples = 0;
+  sampleLoadingState.samplesLoaded = 0;
+  sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
+  for (const url of compressed_array) {
+   if (url.toLowerCase() === "legacysamples") {
+    if (!willLoadLegacySamples) {
+     willLoadLegacySamples = true;
+     customSampleUrls.push(url);
+     loadBuiltInSamples(0);
+    }
+   }
+   else if (url.toLowerCase() === "nintariboxsamples") {
+    if (!willLoadNintariboxSamples) {
+     willLoadNintariboxSamples = true;
+     customSampleUrls.push(url);
+     loadBuiltInSamples(1);
+    }
+   }
+   else if (url.toLowerCase() === "mariopaintboxsamples") {
+    if (!willLoadMarioPaintboxSamples) {
+     willLoadMarioPaintboxSamples = true;
+     customSampleUrls.push(url);
+     loadBuiltInSamples(2);
+    }
+   } else if (url.toLowerCase() === "studiosamples") {
+    if (!willLoadStudioSamples) {
+     willLoadStudioSamples = true;
+     customSampleUrls.push(url);
+     loadBuiltInSamples(3);
+    }
+   }
+   else {
+    const parseOldSyntax = beforeThree;
+    const ok = Song._parseAndConfigureCustomSample(url, customSampleUrls, customSamplePresets, sampleLoadingState, parseOldSyntax);
+    if (!ok) {
+     continue;
+    }
+   }
+  }
+  if (customSampleUrls.length > 0) {
+   EditorConfig.customSamples = customSampleUrls;
+  }
+  if (customSamplePresets.length > 0) {
+   const customSamplePresetsMap = toNameMap(customSamplePresets);
+   EditorConfig.presetCategories[EditorConfig.presetCategories.length] = {
+    name: "Custom Sample Presets",
+    presets: customSamplePresetsMap,
+    index: EditorConfig.presetCategories.length,
+   };
+  }
+ }
+}
             if (beforeThree && fromBeepBox) {
                 for (const channel of this.channels) {
                     channel.instruments[0].transition = Config.transitions.dictionary["interrupt"].index;
@@ -25505,13 +25831,13 @@ case 119: {
  	const bytes = new Uint8Array(bin.length);
  	for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
  	const waveName = new TextDecoder().decode(bytes);
- 	console.log("des+ " + waveName)
  	const foundIndex = Config.chipWaves.findIndex(w => w.name === waveName);
  	if (foundIndex >= 0) {
  		instrument.wave = waveName;
  		instrument.chipWave = foundIndex;
  	} else {
  		instrument.wavenotfound = waveName;
+ 		instrument.wave = waveName;
  	}
  }
 else if (fromSlarmoosBox) {
@@ -26219,6 +26545,12 @@ break;
                                     if ((fromJummBox && !beforeFive) || fromGoldBox || fromUltraBox || fromSlarmoosBox)
                                         instrument.aliases = base64CharCodeToInt[compressed.charCodeAt(charIndex++)] ? true : false;
                                 }
+                                if (effectsIncludePhaser(instrument.effects)) {
+                                    instrument.phaserFreq = clamp(0, Config.phaserFreqRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                    instrument.phaserFeedback = clamp(0, Config.phaserFeedbackRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                    instrument.phaserStages = clamp(0, Config.phaserMaxStages + 1, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                    instrument.phaserMix = clamp(0, Config.phaserMixRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                }
                                 if (effectsIncludeBitcrusher(instrument.effects)) {
                                     instrument.bitcrusherFreq = clamp(0, Config.bitcrusherFreqRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                     instrument.bitcrusherQuantization = clamp(0, Config.bitcrusherQuantizationRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
@@ -26867,7 +27199,7 @@ break;
                                                     break;
                                             }
                                             if (status != 3) {
-                                                instrument.modulators[mod] = bits.read(6);
+                                                instrument.modulators[mod] = bits.read(7);
                                             }
                                             if (!jumfive && (Config.modulators[instrument.modulators[mod]].name == "eq filter" || Config.modulators[instrument.modulators[mod]].name == "note filter" || Config.modulators[instrument.modulators[mod]].name == "song eq")) {
                                                 instrument.modFilterTypes[mod] = bits.read(6);
@@ -27611,6 +27943,16 @@ break;
                                 	loadBuiltInSamples(2,1);
                                 } else {
                                 	loadBuiltInSamples(2);
+                                }
+                            }
+                        }else if (url.toLowerCase() === "studiosamples") {
+                            if (!willLoadStudioSamples) {
+                                willLoadStudioSamples = true;
+                                customSampleUrls.push(url);
+                                if(jsonFormat=="slarmoosbox2"){
+                                loadBuiltInSamples(3,1);
+                                }else{
+                                loadBuiltInSamples(3);
                                 }
                             }
                         }
@@ -28362,7 +28704,7 @@ break;
             this._modifiedEnvelopeIndices = [];
             this._modifiedEnvelopeCount = 0;
             this.lowpassCutoffDecayVolumeCompensation = 1.0;
-            const length = 56;
+            const length = 64 // 56 was now its 64;
             for (let i = 0; i < length; i++) {
                 this.envelopeStarts[i] = 1.0;
                 this.envelopeEnds[i] = 1.0;
@@ -29077,6 +29419,17 @@ break;
             this.eqFilterVolume = 1.0;
             this.eqFilterVolumeDelta = 0.0;
             this.mixVolume = 1.0;
+            this.phaserSamples = null;
+            this.phaserPrevInputs = null;
+            this.phaserFeedbackMult = 0.0;
+            this.phaserFeedbackMultDelta = 0.0;
+            this.phaserMix = 0.0; 
+            this.phaserMixDelta = 0.0;
+            this.phaserBreakCoef = 0.0;
+            this.phaserBreakCoefDelta = 0.0;
+            this.phaserStages = 0;
+            this.phaserStagesDelta = 0;
+            
             this.mixVolumeDelta = 0.0;
             this.delayInputMult = 0.0;
             this.delayInputMultDelta = 0.0;
@@ -29193,6 +29546,12 @@ break;
                     this.panningDelayLine = new Float32Array(synth.panningDelayBufferSize);
                 }
             }
+            if (effectsIncludePhaser(instrument.effects)) {
+                if (this.phaserSamples == null) {
+                    this.phaserSamples = new Float32Array(Config.phaserMaxStages);
+                    this.phaserPrevInputs = new Float32Array(Config.phaserMaxStages);
+                }
+            }
             if (effectsIncludeChorus(instrument.effects)) {
                 if (this.chorusDelayLineL == null || this.chorusDelayLineL.length < synth.chorusDelayBufferSize) {
                     this.chorusDelayLineL = new Float32Array(synth.chorusDelayBufferSize);
@@ -29289,6 +29648,12 @@ break;
             this.deactivateAfterThisTick = false;
             this.attentuationProgress = 0.0;
             this.flushedSamples = 0;
+            if (this.phaserSamples != null)
+                for (let i = 0; i < this.phaserSamples.length; i++)
+                    this.phaserSamples[i] = 0.0;
+            if (this.phaserPrevInputs != null)
+                for (let i = 0; i < this.phaserPrevInputs.length; i++)
+                    this.phaserPrevInputs[i] = 0.0;
         }
         resetAllEffects() {
             this.deactivate();
@@ -29362,6 +29727,7 @@ break;
             }
             this.envelopeComputer.computeEnvelopes(instrument, currentPart, this.envelopeTime, tickTimeStart, secondsPerTick, tone, envelopeSpeeds, this, synth, channelIndex, instrumentIndex, false);
             const envelopeStarts = this.envelopeComputer.envelopeStarts;
+            const usesPhaser = effectsIncludePhaser(this.effects);
             const envelopeEnds = this.envelopeComputer.envelopeEnds;
             const usesGranular = effectsIncludeGranular(this.effects);
             const usesRingModulation = effectsIncludeRingModulation(this.effects);
@@ -29747,6 +30113,67 @@ instrument.unisonSign = (step(((
                 this.echoShelfB1 = Synth.tempFilterStartCoefficients.b[1];
             }
             let maxReverbMult = 0.0;
+            if (usesPhaser) { 
+                const phaserMinFeedback = 0.0;
+                const phaserMaxFeedback = 0.95;
+                const phaserFeedbackMultSlider = instrument.phaserFeedback / Config.phaserFeedbackRange;
+                const phaserFeedbackMultEnvelopeStart = envelopeStarts[59];
+                const phaserFeedbackMultEnvelopeEnd = envelopeEnds[59];
+                let phaserFeedbackMultRawStart = phaserFeedbackMultSlider * phaserFeedbackMultEnvelopeStart;
+                let phaserFeedbackMultRawEnd = phaserFeedbackMultSlider * phaserFeedbackMultEnvelopeEnd;
+                if (synth.isModActive(Config.modulators.dictionary["phaser feedback"].index, channelIndex, instrumentIndex)) {
+                    phaserFeedbackMultRawStart = synth.getModValue(Config.modulators.dictionary["phaser feedback"].index, channelIndex, instrumentIndex, false) / (Config.phaserFeedbackRange);
+                    phaserFeedbackMultRawEnd = synth.getModValue(Config.modulators.dictionary["phaser feedback"].index, channelIndex, instrumentIndex, true) / (Config.phaserFeedbackRange);
+                }
+                const phaserFeedbackMultStart = Math.max(phaserMinFeedback, Math.min(phaserMaxFeedback, phaserFeedbackMultRawStart));
+                const phaserFeedbackMultEnd = Math.max(phaserMinFeedback, Math.min(phaserMaxFeedback, phaserFeedbackMultRawEnd));
+                this.phaserFeedbackMult = phaserFeedbackMultStart;
+                this.phaserFeedbackMultDelta = (phaserFeedbackMultEnd - phaserFeedbackMultStart) / roundedSamplesPerTick;
+                const phaserMixSlider = instrument.phaserMix / (Config.phaserMixRange - 1);
+                const phaserMixEnvelopeStart = envelopeStarts[58];
+                const phaserMixEnvelopeEnd = envelopeEnds[58];
+                let phaserMixStart = phaserMixSlider * phaserMixEnvelopeStart;
+                let phaserMixEnd = phaserMixSlider * phaserMixEnvelopeEnd;
+                if (synth.isModActive(Config.modulators.dictionary["phaser"].index, channelIndex, instrumentIndex)) {
+                    phaserMixStart = Math.max(0, Math.min(Config.phaserMixRange - 1, synth.getModValue(Config.modulators.dictionary["phaser"].index, channelIndex, instrumentIndex, false))) / (Config.phaserMixRange - 1);
+                    phaserMixEnd = Math.max(0, Math.min(Config.phaserMixRange - 1, synth.getModValue(Config.modulators.dictionary["phaser"].index, channelIndex, instrumentIndex, true))) / (Config.phaserMixRange - 1);
+                }
+                this.phaserMix = phaserMixStart;
+                this.phaserMixDelta = (phaserMixEnd - phaserMixStart) / roundedSamplesPerTick;
+                const phaserBreakFreqSlider = instrument.phaserFreq / (Config.phaserFreqRange - 1);
+                let phaserBreakFreqEnvelopeStart = envelopeStarts[57];
+                let phaserBreakFreqEnvelopeEnd = envelopeEnds[57];
+                let phaserBreakFreqRawStart = phaserBreakFreqSlider * phaserBreakFreqEnvelopeStart;
+                let phaserBreakFreqRawEnd = phaserBreakFreqSlider * phaserBreakFreqEnvelopeEnd;
+                if (synth.isModActive(Config.modulators.dictionary["phaser frequency"].index, channelIndex, instrumentIndex)) {
+                    phaserBreakFreqRawStart = synth.getModValue(Config.modulators.dictionary["phaser frequency"].index, channelIndex, instrumentIndex, false) / (Config.phaserFreqRange);
+                    phaserBreakFreqRawEnd = synth.getModValue(Config.modulators.dictionary["phaser frequency"].index, channelIndex, instrumentIndex, true) / (Config.phaserFreqRange);
+                }
+                const phaserBreakFreqRemappedStart = Config.phaserMinFreq * Math.pow(Config.phaserMaxFreq / Config.phaserMinFreq, phaserBreakFreqRawStart);
+                const phaserBreakFreqRemappedEnd = Config.phaserMinFreq * Math.pow(Config.phaserMaxFreq / Config.phaserMinFreq, phaserBreakFreqRawEnd);
+                const phaserBreakFreqStart = Math.max(Config.phaserMinFreq, Math.min(Config.phaserMaxFreq, phaserBreakFreqRemappedStart));
+                const phaserBreakFreqStartT = Math.tan(Math.PI * phaserBreakFreqStart / samplesPerSecond);
+                const phaserBreakCoefStart = (phaserBreakFreqStartT - 1) / (phaserBreakFreqStartT + 1);
+                const phaserBreakFreqEnd = Math.max(Config.phaserMinFreq, Math.min(Config.phaserMaxFreq, phaserBreakFreqRemappedEnd));
+                const phaserBreakFreqEndT = Math.tan(Math.PI * phaserBreakFreqEnd / samplesPerSecond);
+                const phaserBreakCoefEnd = (phaserBreakFreqEndT - 1) / (phaserBreakFreqEndT + 1);
+                this.phaserBreakCoef = phaserBreakCoefStart;
+                this.phaserBreakCoefDelta = (phaserBreakCoefEnd - phaserBreakCoefStart) / roundedSamplesPerTick;
+                const phaserStagesEnvelopeStart = envelopeStarts[60];
+                const phaserStagesEnvelopeEnd = envelopeEnds[60];
+                
+                
+                
+                const phaserStagesSlider = instrument.phaserStages;
+                let phaserStagesStart = Math.max(Config.phaserMinStages, Math.min(Config.phaserMaxStages, phaserStagesSlider * phaserStagesEnvelopeStart));
+                let phaserStagesEnd = Math.max(Config.phaserMinStages, Math.min(Config.phaserMaxStages, phaserStagesSlider * phaserStagesEnvelopeEnd));
+                if (synth.isModActive(Config.modulators.dictionary["phaser stages"].index, channelIndex, instrumentIndex)) {
+                    phaserStagesStart = Math.round(synth.getModValue(Config.modulators.dictionary["phaser stages"].index, channelIndex, instrumentIndex, false));
+                    phaserStagesEnd = Math.round(synth.getModValue(Config.modulators.dictionary["phaser stages"].index, channelIndex, instrumentIndex, false));
+                }
+                this.phaserStages = phaserStagesStart;
+                this.phaserStagesDelta = (phaserStagesEnd - phaserStagesStart) / roundedSamplesPerTick;
+            }
             if (usesReverb) {
                 const reverbEnvelopeStart = envelopeStarts[47];
                 const reverbEnvelopeEnd = envelopeEnds[47];
@@ -33671,6 +34098,7 @@ if (effectsIncludeOctaveShift(instrument.effects)) {
             const usesEcho = effectsIncludeEcho(instrumentState.effects);
             const usesReverb = effectsIncludeReverb(instrumentState.effects);
             const usesGranular = effectsIncludeGranular(instrumentState.effects);
+            const usesPhaser = effectsIncludePhaser(instrumentState.effects);
             const usesRingModulation = effectsIncludeRingModulation(instrumentState.effects);
             let signature = 0;
             if (usesDistortion)
@@ -33692,6 +34120,9 @@ if (effectsIncludeOctaveShift(instrument.effects)) {
                 signature = signature | 1;
             signature = signature << 1;
             if (usesReverb)
+                signature = signature | 1;
+            signature = signature << 1;
+            if (usesPhaser)
                 signature = signature | 1;
             signature = signature << 1;
             if (usesGranular)
@@ -33809,6 +34240,22 @@ try {
                     waveform = Synth.getOperatorWave(ringModWaveformIndex, ringModPulseWidth).samples;
                 }
                 const waveformLength = waveform.length - 1;
+                `;
+                }
+                 if (usesPhaser) {
+                    effectsSource += `
+                
+                const phaserSamples = instrumentState.phaserSamples;
+                const phaserPrevInputs = instrumentState.phaserPrevInputs;
+                let phaserStages = instrumentState.phaserStages;
+                let phaserStagesInt = Math.floor(phaserStages);
+                const phaserStagesDelta = instrumentState.phaserStagesDelta;
+                const phaserFeedbackMultDelta = +instrumentState.phaserFeedbackMultDelta;
+                let phaserFeedbackMult = +instrumentState.phaserFeedbackMult;
+                const phaserMixDelta = +instrumentState.phaserMixDelta;
+                let phaserMix = +instrumentState.phaserMix;
+                const phaserBreakCoefDelta = +instrumentState.phaserBreakCoefDelta;
+                let phaserBreakCoef = +instrumentState.phaserBreakCoef;
                 `;
                 }
                 if (usesEqFilter) {
@@ -34079,6 +34526,26 @@ try {
                  
                 `;
                 }
+                if (usesPhaser) {
+                    effectsSource += `
+                        const phaserFeedback = phaserSamples[Math.max(0,phaserStagesInt - 1)] * phaserFeedbackMult;
+                        for (let stage = 0; stage < phaserStagesInt; stage++) {
+                            const phaserInput = stage === 0 ? sample + phaserFeedback : phaserSamples[stage - 1];
+                            const phaserPrevInput = phaserPrevInputs[stage];
+                            const phaserSample = phaserSamples[stage];
+                            const phaserNextOutput = phaserBreakCoef * phaserInput + phaserPrevInput - phaserBreakCoef * phaserSample;
+                            phaserPrevInputs[stage] = phaserInput;
+                            phaserSamples[stage] = phaserNextOutput;
+                        }
+                        const phaserOutput = phaserSamples[Math.max(0,phaserStagesInt - 1)];
+                        sample = sample + phaserOutput * phaserMix;
+                        phaserFeedbackMult += phaserFeedbackMultDelta;
+                        phaserBreakCoef += phaserBreakCoefDelta;
+                        phaserMix += phaserMixDelta;
+                        phaserStages += phaserStagesDelta;
+                        /*phaserStagesInt = Math.floor(phaserStages);*/
+                    `;
+                }
                 if (usesEqFilter) {
                     effectsSource += `
 					
@@ -34309,6 +34776,19 @@ if (usesFunction) {
                 instrumentState.ringModPulseWidth = ringModPulseWidth;
                 instrumentState.ringModMixFade = ringModMixFade;
                  `;
+                }
+                if (usesPhaser) {
+                    effectsSource += `
+                
+                for (let stage = 0; stage < phaserStages; stage++) {
+                    if (!Number.isFinite(phaserPrevInputs[stage]) || Math.abs(phaserPrevInputs[stage]) < epsilon) phaserPrevInputs[stage] = 0.0;
+                    if (!Number.isFinite(phaserSamples[stage]) || Math.abs(phaserSamples[stage]) < epsilon) phaserSamples[stage] = 0.0;
+                }
+                
+                instrumentState.phaserMix = phaserMix;
+                instrumentState.phaserFeedbackMult = phaserFeedbackMult;
+                instrumentState.phaserBreakCoef = phaserBreakCoef;
+                `;
                 }
                 if (usesEqFilter) {
                     effectsSource += `
@@ -36463,7 +36943,7 @@ if (zoomEnabled2) {
     	timeline.style.width = timelineWidth + "px";
     	timeline.style.height = timelineHeight + "px";
     	const barWidth = timelineWidth / synth.song.barCount;
-    	const partWidth = barWidth / (synth.song.beatsPerBar * Config.partsPerBeat);
+    	const partWidth = (barWidth / (synth.song.beatsPerBar * Config.partsPerBeat) );
     	const wavePitchHeight = (timelineHeight - 1) / windowPitchCount;
     	const drumPitchHeight = (timelineHeight - 1) / Config.drumCount;
     	for (let bar = 0; bar < synth.song.barCount + 1; bar++) {
@@ -36472,7 +36952,7 @@ if (zoomEnabled2) {
     	}
     	for (let octave = 0; octave <= windowOctaves; octave++) {
     		timeline.appendChild(rect({ x: 0, y: octave * 12 * wavePitchHeight, width: timelineWidth, height: wavePitchHeight + 1, fill: ColorConfig.tonic, opacity: 0.75 }));
-    	}
+    	} 
     	let noteFlashColor = "#ffffff";
     	let noteFlashColorSecondary = "#ffffff77";
     	if (notesFlashWhenPlayed) {
@@ -36522,7 +37002,7 @@ if (zoomEnabled2) {
     				}
     			}
     		}
-    	}
+    	} 
     	renderPlayhead();
     	const pianoContainerBoundingRect = pianoContainer.getBoundingClientRect();
     	renderPiano(piano, timelineHeight, pianoContainerBoundingRect.height, windowOctaves, synth.song);
@@ -36554,16 +37034,19 @@ if (zoomEnabled2) {
     }
     function drawNote(pitch, start, pins, radius, offsetX, offsetY, partWidth, pitchHeight) {
         let d = `M ${offsetX + partWidth * (start + pins[0].time)} ${offsetY - pitch * pitchHeight + radius * (pins[0].size / Config.noteSizeMax)} `;
+        let NOTE_SHRINK = 0;  if(zoomEnabled2==true){NOTE_SHRINK=3}
         for (let i = 0; i < pins.length; i++) {
             const pin = pins[i];
-            const x = offsetX + partWidth * (start + pin.time);
+            const isLastPin = (i === pins.length - 1);
+            const x = offsetX + partWidth * (start + pin.time) - (isLastPin ? NOTE_SHRINK : 0);
             const y = offsetY - pitchHeight * (pitch + pin.interval);
             const expression = pin.size / Config.noteSizeMax;
             d += `L ${x} ${y - radius * expression} `;
         }
         for (let i = pins.length - 1; i >= 0; i--) {
             const pin = pins[i];
-            const x = offsetX + partWidth * (start + pin.time);
+            const isLastPin = (i === pins.length - 1);
+            const x = offsetX + partWidth * (start + pin.time) - (isLastPin ? NOTE_SHRINK : 0);
             const y = offsetY - pitchHeight * (pitch + pin.interval);
             const expression = pin.size / Config.noteSizeMax;
             d += `L ${x} ${y + radius * expression} `;

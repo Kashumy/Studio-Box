@@ -5,7 +5,7 @@ const loadingScreen = document.createElement("div");
 loadingScreen.style.position = "fixed";
 loadingScreen.style.inset = "0";
 loadingScreen.style.background = "#222";
-loadingScreen.style.color = "white";
+loadingScreen.style.color = "white"; 
 loadingScreen.style.display = "flex";
 loadingScreen.style.flexDirection = "column";
 loadingScreen.style.justifyContent = "center";
@@ -238,6 +238,46 @@ function blobToBase6422(blob) {
   });
 }
 let loadedBB=0
+let pageloaded=0
+const request = indexedDB.open("HyperBoxData", 1);
+request.onupgradeneeded = function(event) {
+ db = event.target.result;
+ db.createObjectStore("files", { keyPath: "id" });
+};
+request.onsuccess = function(event) {
+ db = event.target.result;
+ loadFiles();
+};
+const scripts = [
+    "./StudioSamplesVol1.js",
+    "./StudioSamplesVol2.js",
+    "./StudioSamplesVol3.js",
+    "./StudioSamplesVol4.js",
+    "./samples.js",
+    "./samples2.js",
+    "./samples3.js",
+    "./drumsamples.js",
+    "./wario_samples.js",
+    "./kirby_samples.js",
+    "./nintaribox_samples.js",
+    "./mario_paintbox_samples.js"
+];
+
+function loadScriptsSequentially() {
+    let promise = Promise.resolve();
+    scripts.forEach(src => {
+        promise = promise.then(() => new Promise(resolve => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = false; 
+            script.onload = () => resolve();
+            script.onerror = () => resolve();
+            document.head.appendChild(script);
+        }));
+    });
+    return promise;
+}
+
 function loadFiles() {
 	const transaction = db.transaction(["files"], "readonly");
 	const store = transaction.objectStore("files"); 
@@ -246,7 +286,8 @@ function loadFiles() {
 		const total = countRequest.result;
 		let loaded = 0;
 		const request = store.openCursor();
-		request.onsuccess = function(event) {
+		document.querySelector("body").style.display="flex"
+		request.onsuccess = async function(event) {
 			const cursor = event.target.result;
 			if (cursor) {
 				const file = cursor.value;
@@ -265,31 +306,44 @@ function loadFiles() {
 				cursor.continue();
 			} else {
 				allfilesloaded = 1;
-				setTimeout(() => { loadingText.innerText = "All samples loaded successfully" }, 50);
-				if(loadedBB==0){
-				RUNBEEPBOX()
-				} else if(loadedBB==1){
-				updateSampledWaves()
+				
+				if(window.location.hash){
+				await loadScriptsSequentially();
 				}
-				setTimeout(() => {
+if (document.readyState !== "loading") {
+	setTimeout(() => {
+		loadingScreen.style.opacity = "0";
+		setTimeout(() => {
+			loadingScreen.style.display = "none";
+		}, 600);
+	}, 500);
+}
+				if(loadedBB==0){
+					if (document.readyState === "loading") {
+						setTimeout(() => { loadingText.innerText = "Loading Page" }, 50);
+     document.addEventListener('DOMContentLoaded', () => {
+      	setTimeout(() => { loadingText.innerText = "All samples loaded successfully" }, 50);
+      	setTimeout(() => {
 					loadingScreen.style.opacity = "0";
 					setTimeout(() => {
 						loadingScreen.style.display = "none";
 					}, 600);
 				}, 500);
+    	  RUNBEEPBOX()
+      });
+    }else{
+    setTimeout(() => { loadingText.innerText = "All samples loaded successfully" }, 50);
+				 RUNBEEPBOX()
+    }
+				} else if(loadedBB==1){
+				updateSampledWaves()
+				}
+				
 			}
 		};
 	};
 }
-const request = indexedDB.open("HyperBoxData", 1);
-request.onupgradeneeded = function(event) {
-	db = event.target.result;
-	db.createObjectStore("files", { keyPath: "id" });
-};
-request.onsuccess = function(event) {
-	db = event.target.result;
-	loadFiles();
-};
+
 var updateThemes = function() {}
 function POPUP(x, y, title, content, framecolor = "#000080") {
 	const win = document.createElement("div");
@@ -593,7 +647,7 @@ function readBase64Int(str, index, digits) {
                     url = joined;
                 }
             }
-            fetch(url).then((response) => {
+            fetch(url).then((response) => { 
                 if (!response.ok) {
                     sampleLoadingState.statusTable[chipWaveIndex] = 2;
                     return Promise.reject(new Error("Couldn't load sample"));
@@ -623,7 +677,7 @@ function readBase64Int(str, index, digits) {
                 }
             }).catch((error) => {
                 sampleLoadingState.statusTable[chipWaveIndex] = 2;
-                alert("Failed to load " + url + ":\n" + error);
+                POPUP(innerWidth/2-150, innerHeight/2-100 + window.scrollY,"Warning", "Failed to load " + url + ":\n" + error, "#00afdf");
                 if (!closedSampleLoaderAudioContext) {
                     closedSampleLoaderAudioContext = true;
                     sampleLoaderAudioContext.close();
@@ -638,19 +692,22 @@ function readBase64Int(str, index, digits) {
         }
         return value;
     }
-    function loadScript(url) {
-        const result = new Promise((resolve, reject) => {
-            if (!Config.willReloadForCustomSamples) {
-                const script = document.createElement("script");
-                script.src = url;
-                document.head.appendChild(script);
-                script.addEventListener("load", (event) => {
-                    resolve();
-                });
-            }
-        });
-        return result;
-    }
+ function loadScript(url) {
+ 	if (location.href.startsWith("file:///")) {
+ 		url = "file:///android_asset/WebView/" + url
+ 	}
+ 	const result = new Promise((resolve, reject) => {
+ 		if (!Config.willReloadForCustomSamples) {
+ 			const script = document.createElement("script");
+ 			script.src = url;
+ 			document.head.appendChild(script);
+ 			script.addEventListener("load", (event) => {
+ 				resolve();
+ 			});
+ 		}
+ 	});
+ 	return result;
+ }
     
  
 
@@ -760,13 +817,7 @@ Config.chipWaves.dictionary = {};
   			sampleLoadingState.urlTable[chipWaveIndex] = "legacySamples";
   		}
 
-  		loadScript("samples.js")
-  			.then(() => loadScript("samples2.js"))
-  			.then(() => loadScript("samples3.js"))
-  			.then(() => loadScript("drumsamples.js"))
-  			.then(() => loadScript("wario_samples.js"))
-  			.then(() => loadScript("kirby_samples.js"))
-  			.then(() => {
+  		 
   				
   				const chipWaveSamples = [
   					centerWave(kicksample),
@@ -851,7 +902,7 @@ Config.chipWaves.dictionary = {};
   					sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
   					chipWaveIndexOffset++;
   				}
-  			});
+  			
   	}
   	else if (set == 1) {
   		const chipWaves = [
@@ -876,8 +927,7 @@ Config.chipWaves.dictionary = {};
   			sampleLoadingState.statusTable[chipWaveIndex] = 0;
   			sampleLoadingState.urlTable[chipWaveIndex] = "nintariboxSamples";
   		}
-  		loadScript("nintaribox_samples.js")
-  			.then(() => {
+  		 
   				const chipWaveSamples = [
   					centerWave(chronoperc1finalsample),
   					centerWave(synthkickfmsample),
@@ -895,7 +945,6 @@ Config.chipWaves.dictionary = {};
   					sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
   					chipWaveIndexOffset++;
   				}
-  			});
   	}
   	else if (set == 2) {
   		const chipWaves = [
@@ -927,8 +976,7 @@ Config.chipWaves.dictionary = {};
   			sampleLoadingState.statusTable[chipWaveIndex] = 0;
   			sampleLoadingState.urlTable[chipWaveIndex] = "marioPaintboxSamples";
   		}
-  		loadScript("mario_paintbox_samples.js")
-  			.then(() => {
+  		 
   				const chipWaveSamples = [
   					centerWave(catpaintboxsample),
   					centerWave(gameboypaintboxsample),
@@ -953,7 +1001,108 @@ Config.chipWaves.dictionary = {};
   					sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
   					chipWaveIndexOffset++;
   				}
-  			});
+  			
+  	}else if (set == 3) { 
+
+
+  		const chipWaves = [
+  			{ name: "Realistic Piano", expression: 2, isPercussion: false, rootKey: 60 },
+  			{ name: "Acoustic Hi-Hat", expression: 2, isPercussion: false, rootKey: 60 },
+  			{ name: "Acoustic Snare", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "Acoustic Kick Shot", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "Octave Brass", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "House Drum Loop", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "Drum Kit", expression: 2,  isPercussion: false, rootKey: 60 },
+  			{ name: "Break Core Sample", expression: 2,   isPercussion: false, rootKey: 60 },
+  			{ name: "Aguda Keys", expression: 2,  isPercussion: false, rootKey: 60  },
+  			{ name: "Jump Style Kick Drop", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "Chimer Keys", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "808 Shot", expression: 2,   isPercussion: false, rootKey: 60  },
+  			{ name: "SQ2D", expression: 2,  isPercussion: false, rootKey: 60 },
+  			{ name: "GrittyKick", expression: 2,   isPercussion: true, rootKey: 60  },
+  		];
+  		sampleLoadingState.totalSamples += chipWaves.length;
+  		const startIndex = Config.rawRawChipWaves.length;
+
+for (const chipWave of chipWaves) {
+    const chipWaveIndex = Config.rawRawChipWaves.length;
+    const rootKey = chipWave.rootKey !== undefined ? chipWave.rootKey : 60;
+    const rawChipWave = {
+        index: chipWaveIndex,
+        name: chipWave.name,
+        expression: chipWave.expression,
+        isPercussion: chipWave.isPercussion,
+        isCustomSampled: true,
+        isCustomLoaded: true,
+        sampleRate: 44100,
+        rootKey: rootKey,
+        samples: defaultSamples
+    };
+
+    const rawRawChipWave = {
+        index: chipWaveIndex,
+        name: chipWave.name,
+        expression: chipWave.expression,
+        isPercussion: chipWave.isPercussion,
+        isCustomLoaded: true,
+        sampleRate: 44100,
+        isCustomSampled: true,
+        rootKey: rootKey,
+        samples: defaultSamples
+    };
+
+    const integratedChipWave = {
+        index: chipWaveIndex,
+        name: chipWave.name,
+        expression: chipWave.expression,
+        isPercussion: chipWave.isPercussion,
+        isCustomLoaded: true,
+        sampleRate: 44100,
+        rootKey: rootKey,
+        isCustomSampled: true,
+        samples: defaultIntegratedSamples
+    };
+
+    Config.rawRawChipWaves[chipWaveIndex] = rawRawChipWave;
+    Config.rawRawChipWaves.dictionary[chipWave.name] = rawRawChipWave;
+    Config.rawChipWaves[chipWaveIndex] = rawChipWave;
+    Config.rawChipWaves.dictionary[chipWave.name] = rawChipWave;
+    Config.chipWaves[chipWaveIndex] = integratedChipWave;
+    Config.chipWaves.dictionary[chipWave.name] = rawChipWave;
+
+    sampleLoadingState.statusTable[chipWaveIndex] = 0;
+    sampleLoadingState.urlTable[chipWaveIndex] = "studioSamples";
+}
+
+  		 
+  				const chipWaveSamples = [
+  					centerWave(RealisticPiano_mp3),
+  					centerWave(AcousticHihat_wav),
+  					centerWave(AcousticSnare1_wav),
+  					centerWave(AcousticKickShot_wav),
+  					centerWave(OctaveBrass_wav),
+  					centerWave(HouseDrumLoop_wav),
+  					centerWave(DrumKit_mp3),
+  					centerWave(BreakCore_mp3),
+  					centerWave(AgudaKey_wav),
+  					centerWave(JumpStyleKicks_wav),
+  					centerWave(ChimerKey_wav),
+  					centerWave(S808Shot_wav),
+  					centerWave(SQ2D_wav),
+  					centerWave(GrittyKick_wav),
+  				];
+  				let chipWaveIndexOffset = 0;
+  				for (const chipWaveSample of chipWaveSamples) {
+  					const chipWaveIndex = startIndex + chipWaveIndexOffset;
+  					Config.rawChipWaves[chipWaveIndex].samples = chipWaveSample;
+  					Config.rawRawChipWaves[chipWaveIndex].samples = chipWaveSample;
+  					Config.chipWaves[chipWaveIndex].samples = performIntegral(chipWaveSample);
+  					sampleLoadingState.statusTable[chipWaveIndex] = 1;
+  					sampleLoadingState.samplesLoaded++;
+  					sampleLoadEvents.dispatchEvent(new SampleLoadedEvent(sampleLoadingState.totalSamples, sampleLoadingState.samplesLoaded));
+  					chipWaveIndexOffset++;
+  				}
+  			
   	}
   	else {
   		console.log("invalid set of built-in samples");
@@ -1059,7 +1208,7 @@ Config.chipWaves.dictionary = {};
     ]);
     Config.blackKeyNameParents = [-1, 1, -1, 1, -1, 1, -1, -1, 1, -1, 1, -1];
     Config.tempoMin = 1;
-    Config.tempoMax = 320*3; 
+    Config.tempoMax = 640; 
     Config.octaveMin = -2;
     Config.octaveMax = 2;
     Config.echoDelayRange = 24;
@@ -1072,6 +1221,15 @@ Config.chipWaves.dictionary = {};
     Config.reverbRange = 32;
     Config.reverbDelayBufferSize = 16384;
     Config.reverbDelayBufferMask = _a$1.reverbDelayBufferSize - 1;
+    
+    Config.phaserMixRange = 32;
+    Config.phaserFeedbackRange = 32;
+    Config.phaserFreqRange = 32;
+    Config.phaserMinFreq = 8.0;
+    Config.phaserMaxFreq = 20000.0;
+    Config.phaserMinStages = 0;
+    Config.phaserMaxStages = 32;
+    
     Config.beatsPerBarMin = 1;
     Config.beatsPerBarMax = 64;
     Config.barCountMin = 1;
@@ -1297,7 +1455,7 @@ if(!entry.rootNote){
  	isSampled: true,
  	isPercussion: false,
  	extraSampleDetune,
- 	samples: centerWave(readSaved(entry.buffer))
+ 	samples: centerWave(readSaved(entry.buffer)) 
  }
  }else{
  js = {
@@ -1317,7 +1475,8 @@ newSamples.push(js);
 	
 	if (newSamples.length > 0) {
 		Config.rawChipWaves = toNameMap([...Config.rawChipWaves, ...(newSamples)]);
-		Config.chipWaves = rawChipToIntegrated(Config.rawChipWaves)
+		Config.rawRawChipWaves = Config.rawChipWaves;
+		Config.chipWaves = rawChipToIntegrated(Config.rawChipWaves) 
 		isUpdatingSamples = false;
 	}else{
 		isUpdatingSamples = false;
@@ -1325,7 +1484,7 @@ newSamples.push(js);
 	Config.firstIndexForSamplesInChipWaveList = _a$1.chipWaves.length;
 }
 updateSampledWaves()
- loadedBB=1
+ loadedBB=1 
     Config.filterFreqStep = 1.0 / 4.0;
     Config.filterFreqRange = 34;
     Config.filterFreqReferenceSetting = 28;
@@ -1398,9 +1557,8 @@ updateSampledWaves()
         { name: "extraterrestrial", voices: 6, spread: 15.2, offset: -6, expression: 0.35, sign: 0.7 },
         { name: "bow", voices: 9, spread: 0.006, offset: 0, expression: 0.15, sign: 0.5 }
     ]);
-    Config.effectNames = ["reverb", "chorus", "panning", "distortion", "bitcrusher", "note filter", "echo", "pitch shift", "detune", "vibrato", "transition type", "chord type", "", "ring mod", "granular","octave shift"];
-    Config.effectOrder = [2, 10, 11, 7, 8, 9, 5, 14, 3, 4, 1, 6, 0, 13, 15 ]; // effects to  show
-    // every << 17 is how much bits you have to store in ser/deser effects
+    Config.effectNames = ["reverb", "chorus", "panning", "distortion", "bitcrusher", "note filter", "echo", "pitch shift", "detune", "vibrato", "transition type", "chord type", "", "ring mod", "granular","octave shift","phaser"]; 
+    Config.effectOrder = [2, 10, 11, 7, 8, 9, 5, 14, 3, 4, 1, 6, 0, 13, 16,15 ]; // every << 18 is how much bits you have to store in ser/deser effects 
     Config.noteSizeMax = 6;
     Config.volumeRange = 50;   
     Config.volumeLogScale = 0.1428;
@@ -1427,12 +1585,12 @@ updateSampledWaves()
     Config.chorusDelayOffsets = [[1.51, 2.10, 3.35], [1.47, 2.15, 3.25]];
     Config.chorusPhaseOffsets = [[0.0, 2.1, 4.2], [3.2, 5.3, 1.0]];
     Config.chorusMaxDelay = _a$1.chorusDelayRange * (1.0 + _a$1.chorusDelayOffsets[0].concat(_a$1.chorusDelayOffsets[1]).reduce((x, y) => Math.max(x, y)));
-    Config.chords = toNameMap([
-        { name: "simultaneous", customInterval: false, arpeggiates: false, strumParts: 0, singleTone: false },
-        { name: "strum", customInterval: false, arpeggiates: false, strumParts: 1, singleTone: false },
-        { name: "arpeggio", customInterval: false, arpeggiates: true, strumParts: 0, singleTone: true },
-        { name: "custom interval", customInterval: true, arpeggiates: false, strumParts: 0, singleTone: true },
-        { name: "monophonic", customInterval: false, arpeggiates: false, strumParts: 0, singleTone: true }
+        Config.chords = toNameMap([
+    	{ name: "simultaneous", customInterval: false, arpeggiates: false, strumParts: 0, singleTone: false },
+    	{ name: "strum", customInterval: false, arpeggiates: false, strumParts: 1, singleTone: false },
+    	{ name: "arpeggio", customInterval: false, arpeggiates: true, strumParts: 0, singleTone: true },
+    	{ name: "custom interval", customInterval: true, arpeggiates: false, strumParts: 0, singleTone: true },
+    	{ name: "monophonic", customInterval: false, arpeggiates: false, strumParts: 0, singleTone: true }
     ]);
     Config.maxChordSize = 9;
     Config.operatorCount = 4;
@@ -1701,14 +1859,15 @@ updateSampledWaves()
     Config.noiseInterval = 6;
     Config.pitchesPerOctave = 12;
     Config.drumCount = 12;
-    Config.pitchOctaves = 12;
+    Config.pitchOctaves = 9;
     Config.modCount = 6; 
     Config.maxPitch = _a$1.pitchOctaves * _a$1.pitchesPerOctave;
     Config.maximumTonesPerChannel = _a$1.maxChordSize * 2;
 Config.justIntonationSemitones = [1.0 / 2.0, 8.0 / 15.0, 9.0 / 16.0, 3.0 / 5.0, 5.0 / 8.0, 2.0 / 3.0, 32.0 / 45.0, 3.0 / 4.0, 4.0 / 5.0, 5.0 / 6.0, 8.0 / 9.0, 15.0 / 16.0, 1.0, 16.0 / 15.0, 9.0 / 8.0, 6.0 / 5.0, 5.0 / 4.0, 4.0 / 3.0, 45.0 / 32.0, 3.0 / 2.0, 8.0 / 5.0, 5.0 / 3.0, 16.0 / 9.0, 15.0 / 8.0, 2.0].map(x => Math.log2(x) * Config.pitchesPerOctave);
 Config.pitchShiftRange = Config.justIntonationSemitones.length;
 Config.pitchShiftCenter = Config.pitchShiftRange >> 1;
-Config.pitchShiftCenter = Math.floor(16) 
+Config.pitchShiftRange = Config.justIntonationSemitones.length;
+ 
 
     Config.detuneCenter = 200;
     Config.detuneMax = 400;
@@ -1811,9 +1970,9 @@ Config.pitchShiftCenter = Math.floor(16)
     Config.bitcrusherFreqRange = 14;
     Config.bitcrusherOctaveStep = 0.5;
     Config.bitcrusherQuantizationRange = 8;
-    Config.maxEnvelopeCount = 16;
+    Config.maxEnvelopeCount = 16; 
     Config.defaultAutomationRange = 13; 
-    Config.instrumentAutomationTargets = toNameMap([
+    Config.instrumentAutomationTargets = toNameMap([  
 	{ name: "none", computeIndex: null, displayName: "none", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: null },
 	{ name: "noteVolume", computeIndex: 0, displayName: "note volume", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: null },
 	{ name: "pulseWidth", computeIndex: 2, displayName: "pulse width", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: null, compatibleInstruments: [6, 8] },
@@ -1846,10 +2005,12 @@ Config.pitchShiftCenter = Math.floor(16)
 	{ name: "grainSize", computeIndex: 53, displayName: "grain size", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
 	{ name: "grainRange", computeIndex: 54, displayName: "grain range", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
 	{ name: "echoDelay", computeIndex: 55, displayName: "echo delay", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 6, compatibleInstruments: null },
-	
-	{ name: "grainRange", computeIndex: 54, displayName: "grain range", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 14, compatibleInstruments: null },
-{ name: "octaveShift", computeIndex: 18, displayName: "octave shift", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 15, compatibleInstruments: null }, 
-	{ name: "function", computeIndex: 19, displayName: "function", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },  
+{ name: "octaveShift", computeIndex: 18, displayName: "octave shift", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 15, compatibleInstruments: null },  //perNote: false, very important shit
+{ name: "phaserFreq", perNote: false,  computeIndex: 57, displayName: "phaser freq", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null }, 
+{ name: "phaserMix", perNote: false,  computeIndex: 58, displayName: "phaser", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
+{ name: "phaserFeedback", perNote: false,  computeIndex: 59, displayName: "phaser feedback", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
+{ name: "phaserStages", perNote: false,  computeIndex: 60, displayName: "phaser stages", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },  
+	{ name: "function", perNote: false,  computeIndex: 61, displayName: "function", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 17, compatibleInstruments: null },  
 ]);
     Config.operatorWaves = toNameMap([
         { name: "sine", samples: _a$1.sineWave },
@@ -1876,14 +2037,17 @@ Config.pitchShiftCenter = Math.floor(16)
     Config.barEditorHeight = 10;
     
     
-     
+ 
       Config.modulators = toNameMap([
         { name: "none", pianoName: "None", maxRawVol: 6, newNoteVol: 6, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
             promptName: "No Mod Setting", promptDesc: ["No setting has been chosen yet, so this modulator will have no effect. Try choosing a setting with the dropdown, then click this '?' again for more info.", "[$LO - $HI]"] },
         { name: "song volume", pianoName: "Volume", maxRawVol: 100, newNoteVol: 100, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
             promptName: "Song Volume", promptDesc: ["This setting affects the overall volume of the song, just like the main volume slider.", "At $HI, the volume will be unchanged from default, and it will get gradually quieter down to $LO.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
-        { name: "tempo", pianoName: "Tempo", maxRawVol: _a$1.tempoMax - _a$1.tempoMin, newNoteVol: Math.ceil((_a$1.tempoMax - _a$1.tempoMin) / 2), forSong: true, convertRealFactor: _a$1.tempoMin, associatedEffect: 15, maxIndex: 0,
-            promptName: "Song Tempo", promptDesc: ["This setting controls the speed your song plays at, just like the tempo slider.", "When you first make a note for this setting, it will default to your current tempo. Raising it speeds up the song, up to $HI BPM, and lowering it slows it down, to a minimum of $LO BPM.", "Note that you can make a 'swing' effect by rapidly changing between two tempo values.", "[OVERWRITING] [$LO - $HI] [BPM]"] },
+        { name: "tempo",
+            pianoName: "Tempo",
+            maxRawVol: Config.tempoMax - Config.tempoMin, newNoteVol: Math.ceil((Config.tempoMax - Config.tempoMin) / 2), forSong: true, convertRealFactor: Config.tempoMin, associatedEffect: 15,
+            promptName: "Song Tempo",
+            promptDesc: ["This setting controls the speed your song plays at, just like the tempo slider.", "When you first make a note for this setting, it will default to your current tempo. Raising it speeds up the song, up to $HI BPM, and lowering it slows it down, to a minimum of $LO BPM.", "Note that you can make a 'swing' effect by rapidly changing between two tempo values.", "[OVERWRITING] [$LO - $HI] [BPM]"] },
         { name: "song reverb", pianoName: "Reverb", maxRawVol: _a$1.reverbRange * 2, newNoteVol: _a$1.reverbRange, forSong: true, convertRealFactor: -_a$1.reverbRange, associatedEffect: 15, maxIndex: 0,
             promptName: "Song Reverb", promptDesc: ["This setting affects the overall reverb of your song. It works by multiplying existing reverb for instruments, so those with no reverb set will be unaffected.", "At $MID, all instruments' reverb will be unchanged from default. This increases up to double the reverb value at $HI, or down to no reverb at $LO.", "[MULTIPLICATIVE] [$LO - $HI]"] },
         { name: "next bar", pianoName: "Next Bar", maxRawVol: 1, newNoteVol: 1, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
@@ -2009,21 +2173,41 @@ Config.pitchShiftCenter = Math.floor(16)
               }, 
          { name: "octave shift", pianoName: "Octave Shift", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
             promptName: "Octave Shift", promptDesc: ["This setting controls the pitch offset of your instrument controls i by octaves, just like the pitch shift slider but in octaves.", "At $MID your instrument will have no octave shift'ed. This increases as you decrease toward $LO pitches (half-steps) at the low end, or increases towards +$HI pitches at the high end.", "[OVERWRITING] [$LO - $HI] [pitch]"] },
-         { name: "function", pianoName: "Function", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
+                { name: "phaser",
+            pianoName: "Phaser",
+            maxRawVol: Config.phaserMixRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Instrument Phaser",
+            promptDesc: ["This setting controls the Phaser Mix of your insturment, just like the Phaser slider.", "At $LO, your instrument will have no phaser. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "phaser frequency",
+            pianoName: "Phaser Frequency",
+            maxRawVol: Config.phaserFreqRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Phaser Frequency",
+            promptDesc: ["This setting controls the phaser frequency of your insturment, just like the phaser freq slider.", "At $LO, your instrument will have no phaser freq. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "phaser feedback",
+            pianoName: "Phaser Feedback",
+            maxRawVol: Config.phaserFeedbackRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Phaser Feedback",
+            promptDesc: ["This setting controls the phaser feedback of your insturment, just like the phaser feedback slider.", "At $LO, your instrument will have no phaser feedback. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "phaser stages",
+            pianoName: "Phaser Stages",
+            maxRawVol: Config.phaserMaxStages, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16,
+            promptName: "Phaser Stages",
+            promptDesc: ["This setting controls the number of phaser stages in your insturment, just like the phaser stages slider.", "At $LO, your instrument will have no phaser stages. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+         { name: "function", pianoName: "Function", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 17, maxIndex: 0,
             promptName: "Function", promptDesc: ["This setting controls the buffer with custom algorithm you made. p is point it has p.v value and p.i index b[] is arraybuffer of realtime audio . safe() is safe function if buffer for example doesn't exist just returns 0", "[CURRENT BUFFER VALUE]  -> [§ALGORITHM]"] },
     ]);
      
     function centerWave(wave) {
-	let sum = 0.0;
-	for (let i = 0; i < wave.length; i++)
-		sum += wave[i];
-	const average = sum / wave.length;
-	for (let i = 0; i < wave.length; i++)
-		wave[i] -= average;
-	performIntegral(wave);
-	wave.push(0);
-	return new Float32Array(wave);
-}
+    	let sum = 0.0;
+    	for (let i = 0; i < wave.length; i++)
+      sum += wave[i];
+     	const average = sum / wave.length;
+      for (let i = 0; i < wave.length; i++)
+    		wave[i] -= average;
+     	performIntegral(wave);
+     	wave.push(0);
+	     return new Float32Array(wave);
+    }
     function centerAndNormalizeWave(wave) {
         let magn = 0.0;
         centerWave(wave);
@@ -2241,15 +2425,15 @@ Config.pitchShiftCenter = Math.floor(16)
         }
     }
     function toNameMap(array) {
-        const dictionary = {};
-        for (let i = 0; i < array.length; i++) {
-            const value = array[i];
-            value.index = i;
-            dictionary[value.name] = value;
-        }
-        const result = array;
-        result.dictionary = dictionary;
-        return result;
+    	const dictionary = {};
+    	for (let i = 0; i < array.length; i++) {
+    		const value = array[i];
+    		value.index = i;
+    		dictionary[value.name] = value;
+    	}
+    	const result = array;
+    	result.dictionary = dictionary;
+    	return result;
     }
     function effectsIncludeTransition(effects) {
         return (effects & (1 << 10)) != 0;
@@ -2293,11 +2477,14 @@ Config.pitchShiftCenter = Math.floor(16)
     function effectsIncludeGranular(effects) {
         return (effects & (1 << 14)) != 0;
     }
-    function effectsIncludeOctaveShift(effects) {
+    function effectsIncludeOctaveShift(effects) { 
        	return (effects & (1 << 15)) != 0;
     }
+    function effectsIncludePhaser(effects) { 
+      	return (effects & (1 << 16)) != 0;
+    }
     function effectsIncludeFunction(effects) {
-        return (effects & (1 << 16)) != 0;
+        return (effects & (1 << 17)) != 0;
     }
     function calculateRingModHertz(sliderHz, sliderHzOffset = 0) {
         if (sliderHz == 0)
@@ -2380,7 +2567,7 @@ function rawChipToIntegrated2(raw) {
         }
     }
     EditorConfig.version = "0.5";
-    EditorConfig.versionDisplayName = "Fruity Box " + EditorConfig.version;
+    EditorConfig.versionDisplayName = "Studio Box" + EditorConfig.version;
     EditorConfig.releaseNotesURL = "./patch_notes.html";
     EditorConfig.isOnMac = /^Mac/i.test(navigator.platform) || /Mac OS X/i.test(navigator.userAgent) || /^(iPhone|iPad|iPod)/i.test(navigator.platform) || /(iPhone|iPad|iPod)/i.test(navigator.userAgent);
     EditorConfig.ctrlSymbol = EditorConfig.isOnMac ? "⌘" : "Ctrl+";
@@ -2838,7 +3025,7 @@ function rawChipToIntegrated2(raw) {
                 { name: "Chipwave Spooky Pad", generalMidi: false, settings: { "type": "custom chip", "eqFilter": [{ "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 2.8284 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 2.8284 }], "eqFilterType": false, "eqSimpleCut": 10, "eqSimplePeak": 0, "envelopeSpeed": 12, "discreteEnvelope": false, "eqSubFilters0": [{ "type": "low-pass", "cutoffHz": 11313.71, "linearGain": 2.8284 }, { "type": "high-pass", "cutoffHz": 88.39, "linearGain": 2.8284 }], "effects": ["vibrato", "bitcrusher", "chorus", "echo", "phaser"], "vibrato": "shaky", "vibratoDepth": 0.1, "vibratoDelay": 0, "vibratoSpeed": 10, "vibratoType": 1, "bitcrusherOctave": 5.5, "bitcrusherQuantization": 14, "phaserMix": 100, "phaserFreq": 16, "phaserFeedback": 23, "phaserStages": 32, "panDelay": 10, "chorus": 71, "echoSustain": 43, "echoDelayBeats": 1, "fadeInSeconds": 0.0125, "fadeOutTicks": 24, "wave": "square", "unison": "none", "customChipWave": { "0": 24, "1": 24, "2": 24, "3": 23, "4": 23, "5": 22, "6": 21, "7": 19, "8": 17, "9": 14, "10": 11, "11": 7, "12": 3, "13": -1, "14": -5, "15": -8, "16": -10, "17": -12, "18": -14, "19": -16, "20": -17, "21": -18, "22": -19, "23": -20, "24": -21, "25": -22, "26": -23, "27": -23, "28": -24, "29": -24, "30": -24, "31": -24, "32": -24, "33": -24, "34": -24, "35": -24, "36": -23, "37": -23, "38": -22, "39": -21, "40": -20, "41": -19, "42": -18, "43": -17, "44": -16, "45": -14, "46": -12, "47": -10, "48": -8, "49": -5, "50": -1, "51": 3, "52": 7, "53": 11, "54": 14, "55": 17, "56": 19, "57": 21, "58": 22, "59": 23, "60": 23, "61": 24, "62": 24, "63": 24 }, "customChipWaveIntegral": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "10": 0, "11": 0, "12": 0, "13": 0, "14": 0, "15": 0, "16": 0, "17": 0, "18": 0, "19": 0, "20": 0, "21": 0, "22": 0, "23": 0, "24": 0, "25": 0, "26": 0, "27": 0, "28": 0, "29": 0, "30": 0, "31": 0, "32": 0, "33": 0, "34": 0, "35": 0, "36": 0, "37": 0, "38": 0, "39": 0, "40": 0, "41": 0, "42": 0, "43": 0, "44": 0, "45": 0, "46": 0, "47": 0, "48": 0, "49": 0, "50": 0, "51": 0, "52": 0, "53": 0, "54": 0, "55": 0, "56": 0, "57": 0, "58": 0, "59": 0, "60": 0, "61": 0, "62": 0, "63": 0, "64": 0 }, "envelopes": [{ "target": "noteVolume", "envelope": "twang 3" }] } },
             ]) },
         {
-            name: "FruityBox Samples", presets: toNameMap([
+            name: "StudioBox Samples", presets: toNameMap([
                 { name: "bluh", generalMidi: false, settings: {"type":"harmonics","volume":25 ,"eqFilter":[{"type":"low-pass","cutoffHz":19027.31,"linearGain":0.7071}],"eqFilterType":true,"eqSimpleCut":10,"eqSimplePeak":0,"envelopeSpeed":12,"eqSubFilters1":[],"effects":["panning","pitch shift","note filter","chorus","echo","reverb"],"pitchShiftSemitones":6,"noteFilterType":false,"noteSimpleCut":10,"noteSimplePeak":0,"noteFilter":[{"type":"low-pass","cutoffHz":13454.34,"linearGain":11.3137},{"type":"high-pass","cutoffHz":2000,"linearGain":0.0884},{"type":"peak","cutoffHz":353.55,"linearGain":11.3137}],"noteSubFilters0":[{"type":"low-pass","cutoffHz":13454.34,"linearGain":11.3137},{"type":"high-pass","cutoffHz":2000,"linearGain":0.0884},{"type":"peak","cutoffHz":353.55,"linearGain":11.3137}],"noteSubFilters1":[{"type":"low-pass","cutoffHz":4000,"linearGain":11.3137}],"pan":-12,"panDelay":0,"chorus":100,"echoSustain":43,"echoDelayBeats":0.917,"reverb":77,"fadeInSeconds":0,"fadeOutTicks":48,"harmonics":[0,0,0,86,0,0,0,100,0,0,0,0,0,0,0,86,0,0,0,0,0,0,0,0,0,0,0,0],"unison":"none","envelopes":[{"target":"noteFilterAllFreqs","envelope":"rise","inverse":false,"perEnvelopeSpeed":8.5,"perEnvelopeLowerBound":2,"perEnvelopeUpperBound":0,"discrete":false},{"target":"noteVolume","envelope":"linear","inverse":false,"perEnvelopeSpeed":64,"perEnvelopeLowerBound":0,"perEnvelopeUpperBound":1,"discrete":false},{"target":"pitchShift","envelope":"punch","inverse":false,"perEnvelopeSpeed":1,"perEnvelopeLowerBound":0,"perEnvelopeUpperBound":1,"discrete":false}],"isDrum":false} },
                 { name: "scifi-uoh", generalMidi: false, settings: {"type":"harmonics","volume":17,"eqFilter":[{"type":"peak","cutoffHz":594.6,"linearGain":4},{"type":"peak","cutoffHz":2000,"linearGain":0.0884},{"type":"low-pass","cutoffHz":8000,"linearGain":0.0884},{"type":"high-pass","cutoffHz":250,"linearGain":0.0884},{"type":"high-pass","cutoffHz":176.78,"linearGain":11.3137}],"eqFilterType":false,"eqSimpleCut":10,"eqSimplePeak":0,"envelopeSpeed":12,"eqSubFilters1":[],"effects":["panning","pitch shift","note filter","chorus","echo","reverb"],"pitchShiftSemitones":7,"noteFilterType":true,"noteSimpleCut":10,"noteSimplePeak":5,"noteFilter":[{"type":"low-pass","cutoffHz":7980.25,"linearGain":4}],"noteSubFilters0":[{"type":"low-pass","cutoffHz":7980.25,"linearGain":4}],"noteSubFilters1":[{"type":"low-pass","cutoffHz":7980.25,"linearGain":4}],"pan":0,"panDelay":0,"chorus":100,"echoSustain":71,"echoDelayBeats":1.167,"reverb":77,"fadeInSeconds":0,"fadeOutTicks":48,"harmonics":[0,0,0,86,29,86,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"unison":"none","envelopes":[{"target":"pitchShift","envelope":"linear","inverse":true,"perEnvelopeSpeed":19,"perEnvelopeLowerBound":0,"perEnvelopeUpperBound":1,"discrete":false},{"target":"noteVolume","envelope":"decay","inverse":false,"perEnvelopeSpeed":5,"perEnvelopeLowerBound":0,"perEnvelopeUpperBound":1,"discrete":false}],"isDrum":false} },
                 { name: "climatic chip", generalMidi: false, settings:{"type":"chip","volume":0,"eqFilter":[{"type":"low-pass","cutoffHz":9656.85,"linearGain":0.5}],"eqFilterType":true,"eqSimpleCut":9,"eqSimplePeak":1,"envelopeSpeed":12,"eqSubFilters1":[],"effects":["panning","note filter","chorus","echo","reverb"],"noteFilterType":false,"noteSimpleCut":10,"noteSimplePeak":0,"noteFilter":[{"type":"low-pass","cutoffHz":13454.34,"linearGain":2.8284}],"pan":0,"panDelay":0,"chorus":86,"echoSustain":57,"echoDelayBeats":1.083,"reverb":16,"fadeInSeconds":0,"fadeOutTicks":-24,"wave":"trapezoid","unison":"none","isUsingAdvancedLoopControls":false,"chipWaveLoopStart":0,"chipWaveLoopEnd":32,"chipWaveLoopMode":0,"chipWavePlayBackwards":false,"chipWaveStartOffset":0,"envelopes":[{"target":"noteFilterAllFreqs","envelope":"swell","inverse":true,"perEnvelopeSpeed":2.25,"perEnvelopeLowerBound":0,"perEnvelopeUpperBound":1,"discrete":false}],"isDrum":false}  },
@@ -16573,6 +16760,103 @@ body::before {
   --disabled-note-secondary: #1A1A1A;
 }
 `,
+"Citrus":`
+:root {
+  --page-margin: #1B1B1B;
+  --editor-background: #1B1B1B;
+  --hover-preview: #FFD966;
+  --playhead: #FF8C00;
+  --primary-text: #FFFFFF;
+  --secondary-text: #FFD966;
+  --inverted-text: #000000;
+  --text-selection: #FFB84D;
+  --box-selection-fill: #FFCC80;
+  --loop-accent: #FF9900;
+  --link-accent: #FFCC33;
+  --ui-widget-background: #333333;
+  --ui-widget-focus: #FFB84D;
+  --pitch-background: #222222;
+  --tonic: #FF3333;
+  --fifth-note: #FF6600;
+  --white-piano-key-color: #FFFFFF;
+  --black-piano-key-color: #000000;
+  --white-piano-key: #FFDDCC;
+  --black-piano-key: #333333;
+  --use-color-formula: false;
+
+  --track-editor-bg-pitch: #FF4444;
+  --track-editor-bg-pitch-dim: #CC2222;
+  --track-editor-bg-noise: #FFAA33;
+  --track-editor-bg-noise-dim: #CC7733;
+  --track-editor-bg-mod: #33CCFF;
+  --track-editor-bg-mod-dim: #3399CC;
+  --multiplicative-mod-slider: #33FFCC;
+  --overwriting-mod-slider: #33CC99;
+  --indicator-primary: #FFCC00;
+  --indicator-secondary: #FF9933;
+  --select2-opt-group: #FF8800;
+  --input-box-outline: #FFAA33;
+  --mute-button-normal: #CCCCCC;
+  --mute-button-mod: #999999;
+
+  --pitch1-primary-channel: #FF5555;
+  --pitch1-secondary-channel: #FF8888;
+  --pitch1-primary-note: #FFAAAA;
+  --pitch1-secondary-note: #FF6666;
+
+  --pitch2-primary-channel: #FFAA33;
+  --pitch2-secondary-channel: #FFCC66;
+  --pitch2-primary-note: #FFE0AA;
+  --pitch2-secondary-note: #FFBB66;
+
+  --pitch3-primary-channel: #33CC33;
+  --pitch3-secondary-channel: #66FF66;
+  --pitch3-primary-note: #AAFFAA;
+  --pitch3-secondary-note: #55BB55;
+
+  --pitch4-primary-channel: #33CCCC;
+  --pitch4-secondary-channel: #66FFFF;
+  --pitch4-primary-note: #AAFFFF;
+  --pitch4-secondary-note: #55BBBB;
+
+  --pitch5-primary-channel: #5555FF;
+  --pitch5-secondary-channel: #8888FF;
+  --pitch5-primary-note: #AAAAFF;
+  --pitch5-secondary-note: #6666BB;
+
+  --pitch6-primary-channel: #CC33FF;
+  --pitch6-secondary-channel: #FF66FF;
+  --pitch6-primary-note: #EEAAFF;
+  --pitch6-secondary-note: #BB66BB;
+
+  --noise1-primary-channel: #FF4444;
+  --noise1-secondary-channel: #FF7777;
+  --noise1-primary-note: #FFAAAA;
+  --noise1-secondary-note: #BB5555;
+
+  --noise2-primary-channel: #FFAA44;
+  --noise2-secondary-channel: #FFCC77;
+  --noise2-primary-note: #FFE0AA;
+  --noise2-secondary-note: #BB8844;
+
+  --mod1-primary-channel: #33CCFF;
+  --mod1-secondary-channel: #66EEFF;
+  --mod1-primary-note: #99FFFF;
+  --mod1-secondary-note: #44BBBB;
+
+  --mod2-primary-channel: #33FFAA;
+  --mod2-secondary-channel: #66FFCC;
+  --mod2-primary-note: #AAFFEE;
+  --mod2-secondary-note: #44BBBB;
+
+  --mod-label-primary: #FFFFFF;
+  --mod-label-secondary-text: #AAAAAA;
+  --mod-label-primary-text: #FFDD88;
+  --disabled-note-primary: #222222;
+  --disabled-note-secondary: #111111;
+}
+
+`,
 "FruityBox Dark": `
 :root {
   -webkit-text-stroke-width: 0.6px;
@@ -17054,38 +17338,7 @@ select , button, .selection *, input{
 	border-radius:0px !important;
 }
  
-.beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) {
-  border:0px solid white; outline:none; transform: scale(100%,250%) translateY(15%);  
-}
-.beepboxEditor .piano-button.blackkey  {
-  margin-left:20%;
-  position:relative; z-index:2;
-box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
-}
-
-.beepboxEditor .piano-button::before {
- display:none;
- border:2px solid #3d3c3a;
-}
-
-.beepboxEditor .piano-button.blackkey  {
-  margin-left:20%;
-  align-items:left !important;
-  position:relative; z-index:2;
-box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
-}
-.beepboxEditor .piano-button.blackkey .piano-label  {
-  padding-left:25% !important;
-}
-.beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) .piano-label{
-	transform:scale(100%,40%) translateY(-4px) !important;
-}
-.beepboxEditor .piano-button.blackkey::before {
-		display: none;
-		border: 1px solid #3d3c3a !important;
-		background-clip:none;
-		
-}
+ 
 `,
 "FruityBox Standard": `
  
@@ -17254,25 +17507,7 @@ select , button, .selection *, input{
 .piano-label {
 	opacity:0;
 }
-.beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) {
-  border:0px solid white; outline:none; transform: scale(100%,250%) translateY(15%);  
-}
-.beepboxEditor .piano-button.blackkey  {
-  margin-left:20%;
-  position:relative; z-index:2;
-box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
-}
-
-.beepboxEditor .piano-button::before {
- display:none;
- border:2px solid #3d3c3a;
-}
-.beepboxEditor .piano-button.blackkey::before {
-		display: none;
-		border: 1px solid #3d3c3a !important;
-		background-clip:none;
-		
-}
+ 
 `,
 "FruityBox Contrast": ` 
  
@@ -17457,31 +17692,7 @@ select , button, .selection *, input{
 	border-radius:0px !important;
 }
 
-.beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) {
-  border:0px solid white; outline:none; transform: scale(100%,250%) translateY(15%);  
-}
-.beepboxEditor .piano-button.blackkey  {
-  margin-left:20%;
-  align-items:left !important;
-  position:relative; z-index:2;
-box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
-}
-.beepboxEditor .piano-button.blackkey .piano-label  {
-  padding-left:25% !important;
-}
-.beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) .piano-label{
-	transform:scale(100%,40%) translateY(-4px) !important;
-}
-.beepboxEditor .piano-button::before {
- display:none;
- border:2px solid #3d3c3a;
-}
-.beepboxEditor .piano-button.blackkey::before {
-		display: none;
-		border: 1px solid #3d3c3a !important;
-		background-clip:none;
-		
-}
+ 
 `,
 "FruityBoxLight":`
 :root {
@@ -21000,6 +21211,14 @@ updateThemes()
     }
     document.body.removeChild(scrollBarTest);
     document.head.appendChild(HTML.style({ type: "text/css" }, `
+body::selection {
+  -webkit-text-fill-color: #ffe08a;
+  -webkit-text-stroke: 0px;    
+  background: rgba(0,0,1,0.5); 
+}
+.selectRow {
+  height: auto !important;
+}
 
 /* Note: "#" symbols need to be encoded as "%23" in SVG data urls, otherwise they are interpreted as fragment identifiers! */
 :root {
@@ -21018,7 +21237,7 @@ updateThemes()
 	--internal-select-arrows-symbol: var(--select-arrows-symbol, url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path d="M -4 -3 L 4 -3 L 0 -8 z M -4 3 L 4 3 L 0 8 z" fill="gray"/></svg>'));
 	--internal-file-page-symbol: var(--file-page-symbol, url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-5 -21 26 26"><path d="M 2 0 L 2 -16 L 10 -16 L 14 -12 L 14 0 z M 3 -1 L 13 -1 L 13 -11 L 9 -11 L 9 -15 L 3 -15 z" fill="gray"/></svg>'));
 	--internal-edit-pencil-symbol: var(--edit-pencil-symbol, url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-5 -21 26 26"><path d="M 0 0 L 1 -4 L 4 -1 z M 2 -5 L 10 -13 L 13 -10 L 5 -2 zM 11 -14 L 13 -16 L 14 -16 L 16 -14 L 16 -13 L 14 -11 z" fill="gray"/></svg>'));
-	--internal-preferences-gear-symbol: var(--preferences-gear-symbol, url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path d="M 5.78 -1.6 L 7.93 -0.94 L 7.93 0.94 L 5.78 1.6 L 4.85 3.53 L 5.68 5.61 L 4.21 6.78 L 2.36 5.52 L 0.27 5.99 L -0.85 7.94 L -2.68 7.52 L -2.84 5.28 L -4.52 3.95 L -6.73 4.28 L -7.55 2.59 L -5.9 1.07 L -5.9 -1.07 L -7.55 -2.59 L -6.73 -4.28 L -4.52 -3.95 L -2.84 -5.28 L -2.68 -7.52 L -0.85 -7.94 L 0.27 -5.99 L 2.36 -5.52 L 4.21 -6.78 L 5.68 -5.61 L 4.85 -3.53 M 2.92 0.67 L 2.92 -0.67 L 2.35 -1.87 L 1.3 -2.7 L 0 -3 L -1.3 -2.7 L -2.35 -1.87 L -2.92 -0.67 L -2.92 0.67 L -2.35 1.87 L -1.3 2.7 L -0 3 L 1.3 2.7 L 2.35 1.87 z" fill="gray"/></svg>'));
+	--internal-preferences-gear-symbol: var(--preferences-gear-symbol, url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"><path d="M 5.78 -1.6 L 7.93 -0.94 L 7.93 0.94 L 5.78 1.6 L 4.85 3.53 L 5.68 5.61 L 4.21 6.78 L 2.36 5.52 L 0.27 5.99 L -0.85 7.94 L -2.68 7.52 L -2.84 5.28 L -4.52 3.95 L -6.73 4.28 L -7.55 2.59 L -5.9 1.07 L -5.9 -1.07 L -7.55 -2.59 L -6.73 -4.28 L -4.52 -3.95 L -2.84 -5.28 L -2.68 -7.52 L -0.85 -7.94 L 0.27 -5.99 L 2.36 -5.52 L 4.21 -6.78 L 5.68 -5.61 L 4.85 -3.53 M 2.92 0.67 L 2.92 -0.67 L 2.35 -1.87 L 1.3 -2.7 L 0 -3 L -1.3 -2.7 L -2.35 -1.87 L -2.92 -0.67 L -2.92 0.67 L -2.35 1.87 L -1.3 2.7 L -0 3 L 1.3 2.7 L 2.35 1.87 z" fill="gray"/></svg>'));  
 	--internal-customize-dial-symbol: var(--customize-dial-symbol, url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="-13 -13 26 26"> \
 			<g transform="translate(0,1)" fill="gray"> \
 				<circle cx="0" cy="0" r="6.5" stroke="gray" stroke-width="1" fill="none"/> \
@@ -21727,10 +21946,7 @@ html .promptContainer {
 	color: ${ColorConfig.primaryText};
 }
 
-.promptContainer input[type=text]::selection, .promptContainer input[type=number]::selection {
-	background-color: ${ColorConfig.textSelection};
-	color: ${ColorConfig.primaryText};
-}
+ 
 
 .promptContainer input[type=checkbox] {
   transform: scale(1.5);
@@ -22810,11 +23026,7 @@ html .prompt.recordingSetupPrompt > label:not(:first-child):not(.cancelButton) {
 	color: ${ColorConfig.primaryText};
 }
 
-.beepboxEditor input[type=text]::selection, .beepboxEditor input[type=number]::selection {
-	background-color: ${ColorConfig.textSelection};
-	color: ${ColorConfig.primaryText};
-}
-
+ 
 .beepboxEditor input[type=checkbox] {
   transform: scale(1.5);
 }
@@ -24159,7 +24371,7 @@ li.select2-results__option[role=group] > strong:hover {
             }
             return patternObject;
         }
-        fromJsonObject(patternObject, song, channel, importedPartsPerBeat, isNoiseChannel, isModChannel, jsonFormat = "auto") {
+        fromJsonObject(patternObject, song, channel, importedPartsPerBeat, isNoiseChannel, isModChannel, jsonFormat = "auto") {  
             const format = jsonFormat.toLowerCase();
             if (song.patternInstruments) {
                 if (Array.isArray(patternObject["instruments"])) {
@@ -24200,7 +24412,7 @@ li.select2-results__option[role=group] > strong:hover {
                     let startInterval = 0;
                     let instrument = channel.instruments[this.instruments[0]];
                     let mod = Math.max(0, Config.modCount - note.pitches[0] - 1);
-                    for (let k = 0; k < noteObject["points"].length; k++) {
+                    for (let k = 0; k < noteObject["points"].length; k++) { 
                         const pointObject = noteObject["points"][k];
                         if (pointObject == undefined || pointObject["tick"] == undefined)
                             continue;
@@ -24215,7 +24427,7 @@ li.select2-results__option[role=group] > strong:hover {
                             size = Math.max(0, Math.min(volumeCap, Math.round((pointObject["volume"] | 0) * volumeCap / 100)));
                         }
                         else {
-                            size = ((pointObject["forMod"] | 0) > 0) ? Math.round(pointObject["volume"] | 0) : Math.max(0, Math.min(volumeCap, Math.round((pointObject["volume"] | 0) * volumeCap / 100)));
+                            size = ((pointObject["forMod"] | 0) > 0) ? Math.round(pointObject["volume"] | 0) : Math.max(0, Math.min(volumeCap, Math.round((pointObject["volume"] | 0) * volumeCap / 100))); 
                         }
                         if (time > song.beatsPerBar * Config.partsPerBeat)
                             continue;
@@ -24266,7 +24478,7 @@ li.select2-results__option[role=group] > strong:hover {
                     else {
                         note.continuesLastPattern = false;
                     }
-                    if ((format != "ultrabox" && format != "slarmoosbox" && format != "slarmoosbox2" ) && instrument.modulators[mod] == Config.modulators.dictionary["tempo"].index) {
+                    if ((format != "ultrabox"&& format != "slarmoosbox" && format != "fruitybox" && format != "slarmoosbox2" ) && instrument.modulators[mod] == Config.modulators.dictionary["tempo"].index) { 
                         for (const pin of note.pins) {
                             const oldMin = 30;
                             const newMin = 1;
@@ -24926,10 +25138,6 @@ li.select2-results__option[role=group] > strong:hover {
             let target = Config.instrumentAutomationTargets.dictionary[envelopeObject["target"]];
             if (target == null)
                 target = Config.instrumentAutomationTargets.dictionary["noteVolume"];
-                
-                
-
-            
             this.target = target.index;
             let envelope = Config.envelopes.dictionary["none"];
             let isTremolo2 = false;
@@ -25047,13 +25255,17 @@ li.select2-results__option[role=group] > strong:hover {
             }
         }
     }
-    class Instrument {
-        constructor(isNoiseChannel, isModChannel) {
+    class Instrument { 
+        constructor(isNoiseChannel, isModChannel) { 
             this.wavenotfound=null;
             this.type = 0;
             this.preset = 0;
             this.chipWave = 2;
             this.wave=""
+            this.phaserFreq = 0;
+            this.phaserMix = Config.phaserMixRange - 1;
+            this.phaserFeedback = 0;
+            this.phaserStages = 2;  
             this.chipwaveselected=2; 
             this.isUsingAdvancedLoopControls = false;
             this.chipWaveLoopStart = 0;
@@ -25095,19 +25307,19 @@ li.select2-results__option[role=group] > strong:hover {
             this.unisonOffset = 0.0;
             this.unisonExpression = 1.4;
             this.unisonSign = 1.0;
-this.detectForUnison = 0;
-this.last_unisonVoices = 1
-this.last_unisonSign = 1
-this.last_unisonExpression = 2.0
-this.last_unisonOffset = 0
-this.last_unisonSpread = 0  
-            
+            this.detectForUnison = 0;
+            this.last_unisonVoices = 1
+            this.last_unisonSign = 1
+            this.last_unisonExpression = 2.0
+            this.last_unisonOffset = 0
+            this.last_unisonSpread = 0  
             this.effects = 0;
             this.chord = 1;
             this.volume = 0;
             this.pan = Config.panCenter;
             this.panDelay = 0;
             this.arpeggioSpeed = 12;
+            this.strumSpeed = 1;
             this.monoChordTone = 0;
             this.fastTwoNoteArp = false;
             this.legacyTieOver = false;
@@ -25199,6 +25411,10 @@ this.last_unisonSpread = 0
             this.effects = (1 << 2);
             this.chorus = Config.chorusRange - 1;
             this.reverb = 0;
+            this.phaserFreq = 0;
+            this.phaserFeedback = 0;
+            this.phaserStages = 2;
+            this.phaserMix = Config.phaserMixRange - 1; 
             this.echoSustain = Math.floor((Config.echoSustainRange - 1) * 0.5);
             this.echoDelay = Math.floor((Config.echoDelayRange - 1) * 0.5);
             this.eqFilter.reset();
@@ -25239,6 +25455,7 @@ this.last_unisonSpread = 0
             this.stringSustainType = Config.enableAcousticSustain ? 1 : 0;
             this.clicklessTransition = false;
             this.arpeggioSpeed = 12;
+            this.strumSpeed = 1;
             this.monoChordTone = 1;
             this.envelopeSpeed = 12;
             this.legacyTieOver = false;
@@ -25545,9 +25762,15 @@ this.last_unisonSpread = 0
                 instrumentObject["distortion"] = Math.round(100 * this.distortion / (Config.distortionRange - 1));
                 instrumentObject["aliases"] = this.aliases;
             }
-            if (effectsIncludeBitcrusher(this.effects)) {
+            if (effectsIncludeBitcrusher(this.effects)) { 
                 instrumentObject["bitcrusherOctave"] = (Config.bitcrusherFreqRange - 1 - this.bitcrusherFreq) * Config.bitcrusherOctaveStep;
                 instrumentObject["bitcrusherQuantization"] = Math.round(100 * this.bitcrusherQuantization / (Config.bitcrusherQuantizationRange - 1));
+            }
+            if (effectsIncludePhaser(this.effects)) {
+                instrumentObject["phaserMix"] = Math.round(100 * this.phaserMix / (Config.phaserMixRange - 1));
+                instrumentObject["phaserFreq"] = Math.round(100 * this.phaserFreq / (Config.phaserFreqRange - 1));
+                instrumentObject["phaserFeedback"] = Math.round(100 * this.phaserFeedback / (Config.phaserFeedbackRange - 1));
+                instrumentObject["phaserStages"] = Math.round(100 * this.phaserStages / (Config.phaserMaxStages - 1));
             }
             if (effectsIncludePanning(this.effects)) {
                 instrumentObject["pan"] = Math.round(100 * (this.pan - Config.panCenter) / Config.panCenter);
@@ -25786,7 +26009,7 @@ this.last_unisonSpread = 0
                 for (let i = 0; i < instrumentObject["effects"].length; i++) {
                     effects = effects | (1 << Config.effectNames.indexOf(instrumentObject["effects"][i]));
                 }
-                this.effects = (effects & ((1 << 17) - 1));
+                this.effects = (effects & ((1 << 18) - 1));
             }
             else {
                 const legacyEffectsNames = ["none", "reverb", "chorus", "chorus & reverb"];
@@ -25836,7 +26059,7 @@ this.last_unisonSpread = 0
                 const chord = Config.chords.dictionary[legacyChordNames[chordProperty]] || Config.chords.dictionary[chordProperty];
                 if (chord != undefined) {
                     this.chord = chord.index;
-                }
+                }     
                 else {
                     if (this.type == 2) {
                         this.chord = Config.chords.dictionary["arpeggio"].index;
@@ -25882,6 +26105,9 @@ this.last_unisonSpread = 0
             }
             if (instrumentObject["pitchShiftOctaves"] != undefined) {
                 this.octaveShift = clamp(0, Config.pitchShiftRange, Math.round(+instrumentObject["pitchShiftOctaves"]));
+            } 
+            if (instrumentObject["customfunction"] != undefined) {
+                this.customfunction =  instrumentObject["customfunction"]
             } 
             if (instrumentObject["boost"] != undefined) {
                 this.boost = clamp(0, Config.pitchShiftRange, Math.round(+instrumentObject["boost"]));
@@ -25992,7 +26218,19 @@ this.last_unisonSpread = 0
             }
             if (instrumentObject["bitcrusherQuantization"] != undefined) {
                 this.bitcrusherQuantization = clamp(0, Config.bitcrusherQuantizationRange, Math.round((Config.bitcrusherQuantizationRange - 1) * (instrumentObject["bitcrusherQuantization"] | 0) / 100));
+            } 
+            if (instrumentObject["phaserMix"] != undefined) {
+                this.phaserMix = clamp(0, Config.phaserMixRange, Math.round((Config.phaserMixRange - 1) * (instrumentObject["phaserMix"] | 0) / 100));
             }
+            if (instrumentObject["phaserFreq"] != undefined) {
+                this.phaserFreq = clamp(0, Config.phaserFreqRange, Math.round((Config.phaserFreqRange - 1) * (instrumentObject["phaserFreq"] | 0) / 100));
+            }
+            if (instrumentObject["phaserFeedback"] != undefined) {
+                this.phaserFeedback = clamp(0, Config.phaserFeedbackRange, Math.round((Config.phaserFeedbackRange - 1) * (instrumentObject["phaserFeedback"] | 0) / 100));
+            }
+            if (instrumentObject["phaserStages"] != undefined) {
+                this.phaserStages = clamp(0, Config.phaserMaxStages, Math.round((Config.phaserMaxStages - 1) * (instrumentObject["phaserStages"] | 0) / 100));
+            } 
             if (instrumentObject["echoSustain"] != undefined) {
                 this.echoSustain = clamp(0, Config.echoSustainRange, Math.round((Config.echoSustainRange - 1) * (instrumentObject["echoSustain"] | 0) / 100));
             }
@@ -26609,7 +26847,7 @@ this.wave = rawName
             this.eqFilterSimpleCut = Config.filterSimpleCutRange - 1;
             this.eqFilterSimplePeak = 0;
             this.eqSubFilters = [];
-            this.getNewNoteVolume = (isMod, modChannel, modInstrument, modCount) => {
+            this.getNewNoteVolume = (isMod, modChannel, modInstrument, modCount) => { 
                 if (!isMod || modChannel == undefined || modInstrument == undefined || modCount == undefined)
                     return Config.noteSizeMax;
                 else {
@@ -26637,7 +26875,6 @@ this.wave = rawName
                         let echoDelayIndex = Config.modulators.dictionary["echo delay"].index;
                         let pitchShiftIndex = Config.modulators.dictionary["pitch shift"].index;
                         let octaveShiftIndex = Config.modulators.dictionary["octave shift"].index;
-                        let boostIndex = Config.modulators.dictionary["boost"].index;
                         let ringModIndex = Config.modulators.dictionary["ring modulation"].index;
                         let ringModHertzIndex = Config.modulators.dictionary["ring mod hertz"].index;
                         
@@ -26705,9 +26942,6 @@ this.wave = rawName
                            case octaveShiftIndex:
                                 vol = this.channels[instrument.modChannels[modCount]].instruments[instrumentIndex].octaveShift;
                                 break;
-                           case boostIndex:
-                                vol = this.channels[instrument.modChannels[modCount]].instruments[instrumentIndex].boost;
-                                break;
                             case ringModIndex:
                                 vol = this.channels[instrument.modChannels[modCount]].instruments[instrumentIndex].ringModulation - Config.modulators[ringModIndex].convertRealFactor;
                                 break;
@@ -26764,7 +26998,7 @@ break;
             };
             this.getVolumeCap = (isMod, modChannel, modInstrument, modCount) => {
                 if (!isMod || modChannel == undefined || modInstrument == undefined || modCount == undefined)
-                    return Config.noteSizeMax;
+                    return Config.noteSizeMax; 
                 else {
                     modCount = Config.modCount - modCount - 1;
                     let instrument = this.channels[modChannel].instruments[modInstrument];
@@ -26901,6 +27135,7 @@ for (let channel of this.channels) {
             }
         }
         toBase64String() { 
+        	rebuiltKeyboard()
             let bits;
             let buffer = [];
             buffer.push(Song._variant);
@@ -27115,6 +27350,12 @@ buffer.push(110,
                         buffer.push(base64IntToCharCode[instrument.distortion]);
                         buffer.push(base64IntToCharCode[+instrument.aliases]);
                     }
+                    if (effectsIncludePhaser(instrument.effects)) {
+                        buffer.push(base64IntToCharCode[instrument.phaserFreq]);
+                        buffer.push(base64IntToCharCode[instrument.phaserFeedback]);
+                        buffer.push(base64IntToCharCode[instrument.phaserStages]);
+                        buffer.push(base64IntToCharCode[instrument.phaserMix]);
+                    } 
                     if (effectsIncludeBitcrusher(instrument.effects)) {
                         buffer.push(base64IntToCharCode[instrument.bitcrusherFreq], base64IntToCharCode[instrument.bitcrusherQuantization]);
                     }
@@ -27156,7 +27397,16 @@ buffer.push(110,
                         }
                         harmonicsBits.encodeBase64(buffer);
                     }
-if (instrument.type == 0) { 
+ 
+ 
+
+
+	
+	
+if (instrument.type == 0) {
+ 
+     
+	
 buffer.push(119) 
 let waveName = Config.chipWaves[instrument.chipWave]?.name ?? "unknown";
 let i4=0; for (let wave of Config.chipWaves) {	if (wave.name === instrument.wave) { i4=true;	}
@@ -27177,6 +27427,8 @@ buffer.push(
     base64IntToCharCode[encodedWave.length & 0x3f]
 )
 for (let i = 0; i < encodedWave.length; i++) buffer.push(encodedWave.charCodeAt(i))
+ 
+
 
 
                         buffer.push(104, base64IntToCharCode[instrument.unison]);
@@ -27404,7 +27656,7 @@ buffer.push(
                                 bits.write(neededModInstrumentIndexBits, modInstrument);
                             }
                             if (status != 3) {
-                                bits.write(6, modSetting);
+                                bits.write(7, modSetting);// instead of 6 is 7 wait 67 ! 
                             }
                             if (Config.modulators[instrument.modulators[mod]].name == "eq filter" || Config.modulators[instrument.modulators[mod]].name == "note filter" || Config.modulators[instrument.modulators[mod]].name == "song eq") {
                                 bits.write(6, modFilter);
@@ -27674,6 +27926,7 @@ buffer.push(
                     let willLoadLegacySamples = false;
                     let willLoadNintariboxSamples = false;
                     let willLoadMarioPaintboxSamples = false;
+                    let willLoadStudioSamples = false;
                     const customSampleUrls = [];
                     const customSamplePresets = [];
                     sampleLoadingState.statusTable = {};
@@ -27701,6 +27954,12 @@ buffer.push(
                                 willLoadMarioPaintboxSamples = true;
                                 customSampleUrls.push(url);
                                 loadBuiltInSamples(2);
+                            }
+                        }else if (url.toLowerCase() === "studiosamples") {
+                            if (!willLoadStudioSamples) {
+                                willLoadStudioSamples = true;
+                                customSampleUrls.push(url);
+                                loadBuiltInSamples(3);
                             }
                         }
                         else {
@@ -28126,6 +28385,8 @@ case 123:{
 	}
 }
 break;
+ 
+
 case 119: { 
     if (beforeThree && fromBeepBox) {
         const legacyWaves=[1,2,3,4,5,6,7,8,0];
@@ -28160,7 +28421,6 @@ case 119: {
         if (instrument.type==2) {
             instrument.chipNoise=clamp(0,Config.chipNoises.length,base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
         } else {
-        	
    if (fromFruityBox) {
    	const len =
    		(base64CharCodeToInt[compressed.charCodeAt(charIndex++)] << 6) |
@@ -28179,6 +28439,7 @@ case 119: {
    		instrument.wave = waveName;
    		instrument.chipWave = foundIndex;
    	} else {
+   		instrument.wave = waveName;
    		instrument.wavenotfound = waveName;
    	}
    }
@@ -28744,7 +29005,7 @@ break;
                         {
                             const instrument = this.channels[instrumentChannelIterator].instruments[instrumentIndexIterator];
                             if ((beforeNine && fromBeepBox) || ((fromJummBox && beforeFive) || (beforeFour && fromGoldBox))) {
-                                instrument.effects = (base64CharCodeToInt[compressed.charCodeAt(charIndex++)] & ((1 << 17) - 1));//max 16 bits for effects
+                                instrument.effects = (base64CharCodeToInt[compressed.charCodeAt(charIndex++)] & ((1 << 18) - 1));//max 16 bits for effects
                                 if (legacyGlobalReverb == 0 && !((fromJummBox && beforeFive) || (beforeFour && fromGoldBox))) {
                                     instrument.effects &= ~(1 << 0);
                                 }
@@ -28887,6 +29148,12 @@ break;
                                     if ((fromJummBox && !beforeFive) || fromGoldBox || fromUltraBox || fromSlarmoosBox)
                                         instrument.aliases = base64CharCodeToInt[compressed.charCodeAt(charIndex++)] ? true : false;
                                 }
+                                if (effectsIncludePhaser(instrument.effects)) {
+                                    instrument.phaserFreq = clamp(0, Config.phaserFreqRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                    instrument.phaserFeedback = clamp(0, Config.phaserFeedbackRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                    instrument.phaserStages = clamp(0, Config.phaserMaxStages + 1, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                    instrument.phaserMix = clamp(0, Config.phaserMixRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                }
                                 if (effectsIncludeBitcrusher(instrument.effects)) {
                                     instrument.bitcrusherFreq = clamp(0, Config.bitcrusherFreqRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                     instrument.bitcrusherQuantization = clamp(0, Config.bitcrusherQuantizationRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
@@ -28935,7 +29202,7 @@ break;
                                     instrument.ringModHzOffset = clamp(Config.rmHzOffsetMin, Config.rmHzOffsetMax + 1, (base64CharCodeToInt[compressed.charCodeAt(charIndex++)] << 6) + base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                 }
                             }
-                            instrument.effects &= (1 << 17) - 1;
+                            instrument.effects &= (1 << 18) - 1;
                         }
                         break;
                     case 118:
@@ -29535,7 +29802,7 @@ break;
                                                     break;
                                             }
                                             if (status != 3) {
-                                                instrument.modulators[mod] = bits.read(6);
+                                                instrument.modulators[mod] = bits.read(7);//7 bits because more than 64 setting 
                                             }
                                             if (!jumfive && (Config.modulators[instrument.modulators[mod]].name == "eq filter" || Config.modulators[instrument.modulators[mod]].name == "note filter" || Config.modulators[instrument.modulators[mod]].name == "song eq")) {
                                                 instrument.modFilterTypes[mod] = bits.read(6);
@@ -30245,6 +30512,7 @@ break;
                     Config.willReloadForCustomSamples = true;
                     Song._restoreChipWaveListToDefault();
                     let willLoadLegacySamples = false;
+                    let willLoadStudioSamples = false;
                     let willLoadNintariboxSamples = false;
                     let willLoadMarioPaintboxSamples = false;
                     const customSampleUrls = [];
@@ -30282,7 +30550,17 @@ break;
                                 	loadBuiltInSamples(2);
                                 }
                             }
-                        }
+                        }else if (url.toLowerCase() === "studiosamples") {
+                            if (!willLoadStudioSamples) {
+                                willLoadStudioSamples = true;
+                                customSampleUrls.push(url);
+                                if(jsonFormat=="slarmoosbox2"){
+                                loadBuiltInSamples(3,1);
+                                }else{
+                                loadBuiltInSamples(3);
+                                }
+                            }
+                        } 
                         else {
                             const parseOldSyntax = false;
                             Song._parseAndConfigureCustomSample(url, customSampleUrls, customSamplePresets, sampleLoadingState, parseOldSyntax);
@@ -30822,176 +31100,176 @@ break;
     Song._oldestSlarmoosBoxVersion = 1;
     Song._latestSlarmoosBoxVersion = 5;
     Song._variant = 0x74; 
-    class PickedString {
-        constructor() {
-            this.delayLine = null;
-            this.allPassG = 0.0;
-            this.allPassGDelta = 0.0;
-            this.sustainFilterA1 = 0.0;
-            this.sustainFilterA1Delta = 0.0;
-            this.sustainFilterA2 = 0.0;
-            this.sustainFilterA2Delta = 0.0;
-            this.sustainFilterB0 = 0.0;
-            this.sustainFilterB0Delta = 0.0;
-            this.sustainFilterB1 = 0.0;
-            this.sustainFilterB1Delta = 0.0;
-            this.sustainFilterB2 = 0.0;
-            this.sustainFilterB2Delta = 0.0;
-            this.reset();
-        }
-        reset() {
-            this.delayIndex = -1;
-            this.allPassSample = 0.0;
-            this.allPassPrevInput = 0.0;
-            this.sustainFilterSample = 0.0;
-            this.sustainFilterPrevOutput2 = 0.0;
-            this.sustainFilterPrevInput1 = 0.0;
-            this.sustainFilterPrevInput2 = 0.0;
-            this.fractionalDelaySample = 0.0;
-            this.prevDelayLength = -1.0;
-            this.delayResetOffset = 0;
-        }
-        update(synth, instrumentState, tone, stringIndex, roundedSamplesPerTick, stringDecayStart, stringDecayEnd, sustainType) {
-            const allPassCenter = 2.0 * Math.PI * Config.pickedStringDispersionCenterFreq / synth.samplesPerSecond;
-            const prevDelayLength = this.prevDelayLength;
-            const phaseDeltaStart = tone.phaseDeltas[stringIndex];
-            const phaseDeltaScale = tone.phaseDeltaScales[stringIndex];
-            const phaseDeltaEnd = phaseDeltaStart * Math.pow(phaseDeltaScale, roundedSamplesPerTick);
-            const radiansPerSampleStart = Math.PI * 2.0 * phaseDeltaStart;
-            const radiansPerSampleEnd = Math.PI * 2.0 * phaseDeltaEnd;
-            const centerHarmonicStart = radiansPerSampleStart * 2.0;
-            const centerHarmonicEnd = radiansPerSampleEnd * 2.0;
-            const allPassRadiansStart = Math.min(Math.PI, radiansPerSampleStart * Config.pickedStringDispersionFreqMult * Math.pow(allPassCenter / radiansPerSampleStart, Config.pickedStringDispersionFreqScale));
-            const allPassRadiansEnd = Math.min(Math.PI, radiansPerSampleEnd * Config.pickedStringDispersionFreqMult * Math.pow(allPassCenter / radiansPerSampleEnd, Config.pickedStringDispersionFreqScale));
-            const shelfRadians = 2.0 * Math.PI * Config.pickedStringShelfHz / synth.samplesPerSecond;
-            const decayCurveStart = (Math.pow(100.0, stringDecayStart) - 1.0) / 99.0;
-            const decayCurveEnd = (Math.pow(100.0, stringDecayEnd) - 1.0) / 99.0;
-            const register = sustainType == 1 ? 0.25 : 0.0;
-            const registerShelfCenter = 15.6;
-            const registerLowpassCenter = 3.0 * synth.samplesPerSecond / 48000;
-            const decayRateStart = Math.pow(0.5, decayCurveStart * Math.pow(shelfRadians / (radiansPerSampleStart * registerShelfCenter), (1.0 + 2.0 * register)) * registerShelfCenter);
-            const decayRateEnd = Math.pow(0.5, decayCurveEnd * Math.pow(shelfRadians / (radiansPerSampleEnd * registerShelfCenter), (1.0 + 2.0 * register)) * registerShelfCenter);
-            const expressionDecayStart = Math.pow(decayRateStart, 0.002);
-            const expressionDecayEnd = Math.pow(decayRateEnd, 0.002);
-            Synth.tempFilterStartCoefficients.allPass1stOrderInvertPhaseAbove(allPassRadiansStart);
-            synth.tempFrequencyResponse.analyze(Synth.tempFilterStartCoefficients, centerHarmonicStart);
-            const allPassGStart = Synth.tempFilterStartCoefficients.b[0];
-            const allPassPhaseDelayStart = -synth.tempFrequencyResponse.angle() / centerHarmonicStart;
-            Synth.tempFilterEndCoefficients.allPass1stOrderInvertPhaseAbove(allPassRadiansEnd);
-            synth.tempFrequencyResponse.analyze(Synth.tempFilterEndCoefficients, centerHarmonicEnd);
-            const allPassGEnd = Synth.tempFilterEndCoefficients.b[0];
-            const allPassPhaseDelayEnd = -synth.tempFrequencyResponse.angle() / centerHarmonicEnd;
-            const brightnessType = sustainType == 0 ? 0 : 1;
-            if (brightnessType == 0) {
-                const shelfGainStart = Math.pow(decayRateStart, Config.stringDecayRate);
-                const shelfGainEnd = Math.pow(decayRateEnd, Config.stringDecayRate);
-                Synth.tempFilterStartCoefficients.highShelf2ndOrder(shelfRadians, shelfGainStart, 0.5);
-                Synth.tempFilterEndCoefficients.highShelf2ndOrder(shelfRadians, shelfGainEnd, 0.5);
-            }
-            else {
-                const cornerHardness = Math.pow(brightnessType == 1 ? 0.0 : 1.0, 0.25);
-                const lowpass1stOrderCutoffRadiansStart = Math.pow(registerLowpassCenter * registerLowpassCenter * radiansPerSampleStart * 3.3 * 48000 / synth.samplesPerSecond, 0.5 + register) / registerLowpassCenter / Math.pow(decayCurveStart, .5);
-                const lowpass1stOrderCutoffRadiansEnd = Math.pow(registerLowpassCenter * registerLowpassCenter * radiansPerSampleEnd * 3.3 * 48000 / synth.samplesPerSecond, 0.5 + register) / registerLowpassCenter / Math.pow(decayCurveEnd, .5);
-                const lowpass2ndOrderCutoffRadiansStart = lowpass1stOrderCutoffRadiansStart * Math.pow(2.0, 0.5 - 1.75 * (1.0 - Math.pow(1.0 - cornerHardness, 0.85)));
-                const lowpass2ndOrderCutoffRadiansEnd = lowpass1stOrderCutoffRadiansEnd * Math.pow(2.0, 0.5 - 1.75 * (1.0 - Math.pow(1.0 - cornerHardness, 0.85)));
-                const lowpass2ndOrderGainStart = Math.pow(2.0, -Math.pow(2.0, -Math.pow(cornerHardness, 0.9)));
-                const lowpass2ndOrderGainEnd = Math.pow(2.0, -Math.pow(2.0, -Math.pow(cornerHardness, 0.9)));
-                Synth.tempFilterStartCoefficients.lowPass2ndOrderButterworth(warpInfinityToNyquist(lowpass2ndOrderCutoffRadiansStart), lowpass2ndOrderGainStart);
-                Synth.tempFilterEndCoefficients.lowPass2ndOrderButterworth(warpInfinityToNyquist(lowpass2ndOrderCutoffRadiansEnd), lowpass2ndOrderGainEnd);
-            }
-            synth.tempFrequencyResponse.analyze(Synth.tempFilterStartCoefficients, centerHarmonicStart);
-            const sustainFilterA1Start = Synth.tempFilterStartCoefficients.a[1];
-            const sustainFilterA2Start = Synth.tempFilterStartCoefficients.a[2];
-            const sustainFilterB0Start = Synth.tempFilterStartCoefficients.b[0] * expressionDecayStart;
-            const sustainFilterB1Start = Synth.tempFilterStartCoefficients.b[1] * expressionDecayStart;
-            const sustainFilterB2Start = Synth.tempFilterStartCoefficients.b[2] * expressionDecayStart;
-            const sustainFilterPhaseDelayStart = -synth.tempFrequencyResponse.angle() / centerHarmonicStart;
-            synth.tempFrequencyResponse.analyze(Synth.tempFilterEndCoefficients, centerHarmonicEnd);
-            const sustainFilterA1End = Synth.tempFilterEndCoefficients.a[1];
-            const sustainFilterA2End = Synth.tempFilterEndCoefficients.a[2];
-            const sustainFilterB0End = Synth.tempFilterEndCoefficients.b[0] * expressionDecayEnd;
-            const sustainFilterB1End = Synth.tempFilterEndCoefficients.b[1] * expressionDecayEnd;
-            const sustainFilterB2End = Synth.tempFilterEndCoefficients.b[2] * expressionDecayEnd;
-            const sustainFilterPhaseDelayEnd = -synth.tempFrequencyResponse.angle() / centerHarmonicEnd;
-            const periodLengthStart = 1.0 / phaseDeltaStart;
-            const periodLengthEnd = 1.0 / phaseDeltaEnd;
-            const minBufferLength = Math.ceil(Math.max(periodLengthStart, periodLengthEnd) * 2);
-            const delayLength = periodLengthStart - allPassPhaseDelayStart - sustainFilterPhaseDelayStart;
-            const delayLengthEnd = periodLengthEnd - allPassPhaseDelayEnd - sustainFilterPhaseDelayEnd;
-            this.prevDelayLength = delayLength;
-            this.delayLengthDelta = (delayLengthEnd - delayLength) / roundedSamplesPerTick;
-            this.allPassG = allPassGStart;
-            this.sustainFilterA1 = sustainFilterA1Start;
-            this.sustainFilterA2 = sustainFilterA2Start;
-            this.sustainFilterB0 = sustainFilterB0Start;
-            this.sustainFilterB1 = sustainFilterB1Start;
-            this.sustainFilterB2 = sustainFilterB2Start;
-            this.allPassGDelta = (allPassGEnd - allPassGStart) / roundedSamplesPerTick;
-            this.sustainFilterA1Delta = (sustainFilterA1End - sustainFilterA1Start) / roundedSamplesPerTick;
-            this.sustainFilterA2Delta = (sustainFilterA2End - sustainFilterA2Start) / roundedSamplesPerTick;
-            this.sustainFilterB0Delta = (sustainFilterB0End - sustainFilterB0Start) / roundedSamplesPerTick;
-            this.sustainFilterB1Delta = (sustainFilterB1End - sustainFilterB1Start) / roundedSamplesPerTick;
-            this.sustainFilterB2Delta = (sustainFilterB2End - sustainFilterB2Start) / roundedSamplesPerTick;
-            const pitchChanged = Math.abs(Math.log2(delayLength / prevDelayLength)) > 0.01;
-            const reinitializeImpulse = (this.delayIndex == -1 || pitchChanged);
-            if (this.delayLine == null || this.delayLine.length <= minBufferLength) {
-                const likelyMaximumLength = Math.ceil(2 * synth.samplesPerSecond / Instrument.frequencyFromPitch(12));
-                const newDelayLine = new Float32Array(Synth.fittingPowerOfTwo(Math.max(likelyMaximumLength, minBufferLength)));
-                if (!reinitializeImpulse && this.delayLine != null) {
-                    const oldDelayBufferMask = (this.delayLine.length - 1) >> 0;
-                    const startCopyingFromIndex = this.delayIndex + this.delayResetOffset;
-                    this.delayIndex = this.delayLine.length - this.delayResetOffset;
-                    for (let i = 0; i < this.delayLine.length; i++) {
-                        newDelayLine[i] = this.delayLine[(startCopyingFromIndex + i) & oldDelayBufferMask];
-                    }
-                }
-                this.delayLine = newDelayLine;
-            }
-            const delayLine = this.delayLine;
-            const delayBufferMask = (delayLine.length - 1) >> 0;
-            if (reinitializeImpulse) {
-                this.delayIndex = 0;
-                this.allPassSample = 0.0;
-                this.allPassPrevInput = 0.0;
-                this.sustainFilterSample = 0.0;
-                this.sustainFilterPrevOutput2 = 0.0;
-                this.sustainFilterPrevInput1 = 0.0;
-                this.sustainFilterPrevInput2 = 0.0;
-                this.fractionalDelaySample = 0.0;
-                const startImpulseFrom = -delayLength;
-                const startZerosFrom = Math.floor(startImpulseFrom - periodLengthStart / 2);
-                const stopZerosAt = Math.ceil(startZerosFrom + periodLengthStart * 2);
-                this.delayResetOffset = stopZerosAt;
-                for (let i = startZerosFrom; i <= stopZerosAt; i++) {
-                    delayLine[i & delayBufferMask] = 0.0;
-                }
-                const impulseWave = instrumentState.wave;
-                const impulseWaveLength = impulseWave.length - 1;
-                const impulsePhaseDelta = impulseWaveLength / periodLengthStart;
-                const fadeDuration = Math.min(periodLengthStart * 0.2, synth.samplesPerSecond * 0.003);
-                const startImpulseFromSample = Math.ceil(startImpulseFrom);
-                const stopImpulseAt = startImpulseFrom + periodLengthStart + fadeDuration;
-                const stopImpulseAtSample = stopImpulseAt;
-                let impulsePhase = (startImpulseFromSample - startImpulseFrom) * impulsePhaseDelta;
-                let prevWaveIntegral = 0.0;
-                for (let i = startImpulseFromSample; i <= stopImpulseAtSample; i++) {
-                    const impulsePhaseInt = impulsePhase | 0;
-                    const index = impulsePhaseInt % impulseWaveLength;
-                    let nextWaveIntegral = impulseWave[index];
-                    const phaseRatio = impulsePhase - impulsePhaseInt;
-                    nextWaveIntegral += (impulseWave[index + 1] - nextWaveIntegral) * phaseRatio;
-                    const sample = (nextWaveIntegral - prevWaveIntegral) / impulsePhaseDelta;
-                    const fadeIn = Math.min(1.0, (i - startImpulseFrom) / fadeDuration);
-                    const fadeOut = Math.min(1.0, (stopImpulseAt - i) / fadeDuration);
-                    const combinedFade = fadeIn * fadeOut;
-                    const curvedFade = combinedFade * combinedFade * (3.0 - 2.0 * combinedFade);
-                    delayLine[i & delayBufferMask] += sample * curvedFade;
-                    prevWaveIntegral = nextWaveIntegral;
-                    impulsePhase += impulsePhaseDelta;
-                }
-            }
-        }
-    }
+   class PickedString {
+   	constructor() {
+   		this.delayLine = null;
+   		this.allPassG = 0.0;
+   		this.allPassGDelta = 0.0;
+   		this.sustainFilterA1 = 0.0;
+   		this.sustainFilterA1Delta = 0.0;
+   		this.sustainFilterA2 = 0.0;
+   		this.sustainFilterA2Delta = 0.0;
+   		this.sustainFilterB0 = 0.0;
+   		this.sustainFilterB0Delta = 0.0;
+   		this.sustainFilterB1 = 0.0;
+   		this.sustainFilterB1Delta = 0.0;
+   		this.sustainFilterB2 = 0.0;
+   		this.sustainFilterB2Delta = 0.0;
+   		this.reset();
+   	}
+   	reset() {
+   		this.delayIndex = -1;
+   		this.allPassSample = 0.0;
+   		this.allPassPrevInput = 0.0;
+   		this.sustainFilterSample = 0.0;
+   		this.sustainFilterPrevOutput2 = 0.0;
+   		this.sustainFilterPrevInput1 = 0.0;
+   		this.sustainFilterPrevInput2 = 0.0;
+   		this.fractionalDelaySample = 0.0;
+   		this.prevDelayLength = -1.0;
+   		this.delayResetOffset = 0;
+   	}
+   	update(synth, instrumentState, tone, stringIndex, roundedSamplesPerTick, stringDecayStart, stringDecayEnd, sustainType) {
+   		const allPassCenter = 2.0 * Math.PI * Config.pickedStringDispersionCenterFreq / synth.samplesPerSecond;
+   		const prevDelayLength = this.prevDelayLength;
+   		const phaseDeltaStart = tone.phaseDeltas[stringIndex];
+   		const phaseDeltaScale = tone.phaseDeltaScales[stringIndex];
+   		const phaseDeltaEnd = phaseDeltaStart * Math.pow(phaseDeltaScale, roundedSamplesPerTick);
+   		const radiansPerSampleStart = Math.PI * 2.0 * phaseDeltaStart;
+   		const radiansPerSampleEnd = Math.PI * 2.0 * phaseDeltaEnd;
+   		const centerHarmonicStart = radiansPerSampleStart * 2.0;
+   		const centerHarmonicEnd = radiansPerSampleEnd * 2.0;
+   		const allPassRadiansStart = Math.min(Math.PI, radiansPerSampleStart * Config.pickedStringDispersionFreqMult * Math.pow(allPassCenter / radiansPerSampleStart, Config.pickedStringDispersionFreqScale));
+   		const allPassRadiansEnd = Math.min(Math.PI, radiansPerSampleEnd * Config.pickedStringDispersionFreqMult * Math.pow(allPassCenter / radiansPerSampleEnd, Config.pickedStringDispersionFreqScale));
+   		const shelfRadians = 2.0 * Math.PI * Config.pickedStringShelfHz / synth.samplesPerSecond;
+   		const decayCurveStart = (Math.pow(100.0, stringDecayStart) - 1.0) / 99.0;
+   		const decayCurveEnd = (Math.pow(100.0, stringDecayEnd) - 1.0) / 99.0;
+   		const register = sustainType == 1 ? 0.25 : 0.0;
+   		const registerShelfCenter = 15.6;
+   		const registerLowpassCenter = 3.0 * synth.samplesPerSecond / 48000;
+   		const decayRateStart = Math.pow(0.5, decayCurveStart * Math.pow(shelfRadians / (radiansPerSampleStart * registerShelfCenter), (1.0 + 2.0 * register)) * registerShelfCenter);
+   		const decayRateEnd = Math.pow(0.5, decayCurveEnd * Math.pow(shelfRadians / (radiansPerSampleEnd * registerShelfCenter), (1.0 + 2.0 * register)) * registerShelfCenter);
+   		const expressionDecayStart = Math.pow(decayRateStart, 0.002);
+   		const expressionDecayEnd = Math.pow(decayRateEnd, 0.002);
+   		Synth.tempFilterStartCoefficients.allPass1stOrderInvertPhaseAbove(allPassRadiansStart);
+   		synth.tempFrequencyResponse.analyze(Synth.tempFilterStartCoefficients, centerHarmonicStart);
+   		const allPassGStart = Synth.tempFilterStartCoefficients.b[0];
+   		const allPassPhaseDelayStart = -synth.tempFrequencyResponse.angle() / centerHarmonicStart;
+   		Synth.tempFilterEndCoefficients.allPass1stOrderInvertPhaseAbove(allPassRadiansEnd);
+   		synth.tempFrequencyResponse.analyze(Synth.tempFilterEndCoefficients, centerHarmonicEnd);
+   		const allPassGEnd = Synth.tempFilterEndCoefficients.b[0];
+   		const allPassPhaseDelayEnd = -synth.tempFrequencyResponse.angle() / centerHarmonicEnd;
+   		const brightnessType = sustainType == 0 ? 0 : 1;
+   		if (brightnessType == 0) {
+   			const shelfGainStart = Math.pow(decayRateStart, Config.stringDecayRate);
+   			const shelfGainEnd = Math.pow(decayRateEnd, Config.stringDecayRate);
+   			Synth.tempFilterStartCoefficients.highShelf2ndOrder(shelfRadians, shelfGainStart, 0.5);
+   			Synth.tempFilterEndCoefficients.highShelf2ndOrder(shelfRadians, shelfGainEnd, 0.5);
+   		}
+   		else {
+   			const cornerHardness = Math.pow(brightnessType == 1 ? 0.0 : 1.0, 0.25);
+   			const lowpass1stOrderCutoffRadiansStart = Math.pow(registerLowpassCenter * registerLowpassCenter * radiansPerSampleStart * 3.3 * 48000 / synth.samplesPerSecond, 0.5 + register) / registerLowpassCenter / Math.pow(decayCurveStart, .5);
+   			const lowpass1stOrderCutoffRadiansEnd = Math.pow(registerLowpassCenter * registerLowpassCenter * radiansPerSampleEnd * 3.3 * 48000 / synth.samplesPerSecond, 0.5 + register) / registerLowpassCenter / Math.pow(decayCurveEnd, .5);
+   			const lowpass2ndOrderCutoffRadiansStart = lowpass1stOrderCutoffRadiansStart * Math.pow(2.0, 0.5 - 1.75 * (1.0 - Math.pow(1.0 - cornerHardness, 0.85)));
+   			const lowpass2ndOrderCutoffRadiansEnd = lowpass1stOrderCutoffRadiansEnd * Math.pow(2.0, 0.5 - 1.75 * (1.0 - Math.pow(1.0 - cornerHardness, 0.85)));
+   			const lowpass2ndOrderGainStart = Math.pow(2.0, -Math.pow(2.0, -Math.pow(cornerHardness, 0.9)));
+   			const lowpass2ndOrderGainEnd = Math.pow(2.0, -Math.pow(2.0, -Math.pow(cornerHardness, 0.9)));
+   			Synth.tempFilterStartCoefficients.lowPass2ndOrderButterworth(warpInfinityToNyquist(lowpass2ndOrderCutoffRadiansStart), lowpass2ndOrderGainStart);
+   			Synth.tempFilterEndCoefficients.lowPass2ndOrderButterworth(warpInfinityToNyquist(lowpass2ndOrderCutoffRadiansEnd), lowpass2ndOrderGainEnd);
+   		}
+   		synth.tempFrequencyResponse.analyze(Synth.tempFilterStartCoefficients, centerHarmonicStart);
+   		const sustainFilterA1Start = Synth.tempFilterStartCoefficients.a[1];
+   		const sustainFilterA2Start = Synth.tempFilterStartCoefficients.a[2];
+   		const sustainFilterB0Start = Synth.tempFilterStartCoefficients.b[0] * expressionDecayStart;
+   		const sustainFilterB1Start = Synth.tempFilterStartCoefficients.b[1] * expressionDecayStart;
+   		const sustainFilterB2Start = Synth.tempFilterStartCoefficients.b[2] * expressionDecayStart;
+   		const sustainFilterPhaseDelayStart = -synth.tempFrequencyResponse.angle() / centerHarmonicStart;
+   		synth.tempFrequencyResponse.analyze(Synth.tempFilterEndCoefficients, centerHarmonicEnd);
+   		const sustainFilterA1End = Synth.tempFilterEndCoefficients.a[1];
+   		const sustainFilterA2End = Synth.tempFilterEndCoefficients.a[2];
+   		const sustainFilterB0End = Synth.tempFilterEndCoefficients.b[0] * expressionDecayEnd;
+   		const sustainFilterB1End = Synth.tempFilterEndCoefficients.b[1] * expressionDecayEnd;
+   		const sustainFilterB2End = Synth.tempFilterEndCoefficients.b[2] * expressionDecayEnd;
+   		const sustainFilterPhaseDelayEnd = -synth.tempFrequencyResponse.angle() / centerHarmonicEnd;
+   		const periodLengthStart = 1.0 / phaseDeltaStart;
+   		const periodLengthEnd = 1.0 / phaseDeltaEnd;
+   		const minBufferLength = Math.ceil(Math.max(periodLengthStart, periodLengthEnd) * 2);
+   		const delayLength = periodLengthStart - allPassPhaseDelayStart - sustainFilterPhaseDelayStart;
+   		const delayLengthEnd = periodLengthEnd - allPassPhaseDelayEnd - sustainFilterPhaseDelayEnd;
+   		this.prevDelayLength = delayLength;
+   		this.delayLengthDelta = (delayLengthEnd - delayLength) / roundedSamplesPerTick;
+   		this.allPassG = allPassGStart;
+   		this.sustainFilterA1 = sustainFilterA1Start;
+   		this.sustainFilterA2 = sustainFilterA2Start;
+   		this.sustainFilterB0 = sustainFilterB0Start;
+   		this.sustainFilterB1 = sustainFilterB1Start;
+   		this.sustainFilterB2 = sustainFilterB2Start;
+   		this.allPassGDelta = (allPassGEnd - allPassGStart) / roundedSamplesPerTick;
+   		this.sustainFilterA1Delta = (sustainFilterA1End - sustainFilterA1Start) / roundedSamplesPerTick;
+   		this.sustainFilterA2Delta = (sustainFilterA2End - sustainFilterA2Start) / roundedSamplesPerTick;
+   		this.sustainFilterB0Delta = (sustainFilterB0End - sustainFilterB0Start) / roundedSamplesPerTick;
+   		this.sustainFilterB1Delta = (sustainFilterB1End - sustainFilterB1Start) / roundedSamplesPerTick;
+   		this.sustainFilterB2Delta = (sustainFilterB2End - sustainFilterB2Start) / roundedSamplesPerTick;
+   		const pitchChanged = Math.abs(Math.log2(delayLength / prevDelayLength)) > 0.01;
+   		const reinitializeImpulse = (this.delayIndex == -1 || pitchChanged);
+   		if (this.delayLine == null || this.delayLine.length <= minBufferLength) {
+   			const likelyMaximumLength = Math.ceil(2 * synth.samplesPerSecond / Instrument.frequencyFromPitch(12));
+   			const newDelayLine = new Float32Array(Synth.fittingPowerOfTwo(Math.max(likelyMaximumLength, minBufferLength)));
+   			if (!reinitializeImpulse && this.delayLine != null) {
+   				const oldDelayBufferMask = (this.delayLine.length - 1) >> 0;
+   				const startCopyingFromIndex = this.delayIndex + this.delayResetOffset;
+   				this.delayIndex = this.delayLine.length - this.delayResetOffset;
+   				for (let i = 0; i < this.delayLine.length; i++) {
+   					newDelayLine[i] = this.delayLine[(startCopyingFromIndex + i) & oldDelayBufferMask];
+   				}
+   			}
+   			this.delayLine = newDelayLine;
+   		}
+   		const delayLine = this.delayLine;
+   		const delayBufferMask = (delayLine.length - 1) >> 0;
+   		if (reinitializeImpulse) {
+   			this.delayIndex = 0;
+   			this.allPassSample = 0.0;
+   			this.allPassPrevInput = 0.0;
+   			this.sustainFilterSample = 0.0;
+   			this.sustainFilterPrevOutput2 = 0.0;
+   			this.sustainFilterPrevInput1 = 0.0;
+   			this.sustainFilterPrevInput2 = 0.0;
+   			this.fractionalDelaySample = 0.0;
+   			const startImpulseFrom = -delayLength;
+   			const startZerosFrom = Math.floor(startImpulseFrom - periodLengthStart / 2);
+   			const stopZerosAt = Math.ceil(startZerosFrom + periodLengthStart * 2);
+   			this.delayResetOffset = stopZerosAt;
+   			for (let i = startZerosFrom; i <= stopZerosAt; i++) {
+   				delayLine[i & delayBufferMask] = 0.0;
+   			}
+   			const impulseWave = instrumentState.wave;
+   			const impulseWaveLength = impulseWave.length - 1;
+   			const impulsePhaseDelta = impulseWaveLength / periodLengthStart;
+   			const fadeDuration = Math.min(periodLengthStart * 0.2, synth.samplesPerSecond * 0.003);
+   			const startImpulseFromSample = Math.ceil(startImpulseFrom);
+   			const stopImpulseAt = startImpulseFrom + periodLengthStart + fadeDuration;
+   			const stopImpulseAtSample = stopImpulseAt;
+   			let impulsePhase = (startImpulseFromSample - startImpulseFrom) * impulsePhaseDelta;
+   			let prevWaveIntegral = 0.0;
+   			for (let i = startImpulseFromSample; i <= stopImpulseAtSample; i++) {
+   				const impulsePhaseInt = impulsePhase | 0;
+   				const index = impulsePhaseInt % impulseWaveLength;
+   				let nextWaveIntegral = impulseWave[index];
+   				const phaseRatio = impulsePhase - impulsePhaseInt;
+   				nextWaveIntegral += (impulseWave[index + 1] - nextWaveIntegral) * phaseRatio;
+   				const sample = (nextWaveIntegral - prevWaveIntegral) / impulsePhaseDelta;
+   				const fadeIn = Math.min(1.0, (i - startImpulseFrom) / fadeDuration);
+   				const fadeOut = Math.min(1.0, (stopImpulseAt - i) / fadeDuration);
+   				const combinedFade = fadeIn * fadeOut;
+   				const curvedFade = combinedFade * combinedFade * (3.0 - 2.0 * combinedFade);
+   				delayLine[i & delayBufferMask] += sample * curvedFade;
+   				prevWaveIntegral = nextWaveIntegral;
+   				impulsePhase += impulsePhaseDelta;
+   			}
+   		}
+   	}
+   }
     class EnvelopeComputer {
         constructor() {
             this.noteSecondsStart = [];
@@ -31031,7 +31309,7 @@ break;
             this._modifiedEnvelopeIndices = [];
             this._modifiedEnvelopeCount = 0;
             this.lowpassCutoffDecayVolumeCompensation = 1.0;
-            const length = 56;
+            const length = 64 // 56 was now its 64;
             for (let i = 0; i < length; i++) {
                 this.envelopeStarts[i] = 1.0;
                 this.envelopeEnds[i] = 1.0;
@@ -31248,8 +31526,9 @@ break;
                         if (nextSlideEnd) {
                             const other = EnvelopeComputer.computeEnvelope(envelope, envelopeSpeed, globalEnvelopeSpeed, 0.0, 0.0, beatTimeEnd[envelopeIndex], timeSinceStart, nextNoteSize, pitch, inverse, perEnvelopeLowerBound, perEnvelopeUpperBound, false, steps, seed, waveform, defaultPitch, startPinTickAbsolute);
                             envelopeEnd += (other - envelopeEnd) * nextSlideRatioEnd;
-                        }
+                        } 
                     }
+                    
                     this.envelopeStarts[computeIndex] *= envelopeStart;
                     this.envelopeEnds[computeIndex] *= envelopeEnd;
                     this._modifiedEnvelopeIndices[this._modifiedEnvelopeCount++] = computeIndex;
@@ -31777,7 +32056,7 @@ default: throw new Error("Unrecognized operator envelope type.");
             this.ringModMixFade = 1.0;
             this.ringModMixFadeDelta = 0;
             this.distortion = 0.0;
-            this.customfunction = [];  
+            this.customfunction = ["",""];  
             this.distortionDelta = 0.0;
             this.distortionDrive = 0.0;
             this.distortionDriveDelta = 0.0;
@@ -31851,6 +32130,16 @@ default: throw new Error("Unrecognized operator envelope type.");
             this.reverbShelfPrevInput1 = 0.0;
             this.reverbShelfPrevInput2 = 0.0;
             this.reverbShelfPrevInput3 = 0.0;
+            this.phaserSamples = null;
+            this.phaserPrevInputs = null;
+            this.phaserFeedbackMult = 0.0;
+            this.phaserFeedbackMultDelta = 0.0;
+            this.phaserMix = 0.0; 
+            this.phaserMixDelta = 0.0;
+            this.phaserBreakCoef = 0.0;
+            this.phaserBreakCoefDelta = 0.0;
+            this.phaserStages = 0;
+            this.phaserStagesDelta = 0; 
             this.noteFrequency=440
             this.spectrumWave = new SpectrumWaveState();
             this.harmonicsWave = new HarmonicsWaveState();
@@ -31888,6 +32177,12 @@ default: throw new Error("Unrecognized operator envelope type.");
                     this.reverbDelayLine = new Float32Array(Config.reverbDelayBufferSize);
                 }
             }
+            if (effectsIncludePhaser(instrument.effects)) {
+                if (this.phaserSamples == null) {
+                    this.phaserSamples = new Float32Array(Config.phaserMaxStages);
+                    this.phaserPrevInputs = new Float32Array(Config.phaserMaxStages);
+                }
+            } 
             if (effectsIncludeGranular(instrument.effects)) {
                 const granularDelayLineSizeInMilliseconds = 2500;
                 const granularDelayLineSizeInSeconds = granularDelayLineSizeInMilliseconds / 1000;
@@ -31961,8 +32256,14 @@ default: throw new Error("Unrecognized operator envelope type.");
             this.reverbShelfPrevInput1 = 0.0;
             this.reverbShelfPrevInput2 = 0.0;
             this.reverbShelfPrevInput3 = 0.0;
+            if (this.phaserSamples != null)
+                for (let i = 0; i < this.phaserSamples.length; i++)
+                    this.phaserSamples[i] = 0.0;
+            if (this.phaserPrevInputs != null)
+                for (let i = 0; i < this.phaserPrevInputs.length; i++)
+                    this.phaserPrevInputs[i] = 0.0; 
             this.volumeScale = 1.0;
-            this.aliases = false;
+            this.aliases = false; 
             this.awake = false;
             this.flushingDelayLines = false;
             this.deactivateAfterThisTick = false;
@@ -32044,6 +32345,7 @@ default: throw new Error("Unrecognized operator envelope type.");
             const envelopeEnds = this.envelopeComputer.envelopeEnds;
             const usesGranular = effectsIncludeGranular(this.effects);
             const usesRingModulation = effectsIncludeRingModulation(this.effects);
+            const usesPhaser = effectsIncludePhaser(this.effects); 
             const usesDistortion = effectsIncludeDistortion(this.effects);
             const usesBitcrusher = effectsIncludeBitcrusher(this.effects);
             const usesPanning = effectsIncludePanning(this.effects);
@@ -32426,6 +32728,66 @@ instrument.unisonSign = (step(((
                 this.echoShelfB1 = Synth.tempFilterStartCoefficients.b[1];
             }
             let maxReverbMult = 0.0;
+               if (usesPhaser) { 
+                const phaserMinFeedback = 0.0;
+                const phaserMaxFeedback = 0.95;
+                const phaserFeedbackMultSlider = instrument.phaserFeedback / Config.phaserFeedbackRange;
+                const phaserFeedbackMultEnvelopeStart = envelopeStarts[59];
+                const phaserFeedbackMultEnvelopeEnd = envelopeEnds[59];
+                let phaserFeedbackMultRawStart = phaserFeedbackMultSlider * phaserFeedbackMultEnvelopeStart;
+                let phaserFeedbackMultRawEnd = phaserFeedbackMultSlider * phaserFeedbackMultEnvelopeEnd;
+                if (synth.isModActive(Config.modulators.dictionary["phaser feedback"].index, channelIndex, instrumentIndex)) {
+                    phaserFeedbackMultRawStart = synth.getModValue(Config.modulators.dictionary["phaser feedback"].index, channelIndex, instrumentIndex, false) / (Config.phaserFeedbackRange);
+                    phaserFeedbackMultRawEnd = synth.getModValue(Config.modulators.dictionary["phaser feedback"].index, channelIndex, instrumentIndex, true) / (Config.phaserFeedbackRange);
+                }
+                const phaserFeedbackMultStart = Math.max(phaserMinFeedback, Math.min(phaserMaxFeedback, phaserFeedbackMultRawStart));
+                const phaserFeedbackMultEnd = Math.max(phaserMinFeedback, Math.min(phaserMaxFeedback, phaserFeedbackMultRawEnd));
+                this.phaserFeedbackMult = phaserFeedbackMultStart;
+                this.phaserFeedbackMultDelta = (phaserFeedbackMultEnd - phaserFeedbackMultStart) / roundedSamplesPerTick;
+                const phaserMixSlider = instrument.phaserMix / (Config.phaserMixRange - 1);
+                const phaserMixEnvelopeStart = envelopeStarts[58];
+                const phaserMixEnvelopeEnd = envelopeEnds[58];
+                let phaserMixStart = phaserMixSlider * phaserMixEnvelopeStart;
+                let phaserMixEnd = phaserMixSlider * phaserMixEnvelopeEnd;
+                if (synth.isModActive(Config.modulators.dictionary["phaser"].index, channelIndex, instrumentIndex)) {
+                    phaserMixStart = Math.max(0, Math.min(Config.phaserMixRange - 1, synth.getModValue(Config.modulators.dictionary["phaser"].index, channelIndex, instrumentIndex, false))) / (Config.phaserMixRange - 1);
+                    phaserMixEnd = Math.max(0, Math.min(Config.phaserMixRange - 1, synth.getModValue(Config.modulators.dictionary["phaser"].index, channelIndex, instrumentIndex, true))) / (Config.phaserMixRange - 1);
+                }
+                this.phaserMix = phaserMixStart;
+                this.phaserMixDelta = (phaserMixEnd - phaserMixStart) / roundedSamplesPerTick;
+                const phaserBreakFreqSlider = instrument.phaserFreq / (Config.phaserFreqRange - 1);
+                let phaserBreakFreqEnvelopeStart = envelopeStarts[57];
+                let phaserBreakFreqEnvelopeEnd = envelopeEnds[57];
+                let phaserBreakFreqRawStart = phaserBreakFreqSlider * phaserBreakFreqEnvelopeStart;
+                let phaserBreakFreqRawEnd = phaserBreakFreqSlider * phaserBreakFreqEnvelopeEnd;
+                if (synth.isModActive(Config.modulators.dictionary["phaser frequency"].index, channelIndex, instrumentIndex)) {
+                    phaserBreakFreqRawStart = synth.getModValue(Config.modulators.dictionary["phaser frequency"].index, channelIndex, instrumentIndex, false) / (Config.phaserFreqRange);
+                    phaserBreakFreqRawEnd = synth.getModValue(Config.modulators.dictionary["phaser frequency"].index, channelIndex, instrumentIndex, true) / (Config.phaserFreqRange);
+                }
+                const phaserBreakFreqRemappedStart = Config.phaserMinFreq * Math.pow(Config.phaserMaxFreq / Config.phaserMinFreq, phaserBreakFreqRawStart);
+                const phaserBreakFreqRemappedEnd = Config.phaserMinFreq * Math.pow(Config.phaserMaxFreq / Config.phaserMinFreq, phaserBreakFreqRawEnd);
+                const phaserBreakFreqStart = Math.max(Config.phaserMinFreq, Math.min(Config.phaserMaxFreq, phaserBreakFreqRemappedStart));
+                const phaserBreakFreqStartT = Math.tan(Math.PI * phaserBreakFreqStart / samplesPerSecond);
+                const phaserBreakCoefStart = (phaserBreakFreqStartT - 1) / (phaserBreakFreqStartT + 1);
+                const phaserBreakFreqEnd = Math.max(Config.phaserMinFreq, Math.min(Config.phaserMaxFreq, phaserBreakFreqRemappedEnd));
+                const phaserBreakFreqEndT = Math.tan(Math.PI * phaserBreakFreqEnd / samplesPerSecond);
+                const phaserBreakCoefEnd = (phaserBreakFreqEndT - 1) / (phaserBreakFreqEndT + 1);
+                this.phaserBreakCoef = phaserBreakCoefStart;
+                this.phaserBreakCoefDelta = (phaserBreakCoefEnd - phaserBreakCoefStart) / roundedSamplesPerTick;
+                const phaserStagesEnvelopeStart = envelopeStarts[60];
+                const phaserStagesEnvelopeEnd = envelopeEnds[60];
+                
+                
+                const phaserStagesSlider = instrument.phaserStages;
+                let phaserStagesStart = Math.max(Config.phaserMinStages, Math.min(Config.phaserMaxStages, phaserStagesSlider * phaserStagesEnvelopeStart));
+                let phaserStagesEnd = Math.max(Config.phaserMinStages, Math.min(Config.phaserMaxStages, phaserStagesSlider * phaserStagesEnvelopeEnd));
+                if (synth.isModActive(Config.modulators.dictionary["phaser stages"].index, channelIndex, instrumentIndex)) {
+                    phaserStagesStart = Math.round(synth.getModValue(Config.modulators.dictionary["phaser stages"].index, channelIndex, instrumentIndex, false));
+                    phaserStagesEnd = Math.round(synth.getModValue(Config.modulators.dictionary["phaser stages"].index, channelIndex, instrumentIndex, false));
+                }
+                this.phaserStages = phaserStagesStart;
+                this.phaserStagesDelta = (phaserStagesEnd - phaserStagesStart) / roundedSamplesPerTick;
+            }
             if (usesReverb) {
                 const reverbEnvelopeStart = envelopeStarts[47];
                 const reverbEnvelopeEnd = envelopeEnds[47];
@@ -34679,12 +35041,10 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             const channel = song.channels[channelIndex];
             const channelState = this.channels[channelIndex];
             const instrument = channel.instruments[tone.instrumentIndex];
-            
             const instrumentState = channelState.instruments[tone.instrumentIndex];
             instrumentState.awake = true;
             instrumentState.tonesAddedInThisTick = true;
             instrumentState.noteFrequency=tone
-          //  console.log( (instrumentState) )
             if (!instrumentState.computed) {
                 instrumentState.compute(this, instrument, samplesPerTick, roundedSamplesPerTick, tone, channelIndex, tone.instrumentIndex);
             }
@@ -34962,7 +35322,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             song.masterGain=((this.getModValue(Config.modulators.dictionary["song mastergain"].index, channelIndex, tone.instrumentIndex, false)+255)/5)-1
             	 ;
             }
-            if (effectsIncludePitchShift(instrument.effects)) {
+            if (effectsIncludePitchShift(instrument.effects)) { 
                 let pitchShift = Config.justIntonationSemitones[instrument.pitchShift] / intervalScale;
                 let pitchShiftScalarStart = 1.0;
                 let pitchShiftScalarEnd = 1.0;
@@ -34976,22 +35336,21 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                 intervalStart += pitchShift * envelopeStart * pitchShiftScalarStart;
                 intervalEnd += pitchShift * envelopeEnd * pitchShiftScalarEnd;
             } 
- if (effectsIncludeOctaveShift(instrument.effects)) {
-	let baseShift = (instrument.octaveShift * 12) / 1 
-	let pitchShiftStart = baseShift;
-	let pitchShiftEnd = baseShift;
-	if (this.isModActive(Config.modulators.dictionary["octave shift"].index, channelIndex, tone.instrumentIndex)) {
-		const modnow = this.getModValue(Config.modulators.dictionary["octave shift"].index, channelIndex, tone.instrumentIndex, false)
-		pitchShiftStart = (modnow * 12) / intervalScale ;
-		pitchShiftEnd = (modnow * 12) / intervalScale ;
-	}
-	const envelopeStart = envelopeStarts[18];
-	const envelopeEnd = envelopeEnds[18];
-	intervalStart += (-12*12 + pitchShiftStart) * envelopeStart;
-	intervalEnd += (-12*12 + pitchShiftEnd) * envelopeEnd;
-}
-
-
+            if (effectsIncludeOctaveShift(instrument.effects)) {
+             	let baseShift = (instrument.octaveShift * 12) / 1 
+             	let pitchShiftStart = baseShift;
+              let pitchShiftEnd = baseShift;
+              	if (this.isModActive(Config.modulators.dictionary["octave shift"].index, channelIndex, tone.instrumentIndex)) {
+              		const modnow = this.getModValue(Config.modulators.dictionary["octave shift"].index, channelIndex, tone.instrumentIndex, false)
+                 pitchShiftStart = (modnow * 12) / intervalScale ;
+               		pitchShiftEnd = (modnow * 12) / intervalScale ;
+              	}
+              	const envelopeStart = envelopeStarts[18];
+              	const envelopeEnd = envelopeEnds[18];
+               intervalStart += (-12*12 + pitchShiftStart) * envelopeStart;
+               intervalEnd += (-12*12 + pitchShiftEnd) * envelopeEnd;
+              }  
+ 
             if (effectsIncludeDetune(instrument.effects) || this.isModActive(Config.modulators.dictionary["song detune"].index, channelIndex, tone.instrumentIndex)) {
                 const envelopeStart = envelopeStarts[19];
                 const envelopeEnd = envelopeEnds[19];
@@ -35224,8 +35583,8 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                 sineExpressionBoost *= (Math.pow(2.0, (2.0 - 1.4 * instrument.feedbackAmplitude / 15.0)) - 1.0) / 3.0;
                 sineExpressionBoost *= 1.0 - Math.min(1.0, Math.max(0.0, totalCarrierExpression - 1) / 2.0);
                 sineExpressionBoost = 1.0 + sineExpressionBoost * 3.0;
-                let expressionStart = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionStart * chordExpressionStart * envelopeStarts[0];
-                let expressionEnd = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionEnd * chordExpressionEnd * envelopeEnds[0];
+                const expressionStart = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionStart * chordExpressionStart * envelopeStarts[0]; 
+                const expressionEnd = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionEnd * chordExpressionEnd * envelopeEnds[0];
                 if (isMono && tone.pitchCount <= instrument.monoChordTone) {
                     expressionStart = 0;
                     expressionEnd = 0;
@@ -36366,7 +36725,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             }
             pickedStringFunction(synth, bufferIndex, roundedSamplesPerTick, tone, instrumentState);
         }
-        static effectsSynth(synth, outputDataL, outputDataR, bufferIndex, runLength, instrumentState) { 
+        static effectsSynth(synth, outputDataL, outputDataR, bufferIndex, runLength, instrumentState) {
             const usesDistortion = effectsIncludeDistortion(instrumentState.effects);
             const usesFunction = effectsIncludeFunction(instrumentState.effects);
             const usesBitcrusher = effectsIncludeBitcrusher(instrumentState.effects);
@@ -36376,6 +36735,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             const usesChorus = effectsIncludeChorus(instrumentState.effects);
             const usesEcho = effectsIncludeEcho(instrumentState.effects);
             const usesReverb = effectsIncludeReverb(instrumentState.effects);
+            const usesPhaser = effectsIncludePhaser(instrumentState.effects); 
             const usesGranular = effectsIncludeGranular(instrumentState.effects);
             const usesRingModulation = effectsIncludeRingModulation(instrumentState.effects);
             let signature = 0;
@@ -36398,6 +36758,9 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                 signature = signature | 1;
             signature = signature << 1;
             if (usesReverb)
+                signature = signature | 1;
+            signature = signature << 1;
+            if (usesPhaser)
                 signature = signature | 1;
             signature = signature << 1;
             if (usesGranular)
@@ -36425,19 +36788,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
 				let delayInputMult = +instrumentState.delayInputMult;
 				const delayInputMultDelta = +instrumentState.delayInputMultDelta;`;
                 }
-  if (usesFunction) { 
-    effectsSource += `
-const customFunc = instrumentState.customfunction[1];
-let safe = v => (v === undefined || v === null || isNaN(v)) ? 0 : v;
-let notetone = instrumentState.noteFrequency 
-let customEval;
-try {
-	customEval = new Function("p", "b", "safe","notetone", "return " + customFunc);
-} catch (e) {
-	customEval = () => {return 0};
-}
-    `;
-}
+   
                 if (usesGranular) {
                     effectsSource += `
                 let granularWet = instrumentState.granularMix;
@@ -36515,6 +36866,22 @@ try {
                     waveform = Synth.getOperatorWave(ringModWaveformIndex, ringModPulseWidth).samples;
                 }
                 const waveformLength = waveform.length - 1;
+                `;
+                }
+                if (usesPhaser) { 
+                    effectsSource += `
+                
+                const phaserSamples = instrumentState.phaserSamples;
+                const phaserPrevInputs = instrumentState.phaserPrevInputs;
+                let phaserStages = instrumentState.phaserStages;
+                let phaserStagesInt = Math.floor(phaserStages);
+                const phaserStagesDelta = instrumentState.phaserStagesDelta;
+                const phaserFeedbackMultDelta = +instrumentState.phaserFeedbackMultDelta;
+                let phaserFeedbackMult = +instrumentState.phaserFeedbackMult;
+                const phaserMixDelta = +instrumentState.phaserMixDelta;
+                let phaserMix = +instrumentState.phaserMix;
+                const phaserBreakCoefDelta = +instrumentState.phaserBreakCoefDelta;
+                let phaserBreakCoef = +instrumentState.phaserBreakCoef;
                 `;
                 }
                 if (usesEqFilter) {
@@ -36785,6 +37152,26 @@ try {
                  
                 `;
                 }
+                   if (usesPhaser) {
+                    effectsSource += `
+                        const phaserFeedback = phaserSamples[Math.max(0,phaserStagesInt - 1)] * phaserFeedbackMult;
+                        for (let stage = 0; stage < phaserStagesInt; stage++) {
+                            const phaserInput = stage === 0 ? sample + phaserFeedback : phaserSamples[stage - 1];
+                            const phaserPrevInput = phaserPrevInputs[stage];
+                            const phaserSample = phaserSamples[stage];
+                            const phaserNextOutput = phaserBreakCoef * phaserInput + phaserPrevInput - phaserBreakCoef * phaserSample;
+                            phaserPrevInputs[stage] = phaserInput;
+                            phaserSamples[stage] = phaserNextOutput;
+                        }
+                        const phaserOutput = phaserSamples[Math.max(0,phaserStagesInt - 1)];
+                        sample = sample + phaserOutput * phaserMix;
+                        phaserFeedbackMult += phaserFeedbackMultDelta;
+                        phaserBreakCoef += phaserBreakCoefDelta;
+                        phaserMix += phaserMixDelta;
+                        phaserStages += phaserStagesDelta;
+                        /*phaserStagesInt = Math.floor(phaserStages);*/
+                    `;
+                }
                 if (usesEqFilter) {
                     effectsSource += `
 					
@@ -36797,21 +37184,7 @@ try {
 					
 					sample *= eqFilterVolume;
 					eqFilterVolume += eqFilterVolumeDelta;`;
-if (usesFunction) {
-effectsSource += `
-    const p = { v: sample, i: sampleIndex };
-    const b = tempMonoInstrumentSampleBuffer;
-	const customFunc = instrumentState.customfunction[1];
-	let safe = v => (v === undefined || v === null || isNaN(v)) ? 0 : v;
-	let notetone = instrumentState.noteFrequency 
-	try {
-		customEval = new Function("p", "b", "safe","notetone", "return " + customFunc);
-	} catch (e) {
-		customEval = () => { return 0; };
-	}
-	sample = customEval(p, b, safe, notetone );
-	`
-}
+
                 if (usesPanning) {
                     effectsSource += `
 					
@@ -36838,6 +37211,13 @@ effectsSource += `
 					let sampleL = sample;
 					let sampleR = sample;`;
                 }
+
+if (usesFunction) {
+    effectsSource += `try {`+
+instrumentState.customfunction[1] +'} catch {};'
+}
+
+
                 if (usesChorus) {
                     effectsSource += `
 					
@@ -37008,7 +37388,7 @@ effectsSource += `
 				instrumentState.bitcrusherFoldLevel = bitcrusherFoldLevel;`;
                 }
                 if (usesRingModulation) {
-                    effectsSource += ` 
+                    effectsSource += `  
                 instrumentState.ringModMix = ringModMix;
                 instrumentState.ringModMixDelta = ringModMixDelta;
                 instrumentState.ringModPhase = ringModPhase;
@@ -37018,6 +37398,19 @@ effectsSource += `
                 instrumentState.ringModPulseWidth = ringModPulseWidth;
                 instrumentState.ringModMixFade = ringModMixFade;
                  `;
+                }
+                  if (usesPhaser) {
+                    effectsSource += `
+                 
+                for (let stage = 0; stage < phaserStages; stage++) {
+                    if (!Number.isFinite(phaserPrevInputs[stage]) || Math.abs(phaserPrevInputs[stage]) < epsilon) phaserPrevInputs[stage] = 0.0;
+                    if (!Number.isFinite(phaserSamples[stage]) || Math.abs(phaserSamples[stage]) < epsilon) phaserSamples[stage] = 0.0;
+                }
+                
+                instrumentState.phaserMix = phaserMix;
+                instrumentState.phaserFeedbackMult = phaserFeedbackMult;
+                instrumentState.phaserBreakCoef = phaserBreakCoef;
+                `;
                 }
                 if (usesEqFilter) {
                     effectsSource += `
@@ -40702,11 +41095,11 @@ static clearAllRecoveredSongs() {
         }
     }
     class ChangeChannelCount extends Change {
-        constructor(doc, newPitchChannelCount, newNoiseChannelCount, newModChannelCount) {
+        constructor(doc, newPitchChannelCount, newNoiseChannelCount, newModChannelCount, newOctavecount) {
             super();
             if (doc.song.pitchChannelCount != newPitchChannelCount || doc.song.noiseChannelCount != newNoiseChannelCount || doc.song.modChannelCount != newModChannelCount) {
                 const newChannels = [];
-                function changeGroup(newCount, oldCount, newStart, oldStart, octave, isNoise, isMod) {
+                function changeGroup(newCount, oldCount, newStart, oldStart, octave, isNoise, isMod, isOctaves) {
                     for (let i = 0; i < newCount; i++) {
                         const channelIndex = i + newStart;
                         const oldChannel = i + oldStart;
@@ -41233,11 +41626,11 @@ static clearAllRecoveredSongs() {
             if (oldValue != newValue)
                 this._didSomething();
         }
-    }
+    } 
     class ChangeFunction extends ChangeInstrumentSlider {
         constructor(doc, index, newValue, oldValue) {
             super(doc); 
-            this._instrument.customfunction[index] = newValue; 
+            this._instrument.customfunction[index] = newValue;
             doc.notifier.changed();
             if (oldValue != newValue)
 	             this._didSomething();
@@ -41356,6 +41749,42 @@ static clearAllRecoveredSongs() {
             super(doc);
             doc.synth.unsetMod(Config.modulators.dictionary["freq crush"].index, doc.channel, doc.getCurrentInstrument());
             this._instrument.bitcrusherQuantization = newValue;
+            doc.notifier.changed();
+            if (oldValue != newValue)
+                this._didSomething();
+        }
+    }
+    class ChangePhaserMix extends ChangeInstrumentSlider {
+        constructor(doc, oldValue, newValue) {
+            super(doc);
+            this._instrument.phaserMix = newValue;
+            doc.notifier.changed();
+            if (oldValue != newValue)
+                this._didSomething();
+        }
+    } 
+    class ChangePhaserFreq extends ChangeInstrumentSlider {
+        constructor(doc, oldValue, newValue) {
+            super(doc);
+            this._instrument.phaserFreq = newValue;
+            doc.notifier.changed();
+            if (oldValue != newValue)
+                this._didSomething();
+        }
+    }
+    class ChangePhaserFeedback extends ChangeInstrumentSlider {
+        constructor(doc, oldValue, newValue) {
+            super(doc);
+            this._instrument.phaserFeedback = newValue;
+            doc.notifier.changed();
+            if (oldValue != newValue)
+                this._didSomething();
+        }
+    }
+    class ChangePhaserStages extends ChangeInstrumentSlider {
+        constructor(doc, oldValue, newValue) {
+            super(doc);
+            this._instrument.phaserStages = newValue;
             doc.notifier.changed();
             if (oldValue != newValue)
                 this._didSomething();
@@ -42274,6 +42703,17 @@ static clearAllRecoveredSongs() {
             }
         }
     }
+    
+    class ChangeMaxOctaves extends Change {
+   	constructor(doc, newValue) {
+   		super();
+   		if (!isNaN(newValue)&&Config.pitchOctaves) {
+   		 Config.pitchOctaves=parseInt(newValue)
+   			doc.notifier.changed();
+   			this._didSomething();
+   		}
+   	}
+   }
     class ChangePatternsPerChannel extends Change {
         constructor(doc, newValue) {
             super();
@@ -44076,6 +44516,7 @@ class ChangeChipWave extends Change {
                         }
                         else {
                             this._pianoKeys[j].classList.remove("disabled");
+                            this._pianoKeys[j].classList.remove("blackkey");
                             if (!Config.keys[pitchNameIndex].isWhiteKey) {
                             	this._pianoKeys[j].classList.add("blackkey");
                             }
@@ -46038,7 +46479,62 @@ let maxEndTick = 0;
             this.boxSelectionY0 = this.boxSelectionY1 = this._doc.channel;
         }
     }
+function rebuiltKeyboard(){ 
+	if (typeof editor === "undefined" || !editor) return;
+	if (!editor.doc || !editor.doc.prefs) return;
 
+	const pianoStyleId = "dynamic-piano-styles";
+let pianoStyleElement = document.getElementById(pianoStyleId);
+ 
+if (editor.doc.prefs.pianoKeyboard == true) {
+	if (!pianoStyleElement) {
+		pianoStyleElement = document.createElement("style");
+		pianoStyleElement.id = pianoStyleId;
+		pianoStyleElement.textContent = `
+            .beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) {
+                border:0px solid white; outline:none; transform: scale(100%,250%) translateY(15%) !important;  
+            }
+            .beepboxEditor .piano-button.blackkey {
+                margin-left:20% !important;
+                position:relative !important; z-index:2;
+                box-shadow: 0px 5px 15px -2px rgba(44, 44, 49, 1);
+            }
+            .beepboxEditor .piano-button::before {
+                display:none !important;
+                border:2px solid #3d3c3a;
+            }
+            .beepboxEditor .piano-button.blackkey .piano-label {
+                padding-left:25% !important;
+            }
+            .beepboxEditor .piano-button.blackkey + .piano-button:not(.blackkey) .piano-label {
+                transform:scale(100%,40%) translateY(-4px) !important;
+            }
+            .beepboxEditor .piano-button.blackkey::before {
+                display: none;
+                border: 1px solid #3d3c3a !important;
+                background-clip:none !important;
+            }
+        `;
+const labels = document.querySelectorAll('.piano-label');
+labels.forEach(label => {
+	if (label.textContent.includes("C")) {
+		label.style.opacity = "1";
+	} else {
+		label.style.opacity = "0";
+	}
+});
+		document.head.appendChild(pianoStyleElement);
+	}
+} else {
+	if (pianoStyleElement) {
+		pianoStyleElement.remove();
+	}
+	const labels = document.querySelectorAll('.piano-label');
+labels.forEach(label => {
+		label.style.opacity = "1";
+});
+}
+}
     class Preferences {
         constructor() {
             this.showFifth = true;
@@ -46059,7 +46555,10 @@ let maxEndTick = 0;
             this.useCustomSelectPrompt = window.localStorage.getItem("useCustomSelectPrompt") != "false";
             
 this.differentMod = window.localStorage.getItem("differentMod") == "true";
+this.newloopeditor = window.localStorage.getItem("newloopeditor") == "true";
 this.increaseAllPins = window.localStorage.getItem("increaseAllPins") != "false";
+
+this.oldButtonSheme = window.localStorage.getItem("oldButtonSheme") == "true";
 this.whistleRecord = window.localStorage.getItem("whistleRecord") != "false"; 
             
             
@@ -46086,6 +46585,8 @@ this.whistleRecord = window.localStorage.getItem("whistleRecord") != "false";
             this.showInstrumentScrollbars = window.localStorage.getItem("showInstrumentScrollbars") == "true";
             this.closePromptByClickoff = window.localStorage.getItem("closePromptByClickoff") == "true";
             this.frostedGlassBackground = window.localStorage.getItem("frostedGlassBackground") == "true";
+            this.pianoKeyboard = window.localStorage.getItem("pianoKeyboard") == "true";
+            setTimeout(function (){rebuiltKeyboard()},100)
             this.keyboardLayout = window.localStorage.getItem("keyboardLayout") || "pianoTransposingC";
             this.bassOffset = (+window.localStorage.getItem("bassOffset")) || 0;
             this.layout = window.localStorage.getItem("layout") || "small";
@@ -46106,9 +46607,11 @@ this.whistleRecord = window.localStorage.getItem("whistleRecord") != "false";
             }
         }
         save() {
-        	
+        	 
         	window.localStorage.setItem("differentMod", this.differentMod ? "true" : "false"); 
+        	window.localStorage.setItem("newloopeditor", this.newloopeditor ? "true" : "false"); 
         	window.localStorage.setItem("increaseAllPins", this.increaseAllPins ? "true" : "false"); 
+        	window.localStorage.setItem("oldButtonSheme", this.oldButtonSheme ? "true" : "false"); 
         	window.localStorage.setItem("whistleRecord", this.whistleRecord ? "true" : "false"); 
         	
             window.localStorage.setItem("autoPlay", this.autoPlay ? "true" : "false");
@@ -46143,6 +46646,8 @@ this.whistleRecord = window.localStorage.getItem("whistleRecord") != "false";
             window.localStorage.setItem("showInstrumentScrollbars", this.showInstrumentScrollbars ? "true" : "false");
             window.localStorage.setItem("closePromptByClickoff", this.closePromptByClickoff ? "true" : "false");
             window.localStorage.setItem("frostedGlassBackground", this.frostedGlassBackground ? "true" : "false");
+            window.localStorage.setItem("pianoKeyboard", this.pianoKeyboard ? "true" : "false");
+
             window.localStorage.setItem("keyboardLayout", this.keyboardLayout);
             window.localStorage.setItem("bassOffset", String(this.bassOffset));
             window.localStorage.setItem("layout", this.layout);
@@ -47633,9 +48138,10 @@ You should be redirected to the song at:<br /><br />
             this._modChannelStepper = input$f({ style: "width: 3em; margin-left: 1em;", type: "number", step: "1" });
             this._layeredInstrumentsBox = input$f({ style: "width: 3em; margin-left: 1em;", type: "checkbox" });
             this._patternInstrumentsBox = input$f({ style: "width: 3em; margin-left: 1em;", type: "checkbox" });
+            this._octaveStepper = input$f({ style: "width: 3em; margin-left: 1em; ", type: "number", step: "1" });
             this._cancelButton = button$m({ class: "cancelButton" });
             this._okayButton = button$m({ class: "okayButton", style: "width:45%;" }, "Okay");
-            this.container = div$m({ class: "prompt noSelection", style: "width: 250px; text-align: right;" }, h2$l("Channel Settings"), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Pitch channels:", this._pitchChannelStepper), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Drum channels:", this._drumChannelStepper), div$m({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Mod channels:", this._modChannelStepper), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Available patterns per channel:", this._patternsStepper), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Simultaneous instruments", br$3(), "per channel:", this._layeredInstrumentsBox), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Different instruments", br$3(), "per pattern:", this._patternInstrumentsBox), div$m({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton), this._cancelButton);
+            this.container = div$m({ class: "prompt noSelection", style: "width: 250px; text-align: right;" }, h2$l("Channel Settings"), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Pitch channels:", this._pitchChannelStepper), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Drum channels:", this._drumChannelStepper), div$m({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Mod channels:", this._modChannelStepper), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Available patterns per channel:", this._patternsStepper), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Simultaneous instruments", br$3(), "per channel:", this._layeredInstrumentsBox), label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, "Different instruments", br$3(), "per pattern:", this._patternInstrumentsBox),label$3({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end; display:none;" }, "Max octaves", br$3(), this._octaveStepper), div$m({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton), this._cancelButton);
             this._close = () => {
                 this._doc.undo();
             };
@@ -47646,10 +48152,12 @@ You should be redirected to the song at:<br /><br />
                 this._pitchChannelStepper.removeEventListener("keypress", ChannelSettingsPrompt._validateKey);
                 this._drumChannelStepper.removeEventListener("keypress", ChannelSettingsPrompt._validateKey);
                 this._modChannelStepper.removeEventListener("keypress", ChannelSettingsPrompt._validateKey);
+                this._octaveStepper.removeEventListener("keypress", ChannelSettingsPrompt._validateKey);
                 this._patternsStepper.removeEventListener("blur", this._validateNumber);
                 this._pitchChannelStepper.removeEventListener("blur", this._validateNumber);
                 this._drumChannelStepper.removeEventListener("blur", this._validateNumber);
                 this._modChannelStepper.removeEventListener("blur", this._validateNumber);
+                this._octaveStepper.removeEventListener("blur", this._validateNumber);
                 this.container.removeEventListener("keydown", this._whenKeyPressed);
             };
             this._whenKeyPressed = (event) => {
@@ -47665,7 +48173,8 @@ You should be redirected to the song at:<br /><br />
                 const group = new ChangeGroup();
                 group.append(new ChangeInstrumentsFlags(this._doc, this._layeredInstrumentsBox.checked, this._patternInstrumentsBox.checked));
                 group.append(new ChangePatternsPerChannel(this._doc, ChannelSettingsPrompt._validate(this._patternsStepper)));
-                group.append(new ChangeChannelCount(this._doc, ChannelSettingsPrompt._validate(this._pitchChannelStepper), ChannelSettingsPrompt._validate(this._drumChannelStepper), ChannelSettingsPrompt._validate(this._modChannelStepper)));
+                //group.append(new ChangeMaxOctaves(this._doc, ChannelSettingsPrompt._validate(this._octaveStepper)));
+                group.append(new ChangeChannelCount(this._doc, ChannelSettingsPrompt._validate(this._pitchChannelStepper), ChannelSettingsPrompt._validate(this._drumChannelStepper), ChannelSettingsPrompt._validate(this._modChannelStepper) ));
                 this._doc.prompt = null;
                 this._doc.record(group, true);
             };
@@ -47679,6 +48188,7 @@ You should be redirected to the song at:<br /><br />
             this._drumChannelStepper.min = Config.noiseChannelCountMin + "";
             this._drumChannelStepper.max = Config.noiseChannelCountMax + "";
             this._modChannelStepper.value = this._doc.song.modChannelCount + "";
+            this._octaveStepper.value = Config.pitchOctaves + "";
             this._modChannelStepper.min = Config.modChannelCountMin + "";
             this._modChannelStepper.max = Config.modChannelCountMax + "";
             this._layeredInstrumentsBox.checked = this._doc.song.layeredInstruments;
@@ -47691,10 +48201,12 @@ You should be redirected to the song at:<br /><br />
             this._pitchChannelStepper.addEventListener("keypress", ChannelSettingsPrompt._validateKey);
             this._drumChannelStepper.addEventListener("keypress", ChannelSettingsPrompt._validateKey);
             this._modChannelStepper.addEventListener("keypress", ChannelSettingsPrompt._validateKey);
+            this._octaveStepper.addEventListener("keypress", ChannelSettingsPrompt._validateKey);
             this._patternsStepper.addEventListener("blur", this._validateNumber);
             this._pitchChannelStepper.addEventListener("blur", this._validateNumber);
             this._drumChannelStepper.addEventListener("blur", this._validateNumber);
             this._modChannelStepper.addEventListener("blur", this._validateNumber);
+            this._octaveStepper.addEventListener("blur", this._validateNumber);
             this.container.addEventListener("keydown", this._whenKeyPressed);
         }
         static _validateKey(event) {
@@ -47862,7 +48374,7 @@ You should be redirected to the song at:<br /><br />
             this._svg.addEventListener("keydown", this._whenKeyPressed);
             this.container.addEventListener("keydown", this._whenKeyPressed);
         }
-        _whenCursorMoved() {
+        _whenCursorMoved() { 
             if (this._mouseDown) {
                 const index = Math.min(63, Math.max(0, Math.floor(this._mouseX * 64 / this._editorWidth)));
                 const amp = Math.min(48, Math.max(0, Math.floor(this._mouseY * 49 / this._editorHeight)));
@@ -48891,6 +49403,9 @@ You should be redirected to the song at:<br /><br />
                     return instrumentCopy;
                 });
                 const jsonBlob = new Blob([JSON.stringify(instruments)], { type: 'application/json' });
+                if (location.href.startsWith("file:///")) {
+                 	NativeJava.DownloadText([JSON.stringify(instruments)], this._fileName.value + '.json');
+                }
                 const downloadLink = document.createElement('a');
                 downloadLink.href = URL.createObjectURL(jsonBlob);
                 downloadLink.download = this._fileName.value + '.json';
@@ -48905,6 +49420,9 @@ You should be redirected to the song at:<br /><br />
                 const instrumentCopy = instrument.toJsonObject();
                 instrumentCopy["isDrum"] = this._doc.song.getChannelIsNoise(this._doc.channel);
                 const jsonBlob = new Blob([JSON.stringify(instrumentCopy)], { type: 'application/json' });
+                if (location.href.startsWith("file:///")) {
+                 	NativeJava.DownloadText([JSON.stringify(instrumentCopy)], this._fileName.value + '.json');
+                }
                 const downloadLink = document.createElement('a');
                 downloadLink.href = URL.createObjectURL(jsonBlob);
                 downloadLink.download = this._fileName.value + '.json';
@@ -52646,7 +53164,6 @@ for (let channel of this._doc.song.channels) {
                 this._scaleFlags[i] = input$8({ type: "checkbox", style: "width: 1em; padding: 0; margin-right: 4em;", "checked": this._flags[i], "value": i });
                 this._scaleRows[i] = div$d({ style: "text-align: right; height: 2em;" }, "Note " + i + ":", this._scaleFlags[i]);
                 scaleHolder.appendChild(this._scaleRows[i]);
-                console.log("new!");
             }
             this._okayButton.addEventListener("click", this._saveChanges);
             this._cancelButton.addEventListener("click", this._close);
@@ -52655,12 +53172,12 @@ for (let channel of this._doc.song.channels) {
         }
     }
 
-    class LoopEditor { 
+    class LoopEditor {   
         constructor(_doc, _trackEditor) {
-            this._doc = _doc;
+            this._doc = _doc; 
             this._trackEditor = _trackEditor;
             this._editorHeight = 20;
-            this._startMode = 0;
+            this._startMode = 0; 
             this._endMode = 1;
             this._bothMode = 2;
             this._loopMode = 3;
@@ -53634,7 +54151,7 @@ for (let channel of this._doc.song.channels) {
         }
     }
 
-    class KeyboardLayout {
+    class KeyboardLayout { 
         static keyPosToPitch(doc, x, y, keyboardLayout) {
             let pitchOffset = null;
             let forcedKey = null;
@@ -53889,7 +54406,7 @@ for (let channel of this._doc.song.channels) {
         [-1, 1, null, 4, 6, null, 9, 11, 13, null, 16, 18],
         [12, 14, 15, 17, 19, 20, 22, 24, 26, 27, 29, 31, 32],
         [11, 13, null, 16, 18, null, 21, 23, 25, null, 28, 30, null],
-    ];
+    ]; 
 
     function makeEmptyReplacementElement(node) {
         const clone = node.cloneNode(false);
@@ -58177,37 +58694,73 @@ const UUID18289CANVAS = container.querySelector('#UUID18289WF');
 const UUID18289CTX = UUID18289CANVAS.getContext('2d');
 const UUID18289FILEINPUT = container.querySelector('#UUID18289FILEINPUT');
 const UUID18289VOLUMESLIDER = container.querySelector('#UUID18289VOLUMESLIDER');
+function floatTo16BitPCM(float32Array) {
+    const len = float32Array.length;
+    const result = new Int16Array(len);
+    for (let i = 0; i < len; i++) {
+        let s = Math.max(-1, Math.min(1, float32Array[i]));
+        result[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return result;
+}
+
+async function audioBufferToMp3(audioBuffer, bitrate = 192) {
+    const numChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const mp3Encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, bitrate);
+
+    const samples = [];
+    for (let i = 0; i < numChannels; i++) {
+        samples.push(floatTo16BitPCM(audioBuffer.getChannelData(i)));
+    }
+
+    const blockSize = 1152;
+    const mp3Data = [];
+
+    for (let i = 0; i < samples[0].length; i += blockSize) {
+        const left = samples[0].subarray(i, i + blockSize);
+        let right = numChannels === 2 ? samples[1].subarray(i, i + blockSize) : null;
+        const mp3buf = mp3Encoder.encodeBuffer(left, right);
+        if (mp3buf.length > 0) mp3Data.push(mp3buf);
+    }
+
+    const mp3buf = mp3Encoder.flush();
+    if (mp3buf.length > 0) mp3Data.push(mp3buf);
+
+    return new Blob(mp3Data, { type: 'audio/mp3' });
+}
+
 const UUID18289SILENCE=container.querySelector('#UUID18289SILENCE')
 const volumeValue = container.querySelector('#volumeValue');
 const UUID18289AUDIOPLAYER = container.querySelector('#UUID18289AUDIOPLAYER');
-function blobToBase642(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64data = reader.result.split(',')[1];
-      resolve(base64data);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+let EXPORTBUFFERUID6;
+EXPORTBUFFERUID6 = async function(){
+  const outputAudio = container.querySelector('#UUID18289AUDIOPLAYER')
+  const src = outputAudio.src
+  if (!src) return
+
+  const res = await fetch(src)
+  const arrayBuffer = await res.arrayBuffer()
+
+  const ctx = new (window.AudioContext || window.webkitAudioContext)()
+  const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
+
+  const mp3Blob = await audioBufferToMp3(audioBuffer, 192);
+
+
+  if (location.href.startsWith("file:///")) {
+    const base64 = await blobToBase6422(mp3Blob)
+    NativeJava.DownloadFile(base64, "outputEditedAdvancedAudio.mp3")
+    return
+  }
+
+  const a = document.createElement("a")
+  a.href = URL.createObjectURL(mp3Blob)
+  a.download = "outputEditedAdvancedAudio.mp3"
+  a.click()
+  URL.revokeObjectURL(a.href)
 }
-function EXPORTBUFFERUID6(){
-	const outputAudio = container.querySelector('#UUID18289AUDIOPLAYER');
-	const src = outputAudio.src;
-	if (!src) return;
-	const a = document.createElement('a');
-	a.href = src;
-	a.download = 'outputEditedAdvancedAudio.wav';
-	a.click();
-	if (location.href.startsWith("file:///") ) {
-		fetch(src)
-			.then(response => response.blob())
-			.then(blob => blobToBase642(blob))
-			.then(base64data => {
-				NativeJava.DownloadFile(base64data, 'outputEditedAdvancedAudio.wav');
-			});
-	}
-}
+window.EXPORTBUFFERUID6 = EXPORTBUFFERUID6
 let audioUUID18289CTX = new (window.AudioContext || window.webkitAudioContext)();
 let UUID18289OB = null;
 let UUID18289SELECTION = null;
@@ -59641,7 +60194,7 @@ function setupKeyEvents() {
     };
   });
 }
-function generateKeyboard() {
+function generateKeyboard() { 
   const container2 = container.querySelector("#keyboardContainer");
   container2.innerHTML = '';
   const whiteNotes = ['c', 'd', 'e', 'f', 'g', 'a', 'h'];
@@ -60156,20 +60709,59 @@ destroy() {}
 }
 class CustomThemesPlugin {
 static title = "Custom Themes";constructor() {this.paused = false;this.ticks = 0;this._raf = null;}
-render() {return `
- <h2>Custom Themes</h2>
-  <div class="menu">
-    <label>Theme Name:</label>
-    <input id="varname2" type="text">
-    <label>Your Css Theme:</label>
-    <textarea id="cssInput" style="white-space: pre;overflow-wrap: normal;overflow-x: scroll; width:100%; height:100px;" ></textarea><br>
-    <button id="generateButton222" disabled>Create</button>
-  </div>
-  <div id="themeList"></div>
-  <div></div>
-        `;
-    }
+render() {
+  return `
+    <h2>Custom Themes</h2>
+    <div class="menu">
+      <label>Theme Name:</label>
+      <input id="varname2" type="text">
+
+      <label>Base theme:</label>
+
+      <label>Your Css Theme:</label>
+      <textarea id="cssInput"
+        style="white-space: pre; overflow-wrap: normal; overflow-x: scroll; width:100%; height:100px;">
+      </textarea><br>
+
+      <button id="generateButton222" disabled>Create</button>
+    </div>
+    <div id="themeList"></div>
+    
+          <select id="themeSelect"></select>
+      <button id="getCssBtn">Get CSS</button>
+  `;
+}
 script(container) {
+function normalizeCss(css) {
+  return css
+    .split('\n')
+    .map(line => line.trimStart())
+    .join('\n')
+    .trim();
+}
+
+
+	container.querySelector('#getCssBtn').onclick = () => {
+  const selected = container.querySelector('#themeSelect').value;
+  const themeVars = ColorConfig.themes[selected];
+
+  if (!themeVars) return;
+
+  container.querySelector('#cssInput').value = normalizeCss(themeVars)
+};
+
+	function renderThemeSelect() {
+  const select = container.querySelector('#themeSelect');
+  select.innerHTML = '';
+
+  Object.keys(ColorConfig.themes).forEach(themeName => {
+    const opt = document.createElement('option');
+    opt.value = themeName;
+    opt.textContent = themeName;
+    select.appendChild(opt);
+  });
+}
+
 function renderFileList2() {
 	const list = container.querySelector('#themeList');
 	list.innerHTML = '';
@@ -60245,6 +60837,8 @@ container.querySelector('#generateButton222').addEventListener('click', async ()
   loadFiles2()
 });
 renderFileList2()
+renderThemeSelect();
+
 }
 destroy() {}
 }
@@ -60321,6 +60915,10 @@ render() {return `
 '>Open MIDI Player</button>
  <button onclick='document.location.href="./sample_extractor.html";
 '>Open Sample Extractor</button>
+ <button onclick='document.location.href="./sfmaker.html";
+'>Open SF2 Tools</button>
+ <button onclick='document.location.href="./record.html";
+'>Open Recorder</button>
  <button onclick='document.location.href="./oscilloscope.html";
 '>Open Oscilloscope player</button>
 <button onclick="console_profiler123.style.display=console_profiler123.style.display=='block'?'none':'block' ">Debug Console</button>
@@ -60328,9 +60926,10 @@ render() {return `
         `;
     }
 script(container) {
+if(window.console_profiler123)return;
 window.console_profiler123=document.createElement("div")
 console_profiler123.id="console-panel"
-console_profiler123.style.cssText="position:fixed;bottom:0;left:0;width:250px;height:200px;background:#111;color:#0f0;font:12px monospace;z-index:9999;overflow:auto;display:none;white-space:pre-wrap;user-select:text !important;"
+console_profiler123.style.cssText="position:fixed;bottom:0;left:0;width:250px;height:200px;background:rgba(10,10,10,0.2);color:#0f0;font:12px monospace;z-index:9999;overflow:auto;display:none;white-space:pre-wrap;user-select:text !important; pointer-events:none;"
 document.body.appendChild(console_profiler123)
  
 const origLog=console.log
@@ -60729,16 +61328,18 @@ class SelectPlugin {
             	option$5({value:"Half-Life"},"Half Life"),
             	option$5({value:"Undertale"},"Undertale"),
             	option$5({value:"Doom 1993"},"Doom"),
+            	
             ),
-            optgroup$1({label:"Fruity Themes"}, 
+            optgroup$1({label:"Studio Themes"}, 
 option$5({ value: "canyon" }, "Canyon"), option$5({ value: "midnight" }, "Midnight"), option({ value: "beachcombing" }, "Beachcombing"),
  	option$5({ value: "funky" }, "Funky"),
  	option$5({ value: "funkylight" }, "Funky Light"),
  	option$5({ value: "githubdark" }, "Github Dark"),
  	option$5({ value: "mirage" }, "Mirage"),
  	option$5({ value: "Mirage" }, "Mirage2"),
+ 	option$5({ value: "Citrus" }, "Citrus"),
  	option$5({ value: "dark-monoKai" }, "MonoKai"),
- 	option$5({ value: "dark-dracula" }, "Dracula"),
+ 	option$5({ value: "dark-dracula" }, "Dracula"), 
  	option$5({ value: "neon" }, "Neon"),
  	option$5({ value: "greenish" }, "Greenish Dark"),
  	option$5({ value: "yellowed" }, "Yellow Light"),
@@ -60770,7 +61371,14 @@ option$5({ value: "canyon" }, "Canyon"), option$5({ value: "midnight" }, "Midnig
  	option({ value: "Edit" }, "Edit"),
  	option({ value: "Steel" }, "Steel"),
  	option({ value: "Texture" }, "Texture"),
-            ),
+	option$5({ value: "FruityBox Nano" }, "Nano"),
+	option$5({ value: "FruityBox Contrast" }, "Contrast"),
+	option$5({ value: "FruityBox Standard" }, "Standard"),
+	option$5({ value: "FruityBox Standard Blue" }, "Standard Blue"),
+	option$5({ value: "FruityBox" }, "Classic"),
+	option$5({ value: "FruityBox Dark" }, "Contrast Classic"),
+	option$5({ value: "FruityBoxLight" }, "Classic Light"),
+),
             optgroup$1({ label: "Rest" }, ) ); 
             
             
@@ -61302,6 +61910,26 @@ const existingThemeValues = new Set(
                 case "RingModHz":
                     {
                         message = div$5(h2$4("Ring Modulation (Hertz)"), p(`This setting changes the Hertz of the multiplied frequency.`));
+                    }
+                    break;
+                case "phaserMix":
+                    {
+                        message = div$9(h2$7("Phaser Mix"), p$1(`This setting adds holes (aka notches) or peaks in the frequency spectrum to the waveform its given. The placement of these peaks and notches in the waveform can be changed by using envelopes and/or modulators.`));
+                    }
+                    break;
+                case "phaserFreq":
+                    {
+                        message = div$9(h2$7("Phaser Frequency"), p$1(`This setting controls the frequency of the the peaks and notches of the phaser.`));
+                    }
+                    break;
+                case "phaserFeedback":
+                    {
+                        message = div$9(h2$7("Phaser Feedback"), p$1(`This setting effects how pronounced the Feedback of the Phaser is, this is done by adding the Feedback of the Phaser back into itself.`));
+                    }
+                    break;
+                case "phaserStages":
+                    {
+                        message = div$9(h2$7("Phaser Stages"), p$1(`This slider changes how many all-passes there are in the phaser. An all-pass is created by splitting an audio signal into paths, every path after the first one that is created is called an all-pass.`), p$1(`The minimum value of this slider is 1, the reason being that 1 all-pass is the exact same as having no phaser at all, if there were 0 all-passes then the audio would cease to exist.`));
                     }
                     break;
                 case "ringModChipWave":
@@ -62131,18 +62759,13 @@ open.onclick = () => {
 
 }
 
-
-
-
-    class VisualLoopControlsPrompt {
+  class VisualLoopControlsPromptOLD {
         constructor(_doc, _songEditor) {
             this._waveformCanvasWidth = 500;
             this._waveformCanvasHeight = 200;
             this._handleCanvasHeight = 20;
             this._instrument = null;
             this._waveformData = null;
-            this._zoomYanabled=false;
-            this._zoomedYAxis=false
             this._waveformDataLength = null;
             this._initialChipWaveLoopMode = null;
             this._initialChipWaveStartOffset = null;
@@ -62164,11 +62787,6 @@ open.onclick = () => {
             this._overlayIsMouseDown = false;
             this._overlaySelectionX0 = null;
             this._overlaySelectionX1 = null;
-            
- this._waveformViewportYOffset = 0
-this._waveformViewportYRange = this._waveformViewportY1 - this._waveformViewportY0
-this._waveformViewportYMaxOffset = 0
-
             this._startOffsetValidator = (v) => {
                 return Math.max(0, Math.min(this._waveformDataLength, Math.floor(v)));
             };
@@ -62233,52 +62851,36 @@ this._waveformViewportYMaxOffset = 0
                 ctx.fill();
             });
             this._chipWaveIsUnavailable = true;
-this._zoomInYButton = button$4({ type: "button", title: "Zoom In Y", style: "height: var(--button-size); margin-left: 0.5em;" }, "YZoom")
- this._zoomInYButton.addEventListener("click",()=>{
- if(!this._waveformData)return
- this._zoomYanabled=!this._zoomYanabled;
- this._zoomYanabled?this._zoomInYButton.style.border="2px solid white":this._zoomInYButton.style.border=""
- localStorage.setItem("zoomY", this._zoomYanabled);
- this._render()
-})
-const savedZoomY = localStorage.getItem("zoomY");
-this._zoomYanabled = savedZoomY === "true";
-this._zoomYanabled?this._zoomInYButton.style.border="2px solid white":this._zoomInYButton.style.border=""
-
             this._waveformCanvas = canvas$1({ width: this._waveformCanvasWidth, height: this._waveformCanvasHeight, style: "cursor: default; position: static; width: 100%;" });
             this._waveformContext = null;
             this._overlayCanvas = canvas$1({ width: this._waveformCanvasWidth, height: this._waveformCanvasHeight, style: "cursor: default; position: absolute; top: 0; left: 0; width: 100%;" });
-this._labelingContainer=document.createElement("div")
+            this._overlayContext = null;
+            this._waveformContainer = div$8({ style: `position: relative; margin-bottom: 0.5em; margin-left: auto; margin-right: auto; width: 100%; outline: 1px solid ${ColorConfig.uiWidgetBackground};` }, this._waveformCanvas, this._overlayCanvas);
+            this._viewportOffsetSlider = input$5({ style: "width: 100%; flex-grow: 1; margin: 0;", type: "range", min: "0", max: "1", value: "0", step: "0.00001" });
+            this._zoomInButton = button$8({ type: "button", title: "Zoom In", style: "height: var(--button-size); margin-left: 0.5em;" }, SVG.svg({ width: "20", height: "20", viewBox: "-10 -10 20 20", "pointer-events": "none", style: "width: 100%; height: 100%;" }, SVG.circle({ cx: -1, cy: -1, r: 6, "stroke-width": 2, stroke: ColorConfig.primaryText, fill: "none" }), SVG.path({ stroke: ColorConfig.primaryText, "stroke-width": 2, d: "M 3 3 L 7 7 M -1 -4 L -1 2 M -4 -1 L 2 -1", fill: "none" })));
+            this._zoomOutButton = button$8({ type: "button", title: "Zoom Out", style: "height: var(--button-size); margin-left: 0.5em;" }, SVG.svg({ width: "20", height: "20", viewBox: "-10 -10 20 20", "pointer-events": "none", style: "width: 100%; height: 100%;" }, SVG.circle({ cx: -1, cy: -1, r: 6, "stroke-width": 2, stroke: ColorConfig.primaryText, fill: "none" }), SVG.path({ stroke: ColorConfig.primaryText, "stroke-width": 2, d: "M 3 3 L 7 7 M -4 -1 L 2 -1", fill: "none" })));
+            this._zoom100Button = button$8({ type: "button", title: "Zoom 100%", style: "height: var(--button-size); margin-left: 0.5em;" }, "100%");
+            this._loopModeSelect = select$4({ style: "width: 100%; flex-grow: 1; margin-left: 0.5em;" }, option$4({ value: 0 }, "Loop"), option$4({ value: 1 }, "Ping-Pong"), option$4({ value: 2 }, "Play Once"), option$4({ value: 3 }, "Play Loop Once"));
+            this._startOffsetStepper = input$5({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveStartOffset, min: "0", step: "1" });
+            this._loopStartStepper = input$5({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveLoopStart, min: "0", step: "1" });
+            this._loopEndStepper = input$5({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveLoopEnd, min: "0", step: "1" });
+            this._playBackwardsBox = input$5({ type: "checkbox", style: "width: 1em; padding: 0; margin-left: auto; margin-right: auto;" });
+            this._playSongButton = button$8({ style: "width: 55%;", type: "button" });
+            this._cancelButton = button$8({ class: "cancelButton" });
+            this._okayButton = button$8({ class: "okayButton", style: "width: 25%;" }, "Okay");
+            this._sampleIsLoadingMessage = div$8({ style: "margin-bottom: 0.5em; display: none;" }, "Sample is loading");
+            this._labelingContainer=document.createElement("div")
 this._labelingContainer.style.cssText="position:fixed;top:0;left:0;z-index:9999;display:none; width:100%; height:100vh; overflow:hidden; background:rgba(0,0,0,0.15)"
 document.body.append(this._labelingContainer)
 this._pointLabeling=new PointLabeling(this._labelingContainer )
-            this._overlayContext = null;
-            this._waveformContainer = div$4({ style: `position: relative; margin-bottom: 0.5em; margin-left: auto; margin-right: auto; width: 100%; outline: 1px solid ${ColorConfig.uiWidgetBackground};` }, this._waveformCanvas, this._overlayCanvas);
-            this._viewportOffsetSlider = input$3({ style: "width: 100%; flex-grow: 1; margin: 0;", type: "range", min: "0", max: "1", value: "0", step: "0.00001" });
-            this._zoomInButton = button$4({ type: "button", title: "Zoom In", style: "height: var(--button-size); margin-left: 0.5em;" }, SVG.svg({ width: "20", height: "20", viewBox: "-10 -10 20 20", "pointer-events": "none", style: "width: 100%; height: 100%;" }, SVG.circle({ cx: -1, cy: -1, r: 6, "stroke-width": 2, stroke: ColorConfig.primaryText, fill: "none" }), SVG.path({ stroke: ColorConfig.primaryText, "stroke-width": 2, d: "M 3 3 L 7 7 M -1 -4 L -1 2 M -4 -1 L 2 -1", fill: "none" })));
-            this._zoomOutButton = button$4({ type: "button", title: "Zoom Out", style: "height: var(--button-size); margin-left: 0.5em;" }, SVG.svg({ width: "20", height: "20", viewBox: "-10 -10 20 20", "pointer-events": "none", style: "width: 100%; height: 100%;" }, SVG.circle({ cx: -1, cy: -1, r: 6, "stroke-width": 2, stroke: ColorConfig.primaryText, fill: "none" }), SVG.path({ stroke: ColorConfig.primaryText, "stroke-width": 2, d: "M 3 3 L 7 7 M -4 -1 L 2 -1", fill: "none" })));
-            this._zoom100Button = button$4({ type: "button", title: "Zoom 100%", style: "height: var(--button-size); margin-left: 0.5em;" }, "100%");
-            this._addLabelButton=button$4({type:"button",title:"Add Label"},"Labeling")
+this._addLabelButton=button$4({type:"button",title:"Add Label"},"Labeling")
 this._addLabelButton.addEventListener("click", () => {
  const visible = this._labelingContainer.style.display === "block"
  this._labelingContainer.style.display = visible ? "none" : "block"
  this._pointLabeling._open()
 })
-            this._loopModeSelect = select$3({ style: "width: 100%; flex-grow: 1; margin-left: 0.5em;" }, option$3({ value: 0 }, "Loop"), option$3({ value: 1 }, "Ping-Pong"), option$3({ value: 2 }, "Play Once"), option$3({ value: 3 }, "Play Loop Once"));
-            this._startOffsetStepper = input$3({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveStartOffset, min: "0", step: "1" });
-            this._loopStartStepper = input$3({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveLoopStart, min: "0", step: "1" });
-            this._loopEndStepper = input$3({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveLoopEnd, min: "0", step: "1" });
-            this._playBackwardsBox = input$3({ type: "checkbox", style: "width: 1em; padding: 0; margin-left: auto; margin-right: auto;" });
-            this._playSongButton = button$4({ style: "width: 55%;", type: "button" });
-            this._cancelButton = button$4({ class: "cancelButton" });
-            this._okayButton = button$4({ class: "okayButton", style: "width: 25%;" }, "Okay");
-            this._sampleIsLoadingMessage = div$4({ style: "margin-bottom: 0.5em; display: none;" }, "Sample is loading");
-            
-            this._loopControlsContainer = div$4(div$4({ style: "display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, div$4({ style: `width: 100%; margin-bottom: 0.5em; text-align: center; color: ${ColorConfig.secondaryText};` }, "You can also zoom by dragging horizontally on the waveform.")), this._startOffsetHandle.canvas, this._waveformContainer, this._loopStartHandle.canvas, this._loopEndHandle.canvas, div$4({ style: "display: flex; flex-direction: row; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, this._viewportOffsetSlider, this._zoomInButton, this._zoomOutButton, this._zoom100Button,this._zoomInYButton), 
-            div$4({ style: "display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right: color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop Mode"), this._loopModeSelect), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Offset"), this._startOffsetStepper), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop Start"), this._loopStartStepper), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop End"), this._loopEndStepper),div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Backwards"), this._playBackwardsBox), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em; justify-content: center;" },
-            this._playSongButton , div$4({style:"display:flex;gap:0.5em;margin-left:2px;"},this._addLabelButton)
-            )));
-            this.container = div$4({ class: "prompt noSelection", style: "width: 500px;" }, div$4(h2$3({ style: "margin-bottom: 0.5em;" }, "Loop Controls"), this._sampleIsLoadingMessage, this._loopControlsContainer, div$4({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton)), this._cancelButton);
+            this._loopControlsContainer = div$8(div$8({ style: "display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, div$8({ style: `width: 100%; margin-bottom: 0.5em; text-align: center; color: ${ColorConfig.secondaryText};` }, "You can also zoom by dragging horizontally on the waveform.")), this._startOffsetHandle.canvas, this._waveformContainer, this._loopStartHandle.canvas, this._loopEndHandle.canvas, div$8({ style: "display: flex; flex-direction: row; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, this._viewportOffsetSlider, this._zoomInButton, this._zoomOutButton, this._zoom100Button), div$8({ style: "display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, div$8({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$8({ style: `flex-shrink: 0; text-align: right: color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop Mode"), this._loopModeSelect), div$8({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$8({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Offset"), this._startOffsetStepper), div$8({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$8({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop Start"), this._loopStartStepper), div$8({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$8({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop End"), this._loopEndStepper), div$8({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$8({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Backwards"), this._playBackwardsBox), div$8({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em; justify-content: center;" }, this._playSongButton , div$4({style:"display:flex;gap:0.5em;margin-left:2px;"},this._addLabelButton))));
+            this.container = div$8({ class: "prompt noSelection", style: "width: 500px;" }, div$8(div$8({ class: "promptTitle" }, h2$6({ class: "loop-controlsExt", style: "text-align: inherit;" }, ""), h2$6({ class: "loop-controlsTitle" }, "Loop Controls")), this._sampleIsLoadingMessage, this._loopControlsContainer, div$8({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton)), this._cancelButton);
             this.gotMouseUp = false;
             this._waveformSampleLookup = (x) => {
                 const n = this._waveformDataLength;
@@ -62725,9 +63327,696 @@ this._addLabelButton.addEventListener("click", () => {
                 this._loopStartHandle.render();
                 this._loopEndHandle.render();
                 this._renderOverlay();
+            };
+            this._doc = _doc;
+            this._songEditor = _songEditor;
+            this._waveformContext = this._waveformCanvas.getContext("2d");
+            this._overlayContext = this._overlayCanvas.getContext("2d");
+            this._instrument = this._doc.song.channels[this._doc.channel].instruments[this._doc.getCurrentInstrument()];
+            const rawChipWave = Config.rawRawChipWaves[this._instrument.chipWave]; // const rawChipWave = Config.rawRawChipWaves[this._instrument.chipWave];
+            const customSampleIsLoading = (Config.chipWaves[this._instrument.chipWave].isCustomSampled === true) && sampleLoadingState.statusTable[this._instrument.chipWave] !== 1 && !Config.chipWaves[this._instrument.chipWave].isCustomLoaded;
+            if (customSampleIsLoading) {
+                this._sampleIsLoadingMessage.style.display = "";
+                this._loopControlsContainer.style.display = "none";
+                this._chipWaveIsUnavailable = true;
+            }
+            else {
+                this._sampleIsLoadingMessage.style.display = "none";
+                this._loopControlsContainer.style.display = "";
+                this._chipWaveIsUnavailable = false;
+                this._waveformData = rawChipWave.samples;
+                this._waveformDataLength = this._waveformData.length - 1;
+                this._initialChipWaveLoopMode = this._instrument.chipWaveLoopMode;
+                this._initialChipWaveStartOffset = this._instrument.chipWaveStartOffset;
+                this._initialChipWaveLoopStart = this._instrument.chipWaveLoopStart;
+                this._initialChipWaveLoopEnd = this._instrument.chipWaveLoopEnd;
+                this._initialChipWavePlayBackwards = this._instrument.chipWavePlayBackwards;
+                this._chipWaveLoopMode = this._initialChipWaveLoopMode;
+                this._chipWaveStartOffset = this._initialChipWaveStartOffset;
+                this._chipWaveLoopStart = this._initialChipWaveLoopStart;
+                this._chipWaveLoopEnd = this._initialChipWaveLoopEnd;
+                this._chipWavePlayBackwards = this._initialChipWavePlayBackwards;
+                const verticalBounds = this._waveformSamplesLookup(0, this._waveformDataLength);
+                const maxVerticalBound = Math.max(Math.abs(verticalBounds[0]), Math.abs(verticalBounds[1])) + 0.01;
+                verticalBounds[0] = -maxVerticalBound;
+                verticalBounds[1] = maxVerticalBound;
+                this._waveformViewportX0 = 0;
+                this._waveformViewportX1 = this._waveformDataLength;
+                this._waveformViewportY0 = verticalBounds[0];
+                this._waveformViewportY1 = verticalBounds[1];
+                this._waveformViewportWidth = this._waveformViewportX1 - this._waveformViewportX0;
+                this._waveformViewportOffset = 0;
+                this._waveformViewportMaxOffset = this._waveformDataLength - this._waveformViewportWidth;
+                this._startOffsetHandle.update(this._chipWaveStartOffset);
+                this._loopStartHandle.update(this._chipWaveLoopStart);
+                this._loopEndHandle.update(this._chipWaveLoopEnd);
+                this._propagateViewportUpdate();
+            }
+            this._updatePlaySongButton();
+            this._render();
+            this._reconfigureLoopControls();
+            this.container.addEventListener("keydown", this._whenKeyPressed);
+            this._okayButton.addEventListener("click", this._saveChanges);
+            this._cancelButton.addEventListener("click", this._close);
+            this._viewportOffsetSlider.addEventListener("input", this._whenViewportOffsetSliderChanges);
+            this._zoomInButton.addEventListener("click", this._whenZoomInClicked);
+            this._zoomOutButton.addEventListener("click", this._whenZoomOutClicked);
+            this._zoom100Button.addEventListener("click", this._whenZoom100Clicked);
+            this._loopModeSelect.addEventListener("change", this._whenLoopModeSelectChanges);
+            this._startOffsetStepper.addEventListener("change", this._whenStartOffsetStepperChanges);
+            this._loopStartStepper.addEventListener("change", this._whenLoopStartStepperChanges);
+            this._loopEndStepper.addEventListener("change", this._whenLoopEndStepperChanges);
+            this._playBackwardsBox.addEventListener("input", this._whenPlayBackwardsBoxChanges);
+            this._playSongButton.addEventListener("click", this._togglePlaySong);
+            window.addEventListener("mousemove", this._whenOverlayMouseMoves);
+            this._overlayCanvas.addEventListener("mousedown", this._whenOverlayMouseIsDown);
+            window.addEventListener("mouseup", this._whenOverlayMouseIsUp);
+            this._overlayCanvas.addEventListener("touchstart", this._whenOverlayTouchIsDown);
+            this._overlayCanvas.addEventListener("touchmove", this._whenOverlayTouchMoves);
+            this._overlayCanvas.addEventListener("touchend", this._whenOverlayTouchIsUp);
+            this._overlayCanvas.addEventListener("touchcancel", this._whenOverlayTouchIsUp);
+        this._pointLabeling._ldE(this)
+        }
+_drawLabelingMarkers(ctx, w, h, vx0, vx1) {
+	const labels = this._pointLabeling.returnLabels()
+	if (!labels) return
+	ctx.save()
+	ctx.strokeStyle = "#fff"
+	ctx.fillStyle = "#fff"
+	ctx.font = "12px sans-serif"
+	for (const l of labels) {
+		const pos = parseFloat(l.pos)
+		if (isNaN(pos)) continue
+		const x = (pos - vx0) * w / (vx1 - vx0)
+		if (x < 0 || x > w) continue
+		ctx.beginPath()
+		ctx.moveTo(x, 0)
+		ctx.lineTo(x, h)
+		ctx.stroke()
+		ctx.fillText(l.name || "", x + 4, 12)
+	}
+	ctx.restore()
+}
+    }
+
+
+    class VisualLoopControlsPrompt { 
+        constructor(_doc, _songEditor) {
+            this._waveformCanvasWidth = 500;
+            this._waveformCanvasHeight = 200;
+            this._handleCanvasHeight = 20;
+            this._instrument = null;
+            this._waveformData = null;
+            this._zoomYanabled=false;
+            this._zoomedYAxis=false
+            this._waveformDataLength = null;
+            this._initialChipWaveLoopMode = null;
+            this._initialChipWaveStartOffset = null;
+            this._initialChipWaveLoopStart = null;
+            this._initialChipWaveLoopEnd = null;
+            this._initialChipWavePlayBackwards = null;
+            this._chipWaveLoopMode = 0;
+            this._chipWaveStartOffset = 0;
+            this._chipWaveLoopStart = 0;
+            this._chipWaveLoopEnd = 0;
+            this._chipWavePlayBackwards = false;
+            this._waveformViewportX0 = 0;
+            this._waveformViewportX1 = 1;
+            this._waveformViewportY0 = -1.01;
+            this._waveformViewportY1 = 1.01;
+            this._waveformViewportWidth = 1;
+            this._waveformViewportOffset = 0;
+            this._waveformViewportMaxOffset = 0;
+            this._overlayIsMouseDown = false;
+            this._overlaySelectionX0 = null;
+            this._overlaySelectionX1 = null;
+            
+ this._waveformViewportYOffset = 0
+this._waveformViewportYRange = this._waveformViewportY1 - this._waveformViewportY0
+this._waveformViewportYMaxOffset = 0
+
+            this._startOffsetValidator = (v) => {
+                return Math.max(0, Math.min(this._waveformDataLength, Math.floor(v)));
+            };
+            this._loopStartValidator = (v) => {
+                return Math.max(0, Math.min(this._waveformDataLength, Math.min(this._chipWaveLoopEnd - 2, Math.floor(v))));
+            };
+            this._loopEndValidator = (v) => {
+                return Math.max(0, Math.min(this._waveformDataLength, Math.max(this._chipWaveLoopStart + 2, Math.floor(v))));
+            };
+            this._startOffsetHandle = new VisualLoopControlsHandle(this._chipWaveStartOffset, this._waveformCanvasWidth, this._handleCanvasHeight, this._waveformViewportX0, this._waveformViewportX1, this._startOffsetValidator, (v) => {
+                this._chipWaveStartOffset = v;
+                this._instrument.chipWaveStartOffset = this._chipWaveStartOffset;
+                this._renderOverlay();
+                this._reconfigureLoopControls();
+            }, () => {
+                this.gotMouseUp = true;
+                setTimeout(() => { this.gotMouseUp = false; }, 10);
+            }, (cnv, ctx, x, y, w, h) => {
+                const th = h / 4;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + w, y);
+                ctx.lineTo(x + w, y + h - th);
+                ctx.lineTo(x + w / 2, y + h);
+                ctx.lineTo(x, y + h - th);
+                ctx.fill();
+            });
+            this._loopStartHandle = new VisualLoopControlsHandle(this._chipWaveLoopStart, this._waveformCanvasWidth, this._handleCanvasHeight, this._waveformViewportX0, this._waveformViewportX1, this._loopStartValidator, (v) => {
+                this._chipWaveLoopStart = v;
+                this._instrument.chipWaveLoopStart = this._chipWaveLoopStart;
+                this._renderOverlay();
+                this._reconfigureLoopControls();
+            }, () => {
+                this.gotMouseUp = true;
+                setTimeout(() => { this.gotMouseUp = false; }, 10);
+            }, (cnv, ctx, x, y, w, h) => {
+                const tw = w / 4;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + w - tw, y);
+                ctx.lineTo(x + w, y + h / 2);
+                ctx.lineTo(x + w - tw, y + h);
+                ctx.lineTo(x, y + h);
+                ctx.fill();
+            });
+            this._loopEndHandle = new VisualLoopControlsHandle(this._chipWaveLoopEnd, this._waveformCanvasWidth, this._handleCanvasHeight, this._waveformViewportX0, this._waveformViewportX1, this._loopEndValidator, (v) => {
+                this._chipWaveLoopEnd = v;
+                this._instrument.chipWaveLoopEnd = this._chipWaveLoopEnd;
+                this._renderOverlay();
+                this._reconfigureLoopControls();
+            }, () => {
+                this.gotMouseUp = true;
+                setTimeout(() => { this.gotMouseUp = false; }, 10);
+            }, (cnv, ctx, x, y, w, h) => {
+                const tw = w / 4;
+                ctx.beginPath();
+                ctx.moveTo(x + w, y);
+                ctx.lineTo(x + w, y + h);
+                ctx.lineTo(x + tw, y + h);
+                ctx.lineTo(x, y + h / 2);
+                ctx.lineTo(x + tw, y);
+                ctx.fill();
+            });
+            this._chipWaveIsUnavailable = true;
+this._zoomInYButton = button$4({ type: "button", title: "Zoom In Y", style: "height: var(--button-size); margin-left: 0.5em;" }, "YZoom")
+ this._zoomInYButton.addEventListener("click",()=>{
+ if(!this._waveformData)return
+ this._zoomYanabled=!this._zoomYanabled;
+ this._zoomYanabled?this._zoomInYButton.style.border="2px solid white":this._zoomInYButton.style.border=""
+ localStorage.setItem("zoomY", this._zoomYanabled);
+ this._render()
+})
+const savedZoomY = localStorage.getItem("zoomY");
+this._zoomYanabled = savedZoomY === "true";
+this._zoomYanabled?this._zoomInYButton.style.border="2px solid white":this._zoomInYButton.style.border=""
+
+            this._waveformCanvas = canvas$1({ width: this._waveformCanvasWidth, height: this._waveformCanvasHeight, style: "cursor: default; position: static; width: 100%;" });
+            this._waveformContext = null;
+            this._overlayCanvas = canvas$1({ width: this._waveformCanvasWidth, height: this._waveformCanvasHeight, style: "cursor: default; position: absolute; top: 0; left: 0; width: 100%;" });
+this._labelingContainer=document.createElement("div") 
+this._labelingContainer.style.cssText="position:fixed;top:0;left:0;z-index:9999;display:none; width:100%; height:100vh; overflow:hidden; background:rgba(0,0,0,0.15)"
+document.body.append(this._labelingContainer)
+this._pointLabeling=new PointLabeling(this._labelingContainer )
+            this._overlayContext = null;
+            this._waveformContainer = div$4({ style: `position: relative; margin-bottom: 0.5em; margin-left: auto; margin-right: auto; width: 100%; outline: 1px solid ${ColorConfig.uiWidgetBackground};` }, this._waveformCanvas, this._overlayCanvas);
+            this._viewportOffsetSlider = input$3({ style: "width: 100%; flex-grow: 1; margin: 0;", type: "range", min: "0", max: "1", value: "0", step: "0.00001" });
+            this._zoomInButton = button$4({ type: "button", title: "Zoom In", style: "height: var(--button-size); margin-left: 0.5em;" }, SVG.svg({ width: "20", height: "20", viewBox: "-10 -10 20 20", "pointer-events": "none", style: "width: 100%; height: 100%;" }, SVG.circle({ cx: -1, cy: -1, r: 6, "stroke-width": 2, stroke: ColorConfig.primaryText, fill: "none" }), SVG.path({ stroke: ColorConfig.primaryText, "stroke-width": 2, d: "M 3 3 L 7 7 M -1 -4 L -1 2 M -4 -1 L 2 -1", fill: "none" })));
+            this._zoomOutButton = button$4({ type: "button", title: "Zoom Out", style: "height: var(--button-size); margin-left: 0.5em;" }, SVG.svg({ width: "20", height: "20", viewBox: "-10 -10 20 20", "pointer-events": "none", style: "width: 100%; height: 100%;" }, SVG.circle({ cx: -1, cy: -1, r: 6, "stroke-width": 2, stroke: ColorConfig.primaryText, fill: "none" }), SVG.path({ stroke: ColorConfig.primaryText, "stroke-width": 2, d: "M 3 3 L 7 7 M -4 -1 L 2 -1", fill: "none" })));
+            this._zoom100Button = button$4({ type: "button", title: "Zoom 100%", style: "height: var(--button-size); margin-left: 0.5em;" }, "100%");
+            this._addLabelButton=button$4({type:"button",title:"Add Label"},"Labeling")
+this._addLabelButton.addEventListener("click", () => {
+ const visible = this._labelingContainer.style.display === "block"
+ this._labelingContainer.style.display = visible ? "none" : "block"
+ this._pointLabeling._open()
+})
+            this._loopModeSelect = select$3({ style: "width: 100%; flex-grow: 1; margin-left: 0.5em;" }, option$3({ value: 0 }, "Loop"), option$3({ value: 1 }, "Ping-Pong"), option$3({ value: 2 }, "Play Once"), option$3({ value: 3 }, "Play Loop Once"));
+            this._startOffsetStepper = input$3({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveStartOffset, min: "0", step: "1" });
+            this._loopStartStepper = input$3({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveLoopStart, min: "0", step: "1" });
+            this._loopEndStepper = input$3({ style: "flex-grow: 1; margin-left: 1em; width: 100%;", type: "number", value: this._chipWaveLoopEnd, min: "0", step: "1" });
+            this._playBackwardsBox = input$3({ type: "checkbox", style: "width: 1em; padding: 0; margin-left: auto; margin-right: auto;" });
+            this._playSongButton = button$4({ style: "width: 55%;", type: "button" });
+            this._cancelButton = button$4({ class: "cancelButton" });
+            this._okayButton = button$4({ class: "okayButton", style: "width: 25%;" }, "Okay");
+            this._sampleIsLoadingMessage = div$4({ style: "margin-bottom: 0.5em; display: none;" }, "Sample is loading");
+            
+            this._loopControlsContainer = div$4(div$4({ style: "display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, div$4({ style: `width: 100%; margin-bottom: 0.5em; text-align: center; color: ${ColorConfig.secondaryText};` }, "You can also zoom by dragging horizontally on the waveform.")), this._startOffsetHandle.canvas, this._waveformContainer, this._loopStartHandle.canvas, this._loopEndHandle.canvas, div$4({ style: "display: flex; flex-direction: row; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, this._viewportOffsetSlider, this._zoomInButton, this._zoomOutButton, this._zoom100Button,this._zoomInYButton), 
+            div$4({ style: "display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 0.5em;" }, div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right: color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop Mode"), this._loopModeSelect), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Offset"), this._startOffsetStepper), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop Start"), this._loopStartStepper), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Loop End"), this._loopEndStepper),div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em;" }, div$4({ style: `flex-shrink: 0; text-align: right; color: ${ColorConfig.primaryText}; align-self: center;` }, "Backwards"), this._playBackwardsBox), div$4({ style: "width: 100%; display: flex; flex-direction: row; margin-bottom: 0.5em; justify-content: center;" },
+            this._playSongButton , div$4({style:"display:flex;gap:0.5em;margin-left:2px;"},this._addLabelButton)
+            )));
+            this.container = div$4({ class: "prompt noSelection", style: "width: 500px;" }, div$4(h2$3({ style: "margin-bottom: 0.5em;" }, "Loop Controls"), this._sampleIsLoadingMessage, this._loopControlsContainer, div$4({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton)), this._cancelButton);
+            this.gotMouseUp = false;
+            this._waveformSampleLookup = (x) => {
+                const n = this._waveformDataLength;
+                if (x >= 0 && x < n) {
+                    return this._waveformData[Math.floor(x)];
+                }
+                else {
+                    return 0;
+                }
+            };
+            this._waveformSamplesLookup = (x0, x1) => {
+                const n = this._waveformDataLength;
+                const a = Math.max(0, Math.min(n, Math.ceil(x0)));
+                const b = Math.max(0, Math.min(n, Math.ceil(x1)));
+                if (a >= b)
+                    return [0, 0];
+                let y0 = this._waveformData[a];
+                let y1 = y0;
+                for (let i = a + 1; i < b; i++) {
+                    const v = this._waveformData[i];
+                    y0 = Math.min(y0, v);
+                    y1 = Math.max(y1, v);
+                }
+                return [y0, y1];
+            };
+            this.cleanUp = () => {
+                this._startOffsetHandle.cleanUp();
+                this._loopStartHandle.cleanUp();
+                this._loopEndHandle.cleanUp();
+                this.container.removeEventListener("keydown", this._whenKeyPressed);
+                this._okayButton.removeEventListener("click", this._saveChanges);
+                this._cancelButton.removeEventListener("click", this._close);
+                this._viewportOffsetSlider.removeEventListener("input", this._whenViewportOffsetSliderChanges);
+                this._zoomInButton.removeEventListener("click", this._whenZoomInClicked);
+                this._zoomOutButton.removeEventListener("click", this._whenZoomOutClicked);
+                this._zoom100Button.removeEventListener("click", this._whenZoom100Clicked);
+                this._loopModeSelect.removeEventListener("change", this._whenLoopModeSelectChanges);
+                this._startOffsetStepper.removeEventListener("change", this._whenStartOffsetStepperChanges);
+                this._loopStartStepper.removeEventListener("change", this._whenLoopStartStepperChanges);
+                this._loopEndStepper.removeEventListener("change", this._whenLoopEndStepperChanges);
+                this._playBackwardsBox.removeEventListener("input", this._whenPlayBackwardsBoxChanges);
+                this._playSongButton.removeEventListener("click", this._togglePlaySong);
+                this._overlayCanvas.removeEventListener("mousemove", this._whenOverlayMouseMoves);
+                this._overlayCanvas.removeEventListener("mousedown", this._whenOverlayMouseIsDown);
+                this._overlayCanvas.removeEventListener("mouseup", this._whenOverlayMouseIsUp);
+                this._overlayCanvas.removeEventListener("touchstart", this._whenOverlayTouchIsDown);
+                this._overlayCanvas.removeEventListener("touchmove", this._whenOverlayTouchMoves);
+                this._overlayCanvas.removeEventListener("touchend", this._whenOverlayTouchIsUp);
+                this._overlayCanvas.removeEventListener("touchcancel", this._whenOverlayTouchIsUp);
+            };
+            this._close = () => {
+                this._doc.prompt = null;
+                this._doc.undo();
+            };
+            this._saveChanges = () => {
+                if (!this._chipWaveIsUnavailable) {
+                    this._doc.prompt = null;
+                    this._instrument.chipWaveLoopMode = this._initialChipWaveLoopMode;
+                    this._instrument.chipWaveStartOffset = this._initialChipWaveStartOffset;
+                    this._instrument.chipWaveLoopStart = this._initialChipWaveLoopStart;
+                    this._instrument.chipWaveLoopEnd = this._initialChipWaveLoopEnd;
+                    this._instrument.chipWavePlayBackwards = this._initialChipWavePlayBackwards;
+                    const group = new ChangeGroup();
+                    group.append(new ChangeChipWaveLoopMode(this._doc, this._chipWaveLoopMode));
+                    group.append(new ChangeChipWaveStartOffset(this._doc, this._chipWaveStartOffset));
+                    group.append(new ChangeChipWaveLoopStart(this._doc, this._chipWaveLoopStart));
+                    group.append(new ChangeChipWaveLoopEnd(this._doc, this._chipWaveLoopEnd));
+                    group.append(new ChangeChipWavePlayBackwards(this._doc, this._chipWavePlayBackwards));
+                    this._doc.record(group, true);
+                }
+                else {
+                    this._doc.prompt = null;
+                    this._doc.undo();
+                }
+            };
+            this._togglePlaySong = () => {
+                this._songEditor.togglePlay();
+                this._updatePlaySongButton();
+            };
+            this._renderWaveform = () => { 
+                if (this._chipWaveIsUnavailable)
+                    return;
+                const cnv = this._waveformCanvas;
+                const ctx = this._waveformContext;
+                const w = cnv.width;
+                const h = cnv.height;
+                const vx0 = this._waveformViewportX0;
+                const vx1 = this._waveformViewportX1;
+                const vy0 = this._waveformViewportY0;
+                const vy1 = this._waveformViewportY1;
+                const sampleWidth = (vx1 - vx0) / w;
+                ctx.clearRect(0, 0, w, h);
+                ctx.fillStyle = ColorConfig.getComputed("--ui-widget-background");
+                ctx.fillRect(0, h / 2, w, 1);
+                const waveformColor = ColorConfig.getComputed("--primary-text");
+                if (sampleWidth < 1) {
+                    ctx.strokeStyle = waveformColor;
+                    ctx.lineWidth = 1;
+                    let firstMove = true;
+                    ctx.beginPath();
+                    for (let cx = 0; cx < w; cx++) {
+                        const wx = vx0 + cx * sampleWidth;
+                        const wy = this._waveformSampleLookup(wx);
+                        const cy = h - (wy - vy0) * h / (vy1 - vy0);
+                        if (firstMove) {
+                            ctx.moveTo(cx, cy);
+                            firstMove = false;
+                        }
+                        else {
+                            ctx.lineTo(cx, cy);
+                        }
+                    }
+                    ctx.stroke();
+                }
+                else {
+                    ctx.fillStyle = waveformColor;
+                    let pcy0 = null;
+                    let pcy1 = null;
+                    for (let cx = 0; cx < w; cx++) {
+                        const wx = vx0 + cx * sampleWidth;
+                        const [wy0, wy1] = this._waveformSamplesLookup(wx - sampleWidth / 2, wx + sampleWidth / 2);
+                        const cy0 = Math.max(-1, Math.min(h, h - (wy1 - vy0) * h / (vy1 - vy0)));
+                        const cy1 = Math.max(-1, Math.min(h, h - (wy0 - vy0) * h / (vy1 - vy0)));
+                        const cy0i = Math.floor(cy0);
+                        const cy1i = Math.max(Math.ceil(cy1), cy0i + 1);
+                        const ocy0 = pcy1 == null ? cy0i : Math.min(cy0i, pcy1);
+                        const ocy1 = pcy0 == null ? cy1i : Math.max(cy1i, pcy0);
+                        const bh = Math.max(1, ocy1 - ocy0);
+                        ctx.fillRect(cx, ocy0, 1, bh);
+                        pcy0 = ocy0;
+                        pcy1 = ocy1;
+                    }
+                }
+            };
+            this._renderOverlay = () => {
+                const cnv = this._overlayCanvas;
+                const ctx = this._overlayContext;
+                const w = cnv.width;
+                const h = cnv.height;
+                const vx0 = this._waveformViewportX0;
+                const vx1 = this._waveformViewportX1;
+                const so = this._chipWaveStartOffset;
+                const ls = this._chipWaveLoopStart;
+                const le = this._chipWaveLoopEnd;
+                ctx.clearRect(0, 0, w, h);
+                ctx.fillStyle = ColorConfig.getComputed("--loop-accent");
+                const obx = Math.floor((so - vx0) * w / (vx1 - vx0));
+                const oby = 0;
+                const obw = 1;
+                const obh = h;
+                ctx.fillRect(obx, oby, obw, obh);
+                ctx.fillStyle = ColorConfig.getComputed("--loop-accent");
+                ctx.globalAlpha = 0.5;
+                const lbx0 = Math.floor((ls - vx0) * w / (vx1 - vx0));
+                const lbx1 = Math.floor((le - vx0) * w / (vx1 - vx0));
+                const lbx = lbx0;
+                const lby = 0;
+                const lbw = lbx1 - lbx0;
+                const lbh = h;
+                ctx.fillRect(lbx, lby, lbw, lbh);
+                ctx.globalAlpha = 1;
+                if (this._overlaySelectionX0 != null && this._overlaySelectionX1 != null) {
+                    ctx.fillStyle = ColorConfig.getComputed("--box-selection-fill");
+                    ctx.globalAlpha = 0.5;
+                    ctx.fillRect(this._overlaySelectionX0, 0, this._overlaySelectionX1 - this._overlaySelectionX0, h);
+                    ctx.globalAlpha = 1;
+                }
+                this._drawLabelingMarkers(ctx,w,h,vx0,vx1)
+            };
+            this._reconfigureLoopControls = () => {
+                this._loopModeSelect.value = "" + this._chipWaveLoopMode;
+                this._startOffsetStepper.value = "" + this._chipWaveStartOffset;
+                this._loopStartStepper.value = "" + this._chipWaveLoopStart;
+                this._loopEndStepper.value = "" + this._chipWaveLoopEnd;
+                this._playBackwardsBox.checked = this._chipWavePlayBackwards;
+            };
+            this._whenViewportOffsetSliderChanges = (event) => {
+                const rawOffset = Math.max(0, Math.min(1, +event.target.value));
+                const newViewportOffset = Math.max(0, Math.min(this._waveformViewportMaxOffset, rawOffset * this._waveformViewportMaxOffset));
+                this._waveformViewportOffset = Math.min(this._waveformViewportMaxOffset, newViewportOffset);
+                this._viewportOffsetSlider.value = "" + (this._waveformViewportOffset / this._waveformViewportMaxOffset);
+                this._waveformViewportX0 = 0 + this._waveformViewportOffset;
+                this._waveformViewportX1 = this._waveformViewportWidth + this._waveformViewportOffset;
+                this._propagateViewportUpdate();
+                this._render();
+            };
+            this._whenZoomInClicked = (event) => {
+                const newViewportWidth = Math.max(1, Math.min(this._waveformDataLength, this._waveformViewportWidth / 2));
+                this._waveformViewportWidth = newViewportWidth;
+                this._waveformViewportMaxOffset = this._waveformDataLength - this._waveformViewportWidth;
+                const centerX = this._waveformViewportX0 + (this._waveformCanvasWidth / 2) * (this._waveformViewportX1 - this._waveformViewportX0) / this._waveformCanvasWidth;
+                this._waveformViewportOffset = Math.max(0, Math.min(this._waveformViewportMaxOffset, centerX - (this._waveformCanvasWidth / 2) * this._waveformViewportWidth / this._waveformCanvasWidth));
+                this._waveformViewportX0 = 0 + this._waveformViewportOffset;
+                this._waveformViewportX1 = this._waveformViewportWidth + this._waveformViewportOffset;
+                this._viewportOffsetSlider.value = "" + (this._waveformViewportOffset / this._waveformViewportMaxOffset);
+                this._propagateViewportUpdate();
+                this._render();
+            };
+            this._whenZoomOutClicked = (event) => {
+                const newViewportWidth = Math.max(1, Math.min(this._waveformDataLength, this._waveformViewportWidth * 2));
+                this._waveformViewportWidth = newViewportWidth;
+                this._waveformViewportMaxOffset = this._waveformDataLength - this._waveformViewportWidth;
+                const centerX = this._waveformViewportX0 + (this._waveformCanvasWidth / 2) * (this._waveformViewportX1 - this._waveformViewportX0) / this._waveformCanvasWidth;
+                this._waveformViewportOffset = Math.max(0, Math.min(this._waveformViewportMaxOffset, centerX - (this._waveformCanvas.width / 2) * this._waveformViewportWidth / this._waveformCanvasWidth));
+                this._waveformViewportX0 = 0 + this._waveformViewportOffset;
+                this._waveformViewportX1 = this._waveformViewportWidth + this._waveformViewportOffset;
+                if (this._waveformViewportWidth === this._waveformDataLength) {
+                    this._viewportOffsetSlider.value = "0";
+                }
+                else {
+                    this._viewportOffsetSlider.value = "" + (this._waveformViewportOffset / this._waveformViewportMaxOffset);
+                }
+                this._propagateViewportUpdate();
+                this._render();
+            };
+            this._whenZoom100Clicked = (event) => {
+                const newViewportWidth = this._waveformDataLength;
+                this._waveformViewportWidth = newViewportWidth;
+                this._waveformViewportMaxOffset = this._waveformDataLength - this._waveformViewportWidth;
+                this._waveformViewportOffset = Math.max(0, Math.min(this._waveformViewportMaxOffset, 0));
+                this._waveformViewportX0 = 0 + this._waveformViewportOffset;
+                this._waveformViewportX1 = this._waveformViewportWidth + this._waveformViewportOffset;
+                if (this._waveformViewportWidth === this._waveformDataLength) {
+                    this._viewportOffsetSlider.value = "0";
+                }
+                else {
+                    this._viewportOffsetSlider.value = "" + (this._waveformViewportOffset / this._waveformViewportMaxOffset);
+                }
+                this._propagateViewportUpdate();
+                this._render();
+            };
+            this._whenLoopModeSelectChanges = (event) => {
+                const element = event.target;
+                const newValue = +element.value;
+                this._chipWaveLoopMode = newValue;
+                this._instrument.chipWaveLoopMode = this._chipWaveLoopMode;
+            };
+            this._whenStartOffsetStepperChanges = (event) => {
+                const element = event.target;
+                const newValue = this._startOffsetValidator(+element.value);
+                this._chipWaveStartOffset = newValue;
+                this._instrument.chipWaveStartOffset = this._chipWaveStartOffset;
+                element.value = "" + newValue;
+                this._startOffsetHandle.update(newValue);
+                this._startOffsetHandle.render();
+                this._renderOverlay();
+            };
+            this._whenLoopStartStepperChanges = (event) => {
+                const element = event.target;
+                const newValue = this._loopStartValidator(+element.value);
+                this._chipWaveLoopStart = newValue;
+                this._instrument.chipWaveLoopStart = this._chipWaveLoopStart;
+                element.value = "" + newValue;
+                this._loopStartHandle.update(newValue);
+                this._loopStartHandle.render();
+                this._renderOverlay();
+            };
+            this._whenLoopEndStepperChanges = (event) => {
+                const element = event.target;
+                const newValue = this._loopEndValidator(+element.value);
+                this._chipWaveLoopEnd = newValue;
+                this._instrument.chipWaveLoopEnd = this._chipWaveLoopEnd;
+                element.value = "" + newValue;
+                this._loopEndHandle.update(newValue);
+                this._loopEndHandle.render();
+                this._renderOverlay();
+            };
+            this._whenPlayBackwardsBoxChanges = (event) => {
+                const element = event.target;
+                const newValue = element.checked;
+                this._chipWavePlayBackwards = newValue;
+                this._instrument.chipWavePlayBackwards = this._chipWavePlayBackwards;
+            };
+            this._whenOverlayMouseMoves = (event) => {
+                if (!this._overlayIsMouseDown)
+                    return;
+                const w = this._overlayCanvas.width;
+                const bounds = this._overlayCanvas.getBoundingClientRect();
+                const canvasXScale = w / bounds.width;
+                const mx = ((event.clientX || event.pageX) - bounds.left) * canvasXScale;
+                this._overlaySelectionX1 = mx;
+                this._renderOverlay();
+            };
+            this._whenOverlayMouseIsDown = (event) => {
+                this._overlayIsMouseDown = true;
+                const w = this._overlayCanvas.width;
+                const bounds = this._overlayCanvas.getBoundingClientRect();
+                const canvasXScale = w / bounds.width;
+                const mx = ((event.clientX || event.pageX) - bounds.left) * canvasXScale;
+                this._overlaySelectionX0 = mx;
+                this._overlaySelectionX1 = mx;
+                this._renderOverlay();
+            };
+            this._whenOverlayMouseIsUp = (event) => {
+                if (!this._overlayIsMouseDown)
+                    return;
+                this.gotMouseUp = true;
+                setTimeout(() => { this.gotMouseUp = false; }, 10);
+                this._overlayIsMouseDown = false;
+                const w = this._overlayCanvas.width;
+                const vx0 = this._waveformViewportX0;
+                const vx1 = this._waveformViewportX1;
+                const bounds = this._overlayCanvas.getBoundingClientRect();
+                const canvasXScale = w / bounds.width;
+                const mx = ((event.clientX || event.pageX) - bounds.left) * canvasXScale;
+                this._overlaySelectionX1 = mx;
+                this._overlaySelectionX0 = Math.max(0, Math.min(w, this._overlaySelectionX0));
+                this._overlaySelectionX1 = Math.max(0, Math.min(w, this._overlaySelectionX1));
+                if (this._overlaySelectionX0 > this._overlaySelectionX1) {
+                    const t = this._overlaySelectionX0;
+                    this._overlaySelectionX0 = this._overlaySelectionX1;
+                    this._overlaySelectionX1 = t;
+                }
+                let zoomAreaIsTooSmall = false;
+                if (this._overlaySelectionX1 - this._overlaySelectionX0 > 2) {
+                    const wosx0 = vx0 + this._overlaySelectionX0 * (vx1 - vx0) / w;
+                    const wosx1 = vx0 + this._overlaySelectionX1 * (vx1 - vx0) / w;
+                    const newViewportWidth = Math.max(1, Math.min(this._waveformDataLength, wosx1 - wosx0));
+                    this._waveformViewportWidth = newViewportWidth;
+                    this._waveformViewportMaxOffset = this._waveformDataLength - this._waveformViewportWidth;
+                    const centerX = vx0 + (this._overlaySelectionX0) * (this._waveformViewportX1 - this._waveformViewportX0) / this._waveformCanvasWidth;
+                    this._waveformViewportOffset = Math.max(0, Math.min(this._waveformViewportMaxOffset, centerX));
+                    this._waveformViewportX0 = 0 + this._waveformViewportOffset;
+                    this._waveformViewportX1 = this._waveformViewportWidth + this._waveformViewportOffset;
+                    if (this._waveformViewportWidth === this._waveformDataLength) {
+                        this._viewportOffsetSlider.value = "0";
+                    }
+                    else {
+                        this._viewportOffsetSlider.value = "" + (this._waveformViewportOffset / this._waveformViewportMaxOffset);
+                    }
+                }
+                else {
+                    zoomAreaIsTooSmall = true;
+                }
+                this._overlaySelectionX0 = null;
+                this._overlaySelectionX1 = null;
+                if (!zoomAreaIsTooSmall) {
+                    this._propagateViewportUpdate();
+                    this._render();
+                }
+                this._renderOverlay();
+            };
+            this._whenOverlayTouchIsDown = (event) => {
+                event.preventDefault();
+                this._overlayIsMouseDown = true;
+                const w = this._overlayCanvas.width;
+                const bounds = this._overlayCanvas.getBoundingClientRect();
+                const canvasXScale = w / bounds.width;
+                const mx = (event.touches[0].clientX - bounds.left) * canvasXScale;
+                this._overlaySelectionX0 = mx;
+                this._overlaySelectionX1 = mx;
+                this._renderOverlay();
+            };
+            this._whenOverlayTouchMoves = (event) => {
+                if (!this._overlayIsMouseDown)
+                    return;
+                event.preventDefault();
+                const w = this._overlayCanvas.width;
+                const bounds = this._overlayCanvas.getBoundingClientRect();
+                const canvasXScale = w / bounds.width;
+                const mx = (event.touches[0].clientX - bounds.left) * canvasXScale;
+                this._overlaySelectionX1 = mx;
+                this._renderOverlay();
+            };
+            this._whenOverlayTouchIsUp = (event) => {
+                event.preventDefault();
+                if (!this._overlayIsMouseDown)
+                    return;
+                this.gotMouseUp = true;
+                setTimeout(() => { this.gotMouseUp = false; }, 10);
+                this._overlayIsMouseDown = false;
+                const w = this._overlayCanvas.width;
+                const vx0 = this._waveformViewportX0;
+                const vx1 = this._waveformViewportX1;
+                this._overlaySelectionX0 = Math.max(0, Math.min(w, this._overlaySelectionX0));
+                this._overlaySelectionX1 = Math.max(0, Math.min(w, this._overlaySelectionX1));
+                if (this._overlaySelectionX0 > this._overlaySelectionX1) {
+                    const t = this._overlaySelectionX0;
+                    this._overlaySelectionX0 = this._overlaySelectionX1;
+                    this._overlaySelectionX1 = t;
+                }
+                let zoomAreaIsTooSmall = false;
+                if (this._overlaySelectionX1 - this._overlaySelectionX0 > 2) {
+                    const wosx0 = vx0 + this._overlaySelectionX0 * (vx1 - vx0) / w;
+                    const wosx1 = vx0 + this._overlaySelectionX1 * (vx1 - vx0) / w;
+                    const newViewportWidth = Math.max(1, Math.min(this._waveformDataLength, wosx1 - wosx0));
+                    this._waveformViewportWidth = newViewportWidth;
+                    this._waveformViewportMaxOffset = this._waveformDataLength - this._waveformViewportWidth;
+                    const centerX = vx0 + (this._overlaySelectionX0) * (this._waveformViewportX1 - this._waveformViewportX0) / this._waveformCanvasWidth;
+                    this._waveformViewportOffset = Math.max(0, Math.min(this._waveformViewportMaxOffset, centerX));
+                    this._waveformViewportX0 = 0 + this._waveformViewportOffset;
+                    this._waveformViewportX1 = this._waveformViewportWidth + this._waveformViewportOffset;
+                    if (this._waveformViewportWidth === this._waveformDataLength) {
+                        this._viewportOffsetSlider.value = "0";
+                    }
+                    else {
+                        this._viewportOffsetSlider.value = "" + (this._waveformViewportOffset / this._waveformViewportMaxOffset);
+                    }
+                }
+                else {
+                    zoomAreaIsTooSmall = true;
+                }
+                this._overlaySelectionX0 = null;
+                this._overlaySelectionX1 = null;
+                if (!zoomAreaIsTooSmall) {
+                    this._propagateViewportUpdate();
+                    this._render();
+                }
+                this._renderOverlay();
+            };
+            this._whenKeyPressed = (event) => {
+                if (event.target.tagName != "BUTTON" && event.keyCode == 13) {
+                    this._saveChanges();
+                }
+                if (event.keyCode == 32) {
+                    this._togglePlaySong();
+                    event.preventDefault();
+                }
+            };
+            this._updatePlaySongButton = () => {
+                if (this._doc.synth.playing) {
+                    this._playSongButton.classList.remove("playButton");
+                    this._playSongButton.classList.add("pauseButton");
+                    this._playSongButton.title = "Pause (Space)";
+                    this._playSongButton.innerText = "Pause";
+                }
+                else {
+                    this._playSongButton.classList.remove("pauseButton");
+                    this._playSongButton.classList.add("playButton");
+                    this._playSongButton.title = "Play (Space)";
+                    this._playSongButton.innerText = "Play";
+                }
+            };
+            this._propagateViewportUpdate = () => {
+                this._startOffsetHandle.updateViewport(this._waveformViewportX0, this._waveformViewportX1);
+                this._loopStartHandle.updateViewport(this._waveformViewportX0, this._waveformViewportX1);
+                this._loopEndHandle.updateViewport(this._waveformViewportX0, this._waveformViewportX1);
+            };
+            this._render = () => {
+                if (this._chipWaveIsUnavailable)
+                    return;
+                this._renderWaveform();
+                this._startOffsetHandle.render();
+                this._loopStartHandle.render();
+                this._loopEndHandle.render();
+                this._renderOverlay();
+                 
 this._zoomedYAxis=true
  if(this._zoomedYAxis && this._zoomYanabled){
   let min=Infinity,max=-Infinity
+  
+  
   const vx0=Math.floor(this._waveformViewportX0)
   const vx1=Math.ceil(this._waveformViewportX1)
   for(let i=vx0;i<vx1&&i<this._waveformDataLength;i++){
@@ -62927,10 +64216,22 @@ _drawLabelingMarkers(ctx, w, h, vx0, vx1) {
             this._entryContainer = div$2();
             this._addMultipleSamplesButton = button$2({ style: "height: auto; min-height: var(--button-size); margin-left: 0.5em;" }, "Add multiple samples");
             this._addSamplesAreaBottom = div$2({ style: "margin-top: 0.5em;" }, this._addSampleButton, this._addMultipleSamplesButton);
-            this._instructionsLink = a({ href: "#" }, "Here's more information and some instructions on how to use custom samples in Slarmoo's Box.");
-            this._description = div$2(div$2({ style: "margin-bottom: 0.5em; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; user-select: text; cursor: text;" }, "In order to use the old Slarmoo's Box samples, you should add ", code("legacySamples"), " as an URL. You can also use ", code("nintariboxSamples"), " and ", code("marioPaintboxSamples"), " for more built-in sample packs."), div$2({ style: "margin-bottom: 0.5em;" }, "The order of these samples is important - if you change it you'll break your song!"), div$2({ style: "margin-bottom: 0.5em;" }, this._instructionsLink));
+            this._instructionsLink = a({ href: "#" }, "Here's more information and some instructions on how to use custom samples in Studio's Box.");
+            this._description = div$2(
+  { style: "margin-bottom: 0.5em; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; user-select: text; cursor: text;" },
+  "You can use these built-in samples: ",
+  span$2({ style: "color:yellow; margin-right: 0.3em;" }, "legacySamples"),
+  ", ",
+  span$2({ style: "color:pink; margin-right: 0.3em;" }, "nintariboxSamples"),
+  ", ",
+  span$2({ style: "color:aqua; margin-right: 0.3em;" }, "marioPaintboxSamples"),
+  " or Studio Box built-in samples: ",
+  span$2({ style: "color:lime; margin-right: 0.3em;" }, "studioSamples"),
+  div$2({ style: "margin-bottom: 0.5em;" }, "Or a URL sample, for example from free file hosting like filegarden. "),
+  div$2( { style: "margin-bottom: 0.5em;" },"The order of these samples isnt important ."),
+  div$2( { style: "margin-bottom: 0.5em;" },  this._instructionsLink));
             this._closeInstructionsButton = button$2({ style: "height: auto; min-height: var(--button-size); width: 100%;" }, "Close instructions");
-            this._instructionsArea = div$2({ style: "display: none; margin-top: 0; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; user-select: text; cursor: text; overflow-y: auto;" }, h2$1("Add Samples"), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, "In Slarmoo's Box, custom samples are loaded from arbitrary URLs."), div$2({ style: `margin-top: 0.5em; margin-bottom: 0.5em; color: ${ColorConfig.secondaryText};` }, "(Technically, the web server behind the URL needs to support ", a({ href: "https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS", target: "_blank", }, "CORS"), ", but you don't need to know about that: ", " the sample just won't load if that's not the case)"), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, details(summary("Why arbitrary URLs?"), a({ href: "https://pandoras-box-archive.neptendo.repl.co/" }, "A certain BeepBox mod"), " did this with one central server, but it went down, taking down", " the samples with it, though thankfully it got archived.", " This is always an issue with servers: it may run out of space,", " stop working, and so on. With arbitrary URLs, you can always ", " change them to different ones if they stop working.")), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, "As for where to upload your samples, here are some suggestions:", ul({ style: "text-align: left;" }, li(a({ href: "https://filegarden.com" }, "File Garden")), li(a({ href: "https://www.dropbox.com" }, "Dropbox"), " (domain needs to be ", code("https://dl.dropboxusercontent.com"), ")"))), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, "Static website hosting services may also work (such as ", a({ href: "https://pages.github.com" }, "GitHub Pages"), ")", " but those require a bit more setup."), div$2({ style: "margin-top: 0.5em; margin-bottom: 1em;" }, "Finally, if have a soundfont you'd like to get samples from, consider using this ", a({ href: "./sample_extractor.html", target: "_blank" }, "sample extractor"), "."), div$2({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between; margin-top: 0.5em;" }, this._closeInstructionsButton));
+            this._instructionsArea = div$2({ style: "display: none; margin-top: 0; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; user-select: text; cursor: text; overflow-y: auto;" }, h2$1("Add Samples"), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, "In Slarmoo's Box, custom samples are loaded from arbitrary URLs."), div$2({ style: `margin-top: 0.5em; margin-bottom: 0.5em; color: ${ColorConfig.secondaryText};` }, "(Technically, the web server behind the URL needs to support ", a({ href: "https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS", target: "_blank", }, "CORS"), ", but you don't need to know about that: ", " the sample just won't load if that's not the case)"), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, details(summary("Why arbitrary URLs?"), a({ href: "https://pandoras-box-archive.neptendo.repl.co/" }, "A certain BeepBox mod"), " did this with one central server, but it went down, taking down", " the samples with it, though thankfully it got archived.", " This is always an issue with servers: it may run out of space,", " stop working, and so on. With arbitrary URLs, you can always ", " change them to different ones if they stop working.")), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, "As for where to upload your samples, here are some suggestions:", ul({ style: "text-align: left;" }, li(a({ href: "https://filegarden.com" }, "File Garden")), li(a({ href: "https://www.dropbox.com" }, "Dropbox"), " (domain needs to be ", code("https://dl.dropboxusercontent.com"), ")"))), div$2({ style: "margin-top: 0.5em; margin-bottom: 0.5em;" }, "Static website hosting services may also work (such as ", a({ href: "https://pages.github.com" }, "GitHub Pages"), ")", " but those require a bit more setup."), div$2({ style: "margin-top: 0.5em; margin-bottom: 1em;" }, "Finally, if have a soundfont you'd like to get samples from, consider using this ", a({ href: "./sample_extractor.html", target: "_blank" }, "sample extractor"), "."), "Or My Sf2 Tool in the plugins menu" ,div$2({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between; margin-top: 0.5em;" }, this._closeInstructionsButton));
             this._addSamplesArea = div$2({ style: "overflow-y: auto;" }, h2$1("Add Samples"), div$2({ style: "display: flex; flex-direction: column; align-items: center; margin-bottom: 0.5em;" }, this._description, div$2({ style: "width: 100%; max-height: 450px; overflow-y: scroll;" }, this._entryContainer), this._addSamplesAreaBottom), div$2({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton));
             this._bulkAddTextarea = textarea({
                 style: "width: 100%; height: 100%; resize: none; box-sizing: border-box;",
@@ -63166,6 +64467,7 @@ _drawLabelingMarkers(ctx, w, h, vx0, vx1) {
                 let useLegacySamples = false;
                 let useNintariboxSamples = false;
                 let useMarioPaintboxSamples = false;
+                let useStudioBoxSamples = false;
                 const parsedEntries = [];
                 for (const url of urls) {
                     if (url === "")
@@ -63216,7 +64518,22 @@ _drawLabelingMarkers(ctx, w, h, vx0, vx1) {
                                 chipWavePlayBackwards: false,
                             });
                         }
-                        useMarioPaintboxSamples = true;
+                        useMarioPaintboxSamples = true; 
+                    }else if (url.toLowerCase() === "studiosamples") {
+                        if (!useStudioBoxSamples) {
+                            parsedEntries.push({
+                                url: "studiosamples",
+                                sampleRate: 44100,
+                                rootKey: 60,
+                                percussion: false,
+                                chipWaveLoopStart: null,
+                                chipWaveLoopEnd: null,
+                                chipWaveStartOffset: null,
+                                chipWaveLoopMode: null,
+                                chipWavePlayBackwards: false,
+                            });
+                        }
+                        useStudioBoxSamples = true;
                     }
                     else {
                         let urlSliced = url;
@@ -63322,9 +64639,8 @@ _drawLabelingMarkers(ctx, w, h, vx0, vx1) {
                 const chipWaveLoopMode = entry.chipWaveLoopMode;
                 const chipWavePlayBackwards = entry.chipWavePlayBackwards;
                 const urlInLowerCase = url.toLowerCase();
-                const isBundledSamplePack = (urlInLowerCase === "legacysamples"
-                    || urlInLowerCase === "nintariboxsamples"
-                    || urlInLowerCase === "mariopaintboxsamples");
+                const isBundledSamplePack = (urlInLowerCase === "legacysamples"|| urlInLowerCase === "nintariboxsamples"
+                || urlInLowerCase === "mariopaintboxsamples" || urlInLowerCase === "studiosamples");
                 const options = [];
                 if (sampleRate !== 44100)
                     options.push("s" + sampleRate);
@@ -64563,18 +65879,19 @@ class CustomSelectModal{
             this._volumeBarContainer = SVG.svg({ style: `touch-action: none; overflow: visible; margin: auto; max-width: 20vw;`, width: "160px", height: "100%", preserveAspectRatio: "none", viewBox: "0 0 160 12" }, this._defs, this._outVolumeBarBg, this._outVolumeBar, this._outVolumeCap);
             this._volumeBarBox = div({ class: "playback-volume-bar", style: "height: 12px; align-self: center;" }, this._volumeBarContainer);
             this._fileMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "File"), option({ value: "new" }, "+ New Blank Song (⇧`)"), option({ value: "import" }, "↑ Import Song... (" + EditorConfig.ctrlSymbol + "O)"), option({ value: "export" }, "↓ Export Song... (" + EditorConfig.ctrlSymbol + "S)"), option({ value: "copyUrl" }, "⎘ Copy Song URL"), option({ value: "shareUrl" }, "⤳ Share Song URL"), option({ value: "configureShortener" }, "🛠 Customize Url Shortener..."), option({ value: "shortenUrl" }, "… Shorten Song URL"), option({ value: "viewPlayer" }, "▶ View in Song Player (⇧P)"), option({ value: "copyEmbed" }, "⎘ Copy HTML Embed Code"), option({ value: "songRecovery" }, "⚠ Recover Recent Song... (`)"));
-            this._editMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "Edit"), option({ value: "undo" }, "Undo (Z)"), option({ value: "redo" }, "Redo (Y)"), option({ value: "copy" }, "Copy Pattern (C)"), option({ value: "pasteNotes" }, "Paste Pattern Notes (V)"),   option({ value: "pasteNumbers" }, "Paste Pattern Numbers (" + EditorConfig.ctrlSymbol + "⇧V)"), option({ value: "insertBars" }, "Insert Bar (⏎)"), option({ value: "deleteBars" }, "Delete Selected Bars (⌫)"), option({ value: "insertChannel" }, "Insert Channel (" + EditorConfig.ctrlSymbol + "⏎)"), option({ value: "deleteChannel" }, "Delete Selected Channels (" + EditorConfig.ctrlSymbol + "⌫)"), option({ value: "selectChannel" }, "Select Channel (⇧A)"), option({ value: "selectAll" }, "Select All (A)"),option$6({ value: "selectMore" }, "Select More (XY)"),  option({ value: "duplicatePatterns" }, "Duplicate Reused Patterns (D)"), option({ value: "transposeUp" }, "Move Notes Up (+ or ⇧+)"), option({ value: "transposeDown" }, "Move Notes Down (- or ⇧-)"), option$6({ value: "transposeOctaveUp" }, "Move Notes Up Octave +"), option$6({ value: "transposeOctaveDown" }, "Move Notes Down Octave -")  , option({ value: "moveNotesSideways" }, "Move All Notes Sideways... (W)"), option({ value: "generateEuclideanRhythm" }, "Generate Euclidean Rhythm... (" + EditorConfig.ctrlSymbol + "E)"), option({ value: "beatsPerBar" }, "Change Beats Per Bar... (⇧B)"), option({ value: "barCount" }, "Change Song Length... (L)"), option({ value: "channelSettings" }, "Channel Settings... (Q)"), option({ value: "limiterSettings" }, "Limiter Settings... (⇧L)"), option({ value: "addExternal" }, "Add Custom Samples... (⇧Q)"));
-            this._optionsMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "Preferences"), optgroup({ label: "Technical" }, option({ value: "autoPlay" }, "Auto Play on Load"), option({ value: "autoFollow" }, "Auto Follow Playhead"), option({ value: "enableNotePreview" }, "Hear Added Notes"), option({ value: "notesOutsideScale" }, "Place Notes Out of Scale"), option({ value: "setDefaultScale" }, "Set Current Scale as Default"), option({ value: "alwaysFineNoteVol" }, "Always Fine Note Volume"), option({ value: "enableChannelMuting" }, "Enable Channel Muting"), option({ value: "instrumentCopyPaste" }, "Enable Copy/Paste Buttons"), option({ value: "instrumentImportExport" }, "Enable Import/Export Buttons"), option({ value: "displayBrowserUrl" }, "Enable Song Data in URL"), option({ value: "closePromptByClickoff" }, "Close Prompts on Click Off"),
+            this._editMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "Edit Song"), option({ value: "undo" }, "Undo (Z)"), option({ value: "redo" }, "Redo (Y)"), option({ value: "copy" }, "Copy Pattern (C)"), option({ value: "pasteNotes" }, "Paste Pattern Notes (V)"),   option({ value: "pasteNumbers" }, "Paste Pattern Numbers (" + EditorConfig.ctrlSymbol + "⇧V)"), option({ value: "insertBars" }, "Insert Bar (⏎)"), option({ value: "deleteBars" }, "Delete Selected Bars (⌫)"), option({ value: "insertChannel" }, "Insert Channel (" + EditorConfig.ctrlSymbol + "⏎)"), option({ value: "deleteChannel" }, "Delete Selected Channels (" + EditorConfig.ctrlSymbol + "⌫)"), option({ value: "selectChannel" }, "Select Channel (⇧A)"), option({ value: "selectAll" }, "Select All (A)"),option$6({ value: "selectMore" }, "Select More (XY)"),  option({ value: "duplicatePatterns" }, "Duplicate Reused Patterns (D)"), option({ value: "transposeUp" }, "Move Notes Up (+ or ⇧+)"), option({ value: "transposeDown" }, "Move Notes Down (- or ⇧-)"), option$6({ value: "transposeOctaveUp" }, "Move Notes Up Octave +"), option$6({ value: "transposeOctaveDown" }, "Move Notes Down Octave -")  , option({ value: "moveNotesSideways" }, "Move All Notes Sideways... (W)"), option({ value: "generateEuclideanRhythm" }, "Generate Euclidean Rhythm... (" + EditorConfig.ctrlSymbol + "E)"), option({ value: "beatsPerBar" }, "Change Beats Per Bar... (⇧B)"), option({ value: "barCount" }, "Change Song Length... (L)"), option({ value: "channelSettings" }, "Channel Settings... (Q)"), option({ value: "limiterSettings" }, "Limiter Settings... (⇧L)"), option({ value: "addExternal" }, "Add Custom Samples... (⇧Q)"));
+            this._optionsMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "Settings"), optgroup({ label: "Technical" }, option({ value: "autoPlay" }, "Auto Play on Load"), option({ value: "autoFollow" }, "Auto Follow Playhead"), option({ value: "enableNotePreview" }, "Hear Added Notes"), option({ value: "notesOutsideScale" }, "Place Notes Out of Scale"), option({ value: "setDefaultScale" }, "Set Current Scale as Default"), option({ value: "alwaysFineNoteVol" }, "Always Fine Note Volume"), option({ value: "enableChannelMuting" }, "Enable Channel Muting"), option({ value: "instrumentCopyPaste" }, "Enable Copy/Paste Buttons"), option({ value: "instrumentImportExport" }, "Enable Import/Export Buttons"), option({ value: "displayBrowserUrl" }, "Enable Song Data in URL"), option({ value: "closePromptByClickoff" }, "Close Prompts on Click Off"),
             
             option({ value: "increaseAllPins" }, "Increase All Pins ."),  
             
             option({ value: "recordingSetup" }, "Note Recording..."), option({ value: "whistleRecord" }, "Record With Whistle ")),
-                  optgroup({ label: "Appearance" }, option({ value: "showFifth" }, 'Highlight "Fifth" Note'), option({ value: "notesFlashWhenPlayed" }, "Notes Flash When Played"), option({ value: "instrumentButtonsAtTop" }, "Instrument Buttons at Top"), option({ value: "frostedGlassBackground" }, "Frosted Glass Prompt Backdrop"), option({ value: "useCustomSelectPrompt" }, "Custom Select Modal"), option({ value: "showChannels" }, "Show All Channels"), option({ value: "showScrollBar" }, "Show Octave Scroll Bar"), option$6({ value: "differentMod" }, "Better Mod Visuals"),
-            option({ value: "showInstrumentScrollbars" }, "Show Intsrument Scrollbars"), option({ value: "showLetters" }, "Show Piano Keys"), option({ value: "displayVolumeBar" }, "Show Playback Volume"), option({ value: "showOscilloscope" }, "Show Oscilloscope"), option({ value: "showSampleLoadingStatus" }, "Show Sample Loading Status"), option({ value: "showDescription" }, "Show Description"),option({ value: "openPlugins" }, "Open Plugins"), option({ value: "layout" }, "Set Layout..."), option({ value: "colorTheme" }, "Set Theme..."), option({ value: "customTheme" }, "Custom Theme..."),/* option({ value: "setLanguage" }, "Set Language...")*/));
+                  optgroup({ label: "Appearance" }, option({ value: "showFifth" }, 'Highlight "Fifth" Note'), option({ value: "notesFlashWhenPlayed" }, "Notes Flash When Played"), option({ value: "instrumentButtonsAtTop" }, "Instrument Buttons at Top"), option({ value: "frostedGlassBackground" }, "Frosted Glass Prompt Backdrop"),option({ value: "pianoKeyboard" }, "Better Piano Roll ."),   option({ value: "useCustomSelectPrompt" }, "Custom Select Modal"), option({ value: "showChannels" }, "Show All Channels"), option({ value: "showScrollBar" }, "Show Octave Scroll Bar"), option$6({ value: "differentMod" }, "Better Mod Visuals"),
+            option({ value: "showInstrumentScrollbars" }, "Show Intsrument Scrollbars"), option({ value: "showLetters" }, "Show Piano Keys"), option({ value: "displayVolumeBar" }, "Show Playback Volume"), option({ value: "showOscilloscope" }, "Show Oscilloscope"), option({ value: "showSampleLoadingStatus" }, "Show Sample Loading Status"), option({ value: "showDescription" }, "Show Description"), option({ value: "oldButtonSheme" }, "Old Buttons Positions ."), option({ value: "newloopeditor" }, "Not Centered Loop Editor ."),  
+              option({ value: "openPlugins" }, "Open Plugins"), option({ value: "layout" }, "Set Layout..."), option({ value: "colorTheme" }, "Set Theme..."), option({ value: "customTheme" }, "Custom Theme..."),/* option({ value: "setLanguage" }, "Set Language...")*/));
             this._scaleSelect = buildOptions(select(), Config.scales.map(scale => scale.name));
             this._keySelect = buildOptions(select(), Config.keys.map(key => key.name).reverse());
             this._octaveStepper = input({ style: "width: 59.5%;", type: "number", min: Config.octaveMin, max: Config.octaveMax, value: "0" });
-            this._tempoSlider = new Slider(input({ style: "margin: 0; vertical-align: middle;", type: "range", min: "1", max: 320*3 , value: "160", step: "1" }), this.doc, (oldValue, newValue) => new ChangeTempo(this.doc, oldValue, newValue), false);
+            this._tempoSlider = new Slider(input({ style: "margin: 0; vertical-align: middle;", type: "range", min: "1", max: 640 , value: "160", step: "1" }), this.doc, (oldValue, newValue) => new ChangeTempo(this.doc, oldValue, newValue), false);
             this._tempoStepper = input({ style: "width: 4em; font-size: 80%; margin-left: 0.4em; vertical-align: middle;", type: "number", step: "1" });
             this._songEqFilterEditor = new FilterEditor(this.doc, false, false, true);
             this._songEqFilterZoom = button({ style: "margin-left:0em; padding-left:0.2em; height:1.5em; max-width: 12px;", onclick: () => this._openPrompt("customSongEQFilterSettings") }, "+");
@@ -64608,6 +65925,14 @@ class CustomSelectModal{
             this._echoDelaySlider = new Slider(input({ style: "margin: 0;", type: "range", min: "0", max: Config.echoDelayRange - 1, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangeEchoDelay(this.doc, oldValue, newValue), false);
             this._echoDelayRow = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("echoDelay") }, "Echo Delay:"), this._echoDelaySlider.container);
             this._rhythmSelect = buildOptions(select(), Config.rhythms.map(rhythm => rhythm.name));
+            this._phaserMixSlider = new Slider(input({ style: "margin: 0;", type: "range", min: "0", max: Config.phaserMixRange - 1, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangePhaserMix(this.doc, oldValue, newValue), false);  
+            this._phaserMixRow = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("phaserMix") }, span("Phaser:")), this._phaserMixSlider.container);
+            this._phaserFreqSlider = new Slider(input({ style: "margin: 0;", type: "range", min: "0", max: Config.phaserFreqRange - 1, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangePhaserFreq(this.doc, oldValue, newValue), false);
+            this._phaserFreqRow = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("phaserFreq") }, span(" Freq:")), this._phaserFreqSlider.container);
+            this._phaserFeedbackSlider = new Slider(input({ style: "margin: 0;", type: "range", min: "0", max: Config.phaserFeedbackRange - 1, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangePhaserFeedback(this.doc, oldValue, newValue), false);
+            this._phaserFeedbackRow = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("phaserFeedback") }, span(" Feedback:")), this._phaserFeedbackSlider.container);
+            this._phaserStagesSlider = new Slider(input({ style: "margin: 0;", type: "range", min: Config.phaserMinStages, max: Config.phaserMaxStages, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangePhaserStages(this.doc, oldValue, newValue), false);
+            this._phaserStagesRow = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("phaserStages") }, span(" Stages:")), this._phaserStagesSlider.container);
             this._pitchedPresetSelect = buildPresetOptions(false, "pitchPresetSelect");
             this._drumPresetSelect = buildPresetOptions(true, "drumPresetSelect");
             this._algorithmSelect = buildOptions(select(), Config.algorithms.map(algorithm => algorithm.name));
@@ -64700,13 +66025,11 @@ class CustomSelectModal{
             this._octaveShiftMarkerContainer = div({ style: "display: flex; position: relative;" }, this._octaveShiftSlider.container, div({ class: "pitchShiftMarkerContainer" }, this._octaveShiftTonicMarkers, this._octaveShiftFifthMarkers));
             this._octaveShiftBox = input$8({ style: "width: 4em; font-size: 80%; ", id: "pitchShiftBox", type: "number", step: "1", min: "0", max: "24", value: "0" });
             this._octaveShiftRow = div$d({ class: "selectRow" }, div$d({ style: "color: " + ColorConfig.secondaryText + "; margin-top: -3px;" }, this._octaveShiftBox), span$4({ class: "tip",style:"font-size:6px", onclick: () => this._openPrompt("octaveShift") }, "Ocatve Shift:"), this._octaveShiftMarkerContainer);
-             this._fnInput = input$8({ 
-              style: "width: 16em; font-size: 80%;", id: "function", type: "text", value: 'p.v * safe(b[p.i+2]) / 1', 
-              });
-              this._hdInput = input$8({ 
-              style: "width: 8em; font-size: 80%;", id: "header", type: "text",
-              });  
-             this._functionRow = div$d({ class: "selectRow" }, div$d({ style: "color: " + ColorConfig.secondaryText + "; margin-top: -3px;" }), span$4({ class: "tip", style: "font-size:6px", onclick: () => this._openPrompt("functionFN") }, "FN:"),  this._fnInput);
+             this._fnInput = textarea({ id: "function", style: `width: 19em;height: 40px;box-sizing: border-box;font-size: 30%;border: none;background: var(--ui-widget-background);color: var(--secondary-text);outline: none;resize: none;font-family: monospace;white-space: pre-wrap;overflow-x: auto;overflow-y: hidden scroll;`});
+             this._fnInput.value= `sampleL=0`
+              this._outInterface = div$1({id: "interface",style: `width: 100%;box-sizing: border-box;font-size: 80%;background: var(--ui-widget-background);color: var(--secondary-text);`});
+              this._ioWrapper = div$d({  style: `display: flex;flex-direction: column;width: 23em;gap: 0.4em; align-items: center;`}, this._fnInput, this._outInterface);
+             this._functionRow = div$d({ class: "selectRow" },div$d({ style: "color:" + ColorConfig.secondaryText + "; margin-top:-3px;" }),span$4({class: "tip",style: "font-size:8px",onclick: () => this._openPrompt("functionFN")}, "Function:"),this._ioWrapper);
             
             this._pitchShiftBox = input$8({ style: "width: 4em; font-size: 80%; ", id: "pitchShiftBox", type: "number", step: "1", min: "0", max: "24", value: "0" });
             this._pitchShiftRow = div$d({ class: "selectRow" }, div$d({ style: "color: " + ColorConfig.secondaryText + "; margin-top: -3px;" }, this._pitchShiftBox), span$4({ class: "tip", style:"font-size:6px", onclick: () => this._openPrompt("pitchShift") }, "Pitch Shift:"), this._pitchShiftMarkerContainer);
@@ -64747,9 +66070,15 @@ class CustomSelectModal{
             this._arpeggioSpeedDisplay = span({ style: `color: ${ColorConfig.secondaryText}; font-size: smaller; text-overflow: clip;` }, "x1");
             this._arpeggioSpeedSlider = new Slider(input({ style: "margin: 0;", type: "range", min: "0", max: Config.modulators.dictionary["arp speed"].maxRawVol, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangeArpeggioSpeed(this.doc, oldValue, newValue), false);
             this._arpeggioSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip", style: "margin-left:4px;", onclick: () => this._openPrompt("arpeggioSpeed") }, "‣ Spd:"), this._arpeggioSpeedDisplay, this._arpeggioSpeedSlider.container);
+            
+this._strumSpeedDisplay = span({ style: `color: ${ColorConfig.secondaryText}; font-size: smaller; text-overflow: clip;` }, "x1");
+this._strumSpeedSlider = new Slider(input({ style: "margin: 0;", type: "range", min: "0", max: Config.modulators.dictionary["arp speed"].maxRawVol, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangeArpeggioSpeed(this.doc, oldValue, newValue), false);
+this._strumSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip", style: "margin-left:4px;", onclick: () => this._openPrompt("arpeggioSpeed") }, "‣ Spd:"), this._strumSpeedDisplay, this._strumSpeedSlider.container);
+
             this._twoNoteArpBox = input({ type: "checkbox", style: "width: 1em; padding: 0; margin-right: 4em;" });
             this._twoNoteArpRow = div({ class: "selectRow dropFader" }, span({ class: "tip", style: "margin-left:4px;", onclick: () => this._openPrompt("twoNoteArpeggio") }, "‣ Fast Two-Note:"), this._twoNoteArpBox);
             this._chordDropdownGroup = div({ class: "editor-controls", style: "display: none;" }, this._arpeggioSpeedRow, this._twoNoteArpRow);
+            this._chordStrumDropdownGroup = div({ class: "editor-controls", style: "display: none;" }, this._strumSpeedRow);
             this._vibratoSelect = buildOptions(select(), Config.vibratos.map(vibrato => vibrato.name));
             this._vibratoDropdown = button({ style: "margin-left:0em; height:1.5em; width: 10px; padding: 0px; font-size: 8px;", onclick: () => this._toggleDropdownMenu(0) }, "▼");
             this._vibratoSelectRow = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("vibrato") }, "Vibrato:"), this._vibratoDropdown, div({ class: "selectContainer", style: "width: 61.5%;" }, this._vibratoSelect));
@@ -64825,7 +66154,7 @@ class CustomSelectModal{
             this._feedbackAmplitudeSlider = new Slider(input({ type: "range", min: "0", max: Config.operatorAmplitudeMax, value: "0", step: "1", title: "Feedback Amplitude" }), this.doc, (oldValue, newValue) => new ChangeFeedbackAmplitude(this.doc, oldValue, newValue), false);
             this._feedbackRow2 = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("feedbackVolume") }, "Fdback Vol:"), this._feedbackAmplitudeSlider.container);
             this._addEnvelopeButton = button({ type: "button", class: "add-envelope" });
-            this._customInstrumentSettingsGroup = div({ class: "editor-controls" }, this._panSliderRow, this._panDropdownGroup, this._chipWaveSelectRow, this._chipWaveError, this._chipNoiseSelectRow, this._useChipWaveAdvancedLoopControlsRow, this._chipWaveLoopModeSelectRow, this._chipWaveLoopStartRow, this._chipWaveLoopEndRow, this._chipWaveStartOffsetRow, this._chipWavePlayBackwardsRow, this._customWaveDraw, this._eqFilterTypeRow, this._eqFilterRow, this._eqFilterSimpleCutRow, this._eqFilterSimplePeakRow, this._fadeInOutRow, this._algorithmSelectRow, this._algorithm6OpSelectRow, this._phaseModGroup, this._feedbackRow1, this._feedback6OpRow1, this._feedbackRow2, this._spectrumRow, this._harmonicsRow, this._drumsetGroup, this._supersawDynamismRow, this._supersawSpreadRow, this._supersawShapeRow, this._pulseWidthRow, this._pulseWidthDropdownGroup, this._stringSustainRow, this._unisonSelectRow, this._unisonDropdownGroup, div({ style: `padding: 2px 0; margin-left: 2em; display: flex; align-items: center;` }, span({ style: `flex-grow: 1; text-align: center;` }, span({ class: "tip", onclick: () => this._openPrompt("effects") }, "Effects")), div({ class: "effects-menu" }, this._effectsSelect)), this._transitionRow, this._transitionDropdownGroup, this._chordSelectRow, this._chordDropdownGroup, this._pitchShiftRow, this._octaveShiftRow , this._functionRow,  this._detuneSliderRow, this._vibratoSelectRow, this._vibratoDropdownGroup, this._noteFilterTypeRow, this._noteFilterRow, this._noteFilterSimpleCutRow, this._noteFilterSimplePeakRow, this._distortionRow, this._aliasingRow, this._bitcrusherQuantizationRow, this._bitcrusherFreqRow, this._chorusRow, this._echoSustainRow, this._echoDelayRow, this._reverbRow, this._ringModContainerRow, this._granularContainerRow, div({ style: `padding: 2px 0; margin-left: 2em; display: flex; align-items: center;` }, span({ style: `flex-grow: 1; text-align: center;` }, span({ class: "tip", onclick: () => this._openPrompt("envelopes") }, "Envelopes")), this._envelopeDropdown, this._addEnvelopeButton), this._envelopeDropdownGroup, this.envelopeEditor.container);
+            this._customInstrumentSettingsGroup = div({ class: "editor-controls" }, this._panSliderRow, this._panDropdownGroup, this._chipWaveSelectRow, this._chipWaveError, this._chipNoiseSelectRow, this._useChipWaveAdvancedLoopControlsRow, this._chipWaveLoopModeSelectRow, this._chipWaveLoopStartRow, this._chipWaveLoopEndRow, this._chipWaveStartOffsetRow, this._chipWavePlayBackwardsRow, this._customWaveDraw, this._eqFilterTypeRow, this._eqFilterRow, this._eqFilterSimpleCutRow, this._eqFilterSimplePeakRow, this._fadeInOutRow, this._algorithmSelectRow, this._algorithm6OpSelectRow, this._phaseModGroup, this._feedbackRow1, this._feedback6OpRow1, this._feedbackRow2, this._spectrumRow, this._harmonicsRow, this._drumsetGroup, this._supersawDynamismRow, this._supersawSpreadRow, this._supersawShapeRow, this._pulseWidthRow, this._pulseWidthDropdownGroup, this._stringSustainRow, this._unisonSelectRow, this._unisonDropdownGroup, div({ style: `padding: 2px 0; margin-left: 2em; display: flex; align-items: center;` }, span({ style: `flex-grow: 1; text-align: center;` }, span({ class: "tip", onclick: () => this._openPrompt("effects") }, "Effects")), div({ class: "effects-menu" }, this._effectsSelect)), this._transitionRow, this._transitionDropdownGroup, this._chordSelectRow, this._chordStrumDropdownGroup,this._chordDropdownGroup, this._pitchShiftRow, this._octaveShiftRow , this._functionRow,  this._detuneSliderRow, this._vibratoSelectRow, this._vibratoDropdownGroup, this._noteFilterTypeRow, this._noteFilterRow, this._noteFilterSimpleCutRow, this._noteFilterSimplePeakRow, this._distortionRow, this._aliasingRow, this._bitcrusherQuantizationRow, this._bitcrusherFreqRow, this._chorusRow, this._echoSustainRow, this._echoDelayRow, this._reverbRow, this._ringModContainerRow,  this._phaserMixRow, this._phaserFreqRow, this._phaserFeedbackRow, this._phaserStagesRow,  this._granularContainerRow, div({ style: `padding: 2px 0; margin-left: 2em; display: flex; align-items: center;` }, span({ style: `flex-grow: 1; text-align: center;` }, span({ class: "tip", onclick: () => this._openPrompt("envelopes") }, "Envelopes")), this._envelopeDropdown, this._addEnvelopeButton), this._envelopeDropdownGroup, this.envelopeEditor.container);
             this._instrumentCopyGroup = div({ class: "editor-controls" }, div({ class: "selectRow" }, this._instrumentCopyButton, this._instrumentPasteButton));
             this._instrumentExportGroup = div({ class: "editor-controls" }, div({ class: "selectRow" }, this._instrumentExportButton, this._instrumentImportButton));
             
@@ -64857,7 +66186,23 @@ class CustomSelectModal{
             this._trackAndMuteContainer = div({ class: "trackAndMuteContainer" }, this._muteEditor.container, this._trackContainer, this._trackVisibleArea);
             this._barScrollBar = new BarScrollBar(this.doc);
             this._trackArea = div({ class: "track-area" }, this._trackAndMuteContainer, this._barScrollBar.container);
-            this._menuArea = div({ class: "menu-area" }, div({ class: "selectContainer menu file" }, this._fileMenu), div({ class: "selectContainer menu edit" }, this._editMenu), div({ class: "selectContainer menu preferences" }, this._optionsMenu));
+            this._editMenu.options[0].textContent = "Edit Song";
+            this._optionsMenu.options[0].textContent = "Settings"
+            function setPreferencesIcon(svgString) {
+               const encoded = encodeURIComponent(svgString);
+               document.documentElement.style.setProperty(
+               "--preferences-gear-symbol",
+               `url("data:image/svg+xml,${encoded}")`
+               );
+            }
+ 
+            this._menuArea = div({ class: "menu-area" }, div({ class: "selectContainer menu file" }, this._fileMenu), div({ class: "selectContainer menu preferences" }, this._optionsMenu) ,div({ class: "selectContainer menu edit" }, this._editMenu)); 
+            if(this.doc.prefs.oldButtonSheme){
+            	this._editMenu.options[0].textContent = "Edit";
+             setPreferencesIcon('<svg xmlns="http:\/\/www.w3.org/2000\/svg" width="26" height="26" viewBox="-13 -13 26 26"><path d="M 5.78 -1.6 L 7.93 -0.94 L 7.93 0.94 L 5.78 1.6 L 4.85 3.53 L 5.68 5.61 L 4.21 6.78 L 2.36 5.52 L 0.27 5.99 L -0.85 7.94 L -2.68 7.52 L -2.84 5.28 L -4.52 3.95 L -6.73 4.28 L -7.55 2.59 L -5.9 1.07 L -5.9 -1.07 L -7.55 -2.59 L -6.73 -4.28 L -4.52 -3.95 L -2.84 -5.28 L -2.68 -7.52 L -0.85 -7.94 L 0.27 -5.99 L 2.36 -5.52 L 4.21 -6.78 L 5.68 -5.61 L 4.85 -3.53 M 2.92 0.67 L 2.92 -0.67 L 2.35 -1.87 L 1.3 -2.7 L 0 -3 L -1.3 -2.7 L -2.35 -1.87 L -2.92 -0.67 L -2.92 0.67 L -2.35 1.87 L -1.3 2.7 L -0 3 L 1.3 2.7 L 2.35 1.87 z" fill="gray"\/><\/svg>')	
+            	this._optionsMenu.options[0].textContent = "Preferences"
+            	this._menuArea = div({ class: "menu-area" }, div({ class: "selectContainer menu file" }, this._fileMenu),div({ class: "selectContainer menu edit" }, this._editMenu), div({ class: "selectContainer menu preferences" }, this._optionsMenu) ); 
+            }
             this._sampleLoadingBar = div({ style: `width: 0%; height: 100%; background-color: ${ColorConfig.indicatorPrimary};` });
             this._sampleLoadingBarContainer = div({ style: `width: 80%; height: 4px; overflow: hidden; margin-left: auto; margin-right: auto; margin-top: 0.5em; cursor: pointer; background-color: ${ColorConfig.indicatorSecondary};` }, this._sampleLoadingBar);
             this._sampleLoadingStatusContainer = div({ style: "cursor: pointer;" }, div({ style: `margin-top: 0.5em; text-align: center; color: ${ColorConfig.secondaryText};` }, "Sample Loading Status"), div({ class: "selectRow", style: "height: 6px; margin-bottom: 0.5em;" }, this._sampleLoadingBarContainer));
@@ -65021,6 +66366,7 @@ class CustomSelectModal{
                     (prefs.notesFlashWhenPlayed ? textOnIcon : textOffIcon) + "Notes Flash When Played",
                     (prefs.instrumentButtonsAtTop ? textOnIcon : textOffIcon) + "Instrument Buttons at Top",
                     (prefs.frostedGlassBackground ? textOnIcon : textOffIcon) + "Frosted Glass Prompt Backdrop",
+                    ( prefs.pianoKeyboard ? textOnIcon : textOffIcon) + "Better Piano Roll",
                     (prefs.useCustomSelectPrompt ? textOnIcon : textOffIcon) + "Use Custom Select Prompt",
                     (prefs.showChannels ? textOnIcon : textOffIcon) + "Show All Channels",
                     (prefs.showScrollBar ? textOnIcon : textOffIcon) + "Show Octave Scroll Bar",
@@ -65031,6 +66377,8 @@ class CustomSelectModal{
                     (prefs.showOscilloscope ? textOnIcon : textOffIcon) + "Show Oscilloscope",
                     (prefs.showSampleLoadingStatus ? textOnIcon : textOffIcon) + "Show Sample Loading Status",
                     (prefs.showDescription ? textOnIcon : textOffIcon) + "Show Description",
+                    ( prefs.oldButtonSheme ? textOnIcon : textOffIcon) + "Old Menu Sheme (↻)",
+                    ( prefs.newloopeditor ? textOnIcon : textOffIcon) + "Not Centered Loop Editor",
                     textSpacingIcon + "Open Plugins",
                     textSpacingIcon + "Set Layout...",
                     textSpacingIcon + "Set Theme...",
@@ -65371,19 +66719,24 @@ class CustomSelectModal{
                     }
                     if (effectsIncludeChord(instrument.effects)) {
                         this._chordSelectRow.style.display = "flex";
-                        this._chordDropdown.style.display = instrument.chord == Config.chords.dictionary["arpeggio"].index ? "" : "none";
-                        if (this._openChordDropdown) {
+                        this._chordDropdown.style.display = instrument.chord == Config.chords.dictionary["arpeggio"].index  ? "" : "none";
+                       
+                       /* if (this._openChordDropdown) {
+                        	if (instrument.chord == Config.chords.dictionary["custom strum"].index) {
+                                this._chordStrumDropdownGroup.style.display = "";
+                            } else
                             if (instrument.chord == Config.chords.dictionary["arpeggio"].index) {
                                 this._chordDropdownGroup.style.display = "";
-                            }
+                            }  
                             else if (instrument.chord == Config.chords.dictionary["monophonic"].index) {
                                 this._chordDropdownGroup.style.display = "";
                                 setSelectedValue(this._chordSelect, instrument.chord);
                             }
                             else {
                                 this._chordDropdownGroup.style.display = "none";
+                                this._chordStrumDropdownGroup.style.display = "none";
                             }
-                        }
+                        }*/
                         if (instrument.chord == Config.chords.dictionary["monophonic"].index) {
                             this._monophonicNoteInputBox.value = instrument.monoChordTone + 1 + "";
                             this._monophonicNoteInputBox.style.display = "";
@@ -65426,7 +66779,6 @@ class CustomSelectModal{
                         this._functionRow.style.display = "";
                         if(instrument.customfunction[1]){
                         editor._fnInput.value = instrument.customfunction[1]
-                        editor._hdInput.value = instrument.customfunction[0]
                         }
                     }
                     else {
@@ -65541,6 +66893,22 @@ class CustomSelectModal{
                     else {
                         this._reverbRow.style.display = "none";
                     }
+                    if (effectsIncludePhaser(instrument.effects)) {
+                        this._phaserMixRow.style.display = "";
+                        this._phaserMixSlider.updateValue(instrument.phaserMix);
+                        this._phaserFreqRow.style.display = "";
+                        this._phaserFreqSlider.updateValue(instrument.phaserFreq);
+                        this._phaserFeedbackRow.style.display = "";
+                        this._phaserFeedbackSlider.updateValue(instrument.phaserFeedback);
+                        this._phaserStagesRow.style.display = "";
+                        this._phaserStagesSlider.updateValue(instrument.phaserStages);
+                    }
+                    else {
+                        this._phaserMixRow.style.display = "none";
+                        this._phaserFreqRow.style.display = "none";
+                        this._phaserFeedbackRow.style.display = "none";
+                        this._phaserStagesRow.style.display = "none";
+                    }
                     if (effectsIncludeRingModulation(instrument.effects)) {
                         this._ringModContainerRow.style.display = "";
                         this._ringModSlider.updateValue(instrument.ringModulation);
@@ -65561,7 +66929,8 @@ class CustomSelectModal{
                     else {
                         this._granularContainerRow.style.display = "none";
                     }
-                    if (instrument.type == 0 || instrument.type == 9 || instrument.type == 5 || instrument.type == 7 || instrument.type == 3 || instrument.type == 6 || instrument.type == 2 || instrument.type == 4) {
+                     
+                    if (instrument.type == 0 || instrument.type == 9 || instrument.type == 5 || instrument.type == 7 || instrument.type == 3 || instrument.type == 6 || instrument.type == 2 || instrument.type == 4 ) {
                         this._unisonSelectRow.style.display = "";
                         setSelectedValue(this._unisonSelect, instrument.unison);
                         this._unisonVoicesInputBox.value = instrument.unisonVoices + "";
@@ -65607,7 +66976,7 @@ if (instrument.octaveShift) {
 }
 if(instrument.customfunction){
 	if(instrument.customfunction[1]){this._fnInput.value = instrument.customfunction[1]}
- if(instrument.customfunction[0]){this._hdInput.value = instrument.customfunction[0]}
+ if(instrument.customfunction[0]){}
 }
                     this._instrumentName.value=this.doc.song.channels[this.doc.channel].name
                     
@@ -65790,6 +67159,7 @@ if(instrument.customfunction){
                                 settingList.push("mix volume");
                                 let tgtInstrumentTypes = [];
                                 let anyInstrumentAdvancedEQ = false, anyInstrumentSimpleEQ = false, anyInstrumentAdvancedNote = false, anyInstrumentSimpleNote = false, anyInstrumentArps = false, anyInstrumentPitchShifts = false,anyInstrumentOctaveShifts = false, anyInstrumentDetunes = false, anyInstrumentVibratos = false, anyInstrumentNoteFilters = false, anyInstrumentDistorts = false, anyInstrumentBitcrushes = false, anyInstrumentPans = false, anyInstrumentChorus = false, anyInstrumentEchoes = false, anyInstrumentReverbs = false, anyInstrumentRingMods = false, anyInstrumentGranulars = false,
+                                anyInstrumentPhasers = false, 
                                 anyInstrumentCustomUnison = false, anyInstrumentHasEnvelopes = false;
                                 let allInstrumentPitchShifts = true,allInstrumentOctaveShifts = true, allInstrumentNoteFilters = true, allInstrumentDetunes = true, allInstrumentVibratos = true, allInstrumentDistorts = true, allInstrumentBitcrushes = true, allInstrumentPans = true, allInstrumentChorus = true, allInstrumentEchoes = true, allInstrumentReverbs = true, allInstrumentRingMods = true, allInstrumentGranulars = true;
                                 let instrumentCandidates = [];
@@ -65803,10 +67173,10 @@ if(instrument.customfunction){
                                 }
                                 for (let i = 0; i < instrumentCandidates.length; i++) {
                                     let instrumentIndex = instrumentCandidates[i];
-let thisinstrument = channel.instruments[instrumentCandidates[i]];
-if (thisinstrument.unison === Config.unisons.length) {
-	anyInstrumentCustomUnison = true;
-}
+                                 let thisinstrument = channel.instruments[instrumentCandidates[i]];
+                                 if (thisinstrument.unison === Config.unisons.length) {
+                                    	anyInstrumentCustomUnison = true;
+                                 }
                                     
                                     if (!tgtInstrumentTypes.includes(channel.instruments[instrumentIndex].type))
                                         tgtInstrumentTypes.push(channel.instruments[instrumentIndex].type);
@@ -65886,6 +67256,12 @@ if (thisinstrument.unison === Config.unisons.length) {
                                     }
                                     else {
                                         allInstrumentReverbs = false;
+                                    }
+                                    if (effectsIncludePhaser(channel.instruments[instrumentIndex].effects)) {
+                                        anyInstrumentPhasers = true;
+                                    }
+                                    else {
+                                        anyInstrumentPhasers = false;
                                     }
                                     if (effectsIncludeRingModulation(channel.instruments[instrumentIndex].effects)) {
                                         anyInstrumentRingMods = true;
@@ -66027,7 +67403,12 @@ if (thisinstrument.unison === Config.unisons.length) {
                                     unusedSettingList.push("+ ring modulation");
                                     unusedSettingList.push("+ ring mod hertz");
                                 }
-
+                                if (anyInstrumentPhasers) {
+                                    settingList.push("phaser"); 
+                                    settingList.push("phaser frequency");
+                                    settingList.push("phaser feedback");
+                                    settingList.push("phaser stages");
+                                }
                                 if (anyInstrumentGranulars) {
                                     settingList.push("granular");
                                     settingList.push("grain freq");
@@ -66398,7 +67779,7 @@ if (anyInstrumentOctaveShifts) {
                     }
                     return;
                 }
-                if (document.activeElement == this._songTitleInputBox.input || this._patternEditor.editingModLabel || document.activeElement == this._muteEditor._channelNameInput.input) {
+                if ((document.activeElement == this._songTitleInputBox.input || this._patternEditor.editingModLabel || document.activeElement == this._muteEditor._channelNameInput.input ) && document.activeElement !== this._fnInput) {
                     if (event.keyCode == 13 || event.keyCode == 27) {
                         this.mainLayer.focus();
                         this._patternEditor.stopEditingModLabel(event.keyCode == 27);
@@ -66408,7 +67789,7 @@ if (anyInstrumentOctaveShifts) {
                 if (document.activeElement == this._panSliderInputBox
                     || document.activeElement == this._pwmSliderInputBox
                     || document.activeElement == this._detuneSliderInputBox||
-                    document.activeElement == this._pitchShiftBox || document.activeElement == this._octaveShiftBox || document.activeElement == this._fnInput || document.activeElement == this._hdInput ||  document.activeElement == this._instrumentName 
+                    document.activeElement == this._pitchShiftBox || document.activeElement == this._octaveShiftBox || document.activeElement == this._fnInput ||  document.activeElement == this._instrumentName 
                     || document.activeElement == this._instrumentVolumeSliderInputBox
                     || document.activeElement == this._chipWaveLoopStartStepper
                     || document.activeElement == this._chipWaveLoopEndStepper
@@ -66427,7 +67808,7 @@ if (anyInstrumentOctaveShifts) {
                     || this.envelopeEditor.randomStepsBoxes.find((element) => element == document.activeElement)
                     || this.envelopeEditor.randomStepsBoxes.find((element) => element == document.activeElement)
                     || this.envelopeEditor.LFOStepsBoxes.find((element) => element == document.activeElement)) {
-                    if (event.keyCode == 13 || event.keyCode == 27) {
+                    if ((event.keyCode == 13 || event.keyCode == 27) && document.activeElement !== this._fnInput) {
                         this.mainLayer.focus();
                     }
                     return;
@@ -66869,6 +68250,7 @@ if (anyInstrumentOctaveShifts) {
                             this.doc.prefs.colorTheme = "slarmoosbox";
                             this.doc.prefs.language="en"
                             this.doc.prefs.frostedGlassBackground = false;
+                            this.doc.prefs.pianoKeyboard=false
                             this.doc.prefs.instrumentButtonsAtTop = true;
                             this.doc.prefs.instrumentCopyPaste = true;
                             this.doc.prefs.instrumentImportExport = true;
@@ -67786,9 +69168,15 @@ break;
                     case "showDescription":
                         this.doc.prefs.showDescription = !this.doc.prefs.showDescription;
                         break;
+case "oldButtonSheme":
+this.doc.prefs.oldButtonSheme = !this.doc.prefs.oldButtonSheme;
+reloadsite();
+break;
+case "newloopeditor":
+this.doc.prefs.newloopeditor = !this.doc.prefs.newloopeditor;
+break;
 case "openPlugins":
  this._openPrompt("plugins");
-//this.doc.prefs.showPlugins = !this.doc.prefs.showPlugins;
 break;
 case "whistleRecord":
 this.doc.prefs.whistleRecord = false; 
@@ -67820,6 +69208,10 @@ break;
                         break;
                     case "frostedGlassBackground":
                         this.doc.prefs.frostedGlassBackground = !this.doc.prefs.frostedGlassBackground;
+                        break;
+                    case "pianoKeyboard":
+                        this.doc.prefs.pianoKeyboard = !this.doc.prefs.pianoKeyboard;
+                        rebuiltKeyboard()
                         break;
                 }
                 this._optionsMenu.selectedIndex = 0;
@@ -68098,23 +69490,7 @@ if ((parsed)) {
 }
 this._fnInput.addEventListener("input", () => {
 	fnhandler()
-});
-let hdhandler= ()=>{
-	const parsed = (this._hdInput.value);
-if ((parsed)) {
-	this.doc.record(new ChangeFunction(
-		this.doc,
-		0,
-		parsed,
-		this.doc.song.channels[this.doc.channel].instruments[this.doc.getCurrentInstrument()].customfunction[0],
-	));
-}
-}
-this._hdInput.addEventListener("input", () => {
-hdhandler()
-});
-hdhandler()
-fnhandler()
+}); 
 this._octaveShiftBox.addEventListener("input", () => {
 	const parsed = Number(this._octaveShiftBox.value);
 	if (!isNaN(parsed)) {
@@ -68459,6 +69835,14 @@ this._instrumentName.addEventListener("input", () => {
                     return this._ringModSlider;
                 case Config.modulators.dictionary["ring mod hertz"].index:
                     return this._ringModHzSlider;
+                case Config.modulators.dictionary["phaser"].index:
+                    return this._phaserMixSlider;
+                case Config.modulators.dictionary["phaser frequency"].index:
+                    return this._phaserFreqSlider;
+                case Config.modulators.dictionary["phaser feedback"].index:
+                    return this._phaserFeedbackSlider;
+                case Config.modulators.dictionary["phaser stages"].index:
+                    return this._phaserStagesSlider;
                 case Config.modulators.dictionary["granular"].index:
                     return this._granularSlider;
                 case Config.modulators.dictionary["grain freq"].index:
@@ -68480,7 +69864,7 @@ this._instrumentName.addEventListener("input", () => {
                 return;
             this._currentPromptName = promptName;
             if (this.prompt) {
-                if (this._wasPlaying && !(this.prompt instanceof TipPrompt || this.prompt instanceof LimiterPrompt || this.prompt instanceof CustomScalePrompt || this.prompt instanceof CustomChipPrompt || this.prompt instanceof CustomFilterPrompt || this.prompt instanceof VisualLoopControlsPrompt || this.prompt instanceof SustainPrompt || this.prompt instanceof HarmonicsEditorPrompt || this.prompt instanceof SpectrumEditorPrompt)) {
+                if (this._wasPlaying && !(this.prompt instanceof TipPrompt || this.prompt instanceof LimiterPrompt || this.prompt instanceof CustomScalePrompt || this.prompt instanceof CustomChipPrompt || this.prompt instanceof CustomFilterPrompt|| this.prompt instanceof VisualLoopControlsPromptOLD || this.prompt instanceof VisualLoopControlsPrompt|| this.prompt instanceof SustainPrompt || this.prompt instanceof HarmonicsEditorPrompt || this.prompt instanceof SpectrumEditorPrompt)) {
                     this.doc.performance.play();
                 }
                 this._wasPlaying = false;
@@ -68592,7 +69976,11 @@ case "plugin:other": {
     break;
 }
                    case "visualLoopControls":
-                        this.prompt = new VisualLoopControlsPrompt(this.doc, this);
+                   	if(!this.doc.prefs.newloopeditor){
+                        this.prompt = new VisualLoopControlsPromptOLD(this.doc, this);
+                   	}else{
+                   		   this.prompt = new VisualLoopControlsPrompt(this.doc, this);
+                   	}
                         break;
                     case "sampleLoadingStatus":
                         this.prompt = new SampleLoadingStatusPrompt(this.doc);
@@ -68614,11 +70002,16 @@ case "plugin:other": {
                         break;
                 }
                 if (this.prompt) {
-                    if (!(this.prompt instanceof TipPrompt || this.prompt instanceof LimiterPrompt || this.prompt instanceof CustomChipPrompt || this.prompt instanceof CustomFilterPrompt || this.prompt instanceof VisualLoopControlsPrompt || this.prompt instanceof SustainPrompt || this.prompt instanceof HarmonicsEditorPrompt || this.prompt instanceof SpectrumEditorPrompt)) {
+                    if (!(this.prompt instanceof TipPrompt || this.prompt instanceof LimiterPrompt || this.prompt instanceof CustomChipPrompt || this.prompt instanceof CustomFilterPrompt|| this.prompt instanceof VisualLoopControlsPromptOLD|| this.prompt instanceof VisualLoopControlsPrompt || this.prompt instanceof SustainPrompt || this.prompt instanceof HarmonicsEditorPrompt || this.prompt instanceof SpectrumEditorPrompt)) {
                         this._wasPlaying = this.doc.synth.playing;
                         this.doc.performance.pause();
                     }
                     this._promptContainer.style.display = "";
+
+
+
+ 
+
                     if (this.doc.prefs.frostedGlassBackground == true) {
 this._promptContainerBG.style.display = "block"
 this._promptContainerBG.style.backgroundColor = "rgba(0,0,0,0.01)"
@@ -68893,7 +70286,7 @@ this._promptContainerBG.style.filter = "none"
         }
     }
 
-    const editor = new SongEditor();
+    var editor = new SongEditor();
  
 const activePitchTimeouts = new Map(); 
 
