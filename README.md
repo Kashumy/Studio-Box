@@ -1,5 +1,6 @@
-# FruityBox:
-FruityBox is a program maded with using code of
-Slarmoos Box 
+# StudioBox:
+StudioBox is a online and offline software maded with using code of
+Slarmoo's Box.
+Studio Box Orginal Code is Here !
 
-https://kashumy.github.io/Fruity-Box/
+https://kashumy.github.io/Studio-Box/
