@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DAW</title>
+<style>
+:root{
+--bg:#121212;
+--wave-bg:#000;
+--wave-color:#D6D6D6;
+--caret:#FFFFFF;
+--btn:#1e1e1e;
+--btn-rec:red;
+--btn-play:#1db954;
+--txt:#fff;
+}
+body{
+margin:0;
+height:100vh;
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+background:var(--bg);
+color:var(--txt);
+font-family:sans-serif;
+user-select:none;
+}
+#wave{
+position:relative;
+width:90%;
+height:150px;
+background:#000;
+overflow:hidden;
+}
+canvas{
+position:absolute;
+top:0;
+left:0;
+}
+#caret{
+position:absolute;
+top:0;
+bottom:0;
+width:2px;
+background:var(--caret);
+left:50%;
+transform:translateX(-1px);
+pointer-events:none;
+}
+#countdown{
+position:absolute;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+font-size: 5em;
+color: var(--caret);
+pointer-events: none;
+display: none;
+}
+.controls{
+margin-top:10px;
+display:flex;
+gap:10px;
+}
+button{
+width:80px;
+height:40px;
+background:var(--btn);
+border:0;
+color:var(--txt);
+cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<div id="wave">
+<canvas id="c"></canvas>
+<div id="caret"></div>
+<div id="countdown"></div>
+</div>
+
+<div class="controls">
+<button id="rec">RECORD</button>
+<button id="play">PLAY</button>
+<button id="down">EXPORT</button>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
+<script>
+const wave=document.getElementById('wave')
+const canvas=document.getElementById('c')
+const ctx=canvas.getContext('2d')
+const rec=document.getElementById('rec')
+const play=document.getElementById('play')
+const down=document.getElementById('down')
+const countdownElement = document.getElementById('countdown')
+
+document.querySelector('html').ondblclick = () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen()
+  } else {
+    document.exitFullscreen()
+  }
+}
+const dpr=window.devicePixelRatio||1
+canvas.width=wave.clientWidth*dpr
+canvas.height=wave.clientHeight*dpr
+canvas.style.width=wave.clientWidth+'px'
+canvas.style.height=wave.clientHeight+'px'
+ctx.scale(dpr,dpr)
+
+const caretX=wave.clientWidth/2
+const pxPerSample=1/256
+const minScroll = () =>0
+
+let audioCtx
+let source
+let proc
+let recorder
+let stream
+let audio=[]
+let visual=[]
+let scrollX=0
+let isRec=false
+let isPlay=false
+let playSrc
+let raf
+let writeSample=0
+let lastTouchX = 0
+let isTouch = false
+
+wave.addEventListener('touchstart', e => {
+  if (isRec || isPlay) return
+  isTouch = true
+  lastTouchX = e.touches[0].clientX
+})
+
+wave.addEventListener('touchmove', e => {
+  if (!isTouch) return
+  const x = e.touches[0].clientX
+  const dx = lastTouchX - x
+  lastTouchX = x
+
+  scrollX += dx
+  if (scrollX < minScroll()) scrollX = minScroll()
+
+  draw()
+  e.preventDefault()
+}, { passive:false })
+
+wave.addEventListener('touchend', () => {
+  isTouch = false
+})
+
+function draw(){
+ctx.fillStyle='#222'
+ctx.fillRect(0,0,wave.clientWidth,wave.clientHeight)
+ctx.fillStyle = '#000'
+ctx.fillRect(0, 0, caretX-scrollX, wave.clientHeight)
+ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--wave-color')
+const mid=wave.clientHeight/2
+for(let i=0;i<visual.length;i++){
+const x=i-scrollX
+if(x<0||x>wave.clientWidth)continue
+const v=visual[i]*mid
+ctx.beginPath()
+ctx.moveTo(x,mid-v)
+ctx.lineTo(x,mid+v)
+ctx.stroke()
+}
+}
+draw()
+
+function startCountdown(seconds) {
+    return new Promise(resolve => {
+        let count = seconds
+        countdownElement.style.display = 'block'
+        countdownElement.textContent = count
+        const interval = setInterval(() => {
+            if (count > 1) {
+                count--
+                countdownElement.textContent = count
+            } else {
+                clearInterval(interval)
+                countdownElement.style.display = 'none'
+                resolve()
+            }
+        }, 500)
+    })
+}
+
+ 
+
+rec.onclick=async()=>{
+if(!isRec){
+if (audio.length === 0) {
+    visual = []
+}
+audioCtx=new (window.AudioContext || window.webkitAudioContext)()
+try {
+    stream = await navigator.mediaDevices.getUserMedia({audio:true})
+} catch (error) {
+    alert('No Mic Access')
+    rec.style.background=''
+    return
+}
+await startCountdown(3)
+source=audioCtx.createMediaStreamSource(stream)
+proc = audioCtx.createScriptProcessor(4096, 1, 1); 
+
+source.connect(proc)
+const silentGain = audioCtx.createGain();
+silentGain.gain.value = 0;
+
+proc.connect(silentGain);
+silentGain.connect(audioCtx.destination);
+
+isRec=true
+rec.style.background='var(--btn-rec)'
+writeSample = Math.floor((scrollX + caretX) * 256)
+proc.onaudioprocess=e=>{
+const input=e.inputBuffer.getChannelData(0)
+if (writeSample + input.length > audio.length) {
+    const newLength = writeSample + input.length
+    const newAudio = new Array(newLength).fill(0)
+    for (let i = 0; i < audio.length; i++) {
+        newAudio[i] = audio[i]
+    }
+    audio = newAudio
+}
+for(let i=0;i<input.length;i++){
+audio[writeSample+i]=input[i]
+}
+for(let i=0;i<input.length;i+=256){
+let m=0
+for(let j=i;j<i+256&&j<input.length;j++)m=Math.max(m,Math.abs(input[j]))
+const idx = ((writeSample + i) / 256) | 0
+visual[idx] = m 
+}
+writeSample+=input.length
+const writePx = writeSample / 256
+scrollX = Math.max(0, writePx - caretX)
+draw()
+}
+}else{
+proc.disconnect()
+source.disconnect()
+if (stream) {
+    stream.getTracks().forEach(track => track.stop())
+}
+isRec=false
+rec.style.background=''
+}
+}
+
+play.onclick = () => {
+    if (isRec) return
+    if (audio.length === 0) {
+        visual = []
+        draw()
+        return
+    }
+    if (isPlay) {
+        playSrc.stop()
+        cancelAnimationFrame(raf)
+        isPlay = false
+        play.style.background = ''
+        return
+    }
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume()
+    }
+    const buf = audioCtx.createBuffer(1, audio.length, audioCtx.sampleRate)
+    buf.copyToChannel(new Float32Array(audio), 0)
+    playSrc = audioCtx.createBufferSource()
+    playSrc.buffer = buf
+    playSrc.connect(audioCtx.destination)
+    
+    const startSample = Math.floor((scrollX + caretX) * 256)
+    playSrc.start(0, startSample / audioCtx.sampleRate)
+    isPlay = true
+    play.style.background = 'var(--btn-play)'
+    const startTime = audioCtx.currentTime
+    
+    playSrc.onended = () => {
+        isPlay = false
+        play.style.background = ''
+        cancelAnimationFrame(raf)
+        draw()
+    }
+    raf = requestAnimationFrame(function loop() {
+        if (!isPlay) return
+        const elapsedTime = audioCtx.currentTime - startTime
+        
+        const currentSample = startSample + (elapsedTime * audioCtx.sampleRate)
+        
+        const playPx = currentSample / 256
+       
+        scrollX = Math.max(0, playPx - caretX)
+        
+        draw()
+        raf = requestAnimationFrame(loop)
+    })
+}
+
+
+down.onclick=()=>{
+if(audio.length===0)return
+if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+}
+const sampleRate = audioCtx.sampleRate || 44100;
+
+const mp3=encode(new Float32Array(audio), sampleRate)
+const a=document.createElement('a')
+a.href=URL.createObjectURL(mp3)
+a.download='audio.mp3'
+a.click()
+}
+function blobToBase64(blob) {
+ return new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => {
+   const base64data = reader.result.split(',')[1];
+   resolve(base64data);
+  };
+  reader.onerror = reject;
+  reader.readAsDataURL(blob);
+ });
+}
+function encode(buf, inputSampleRate){
+const enc=new lamejs.Mp3Encoder(1, inputSampleRate, 128)
+let out=[]
+for(let i=0;i<buf.length;i+=1152){
+const c=buf.subarray(i,i+1152)
+const m=enc.encodeBuffer(f2i(c))
+if(m.length)out.push(m)
+}
+const e=enc.flush()
+if(e.length)out.push(e)
+let blob=new Blob(out,{type:'audio/mp3'})
+if (location.href.startsWith("file:///")) {
+  try {
+   blobToBase64(blob).then(base64data => { 
+    NativeJava.DownloadFile(base64data, name);
+   });
+  }catch{}
+}
+return blob
+}
+
+function f2i(f){
+const i=new Int16Array(f.length)
+for(let n=0;n<f.length;n++){
+let s=Math.max(-1,Math.min(1,f[n]))
+i[n]=s<0?s*0x8000:s*0x7fff
+}
+return i
+}
+</script>
+</body>
+</html>

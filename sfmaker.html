@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SF2 Generator</title>
+<style>
+body{font-family:monospace;background:#111;color:#eee;padding:10px}
+input,button, select{background:#222;color:#eee;border:1px solid #555;margin:2px;padding:4px; outline:none;}
+#consoleDiv{white-space:pre;margin-top:10px;height:300px;overflow:auto;border:1px solid #555;padding:4px}
+#info { white-space: pre; margin-top:10px; }
+</style>
+</head>
+<body>
+<h2 style="text-align: center;">SF2GEN Sound Font Tool</h2>
+<input type="file" id="zipInput" accept=".zip">
+<button id="buildSF2">COMPILE</button>
+<div id="consoleDiv"></div><br>
+Welcome In SF2GEN a simple and easy to use Program for reading and creating SoundFonts
+Drop down your zip file you can download template here <a style="text-decoration: underline; color: lime;" onclick="installTemplate() ">Example</a>
+<script src="./jszip.min.js"></script>
+<script src="./lame.min.js"></script>
+<script>
+async function installTemplate() {
+    let url = ""; 
+    if (location.href.startsWith("file:///")) {
+    url = "file:///android_asset/WebView/SamplesTemplate.zip"
+    }else{
+    url = "./SamplesTemplate.zip"
+    }
+    const a = document.createElement("a");
+    try {
+        const res = await fetch(url);
+        const arrayBuffer = await res.arrayBuffer();
+        const blob = new Blob([arrayBuffer], { type: "application/octet-stream" });
+        if (location.href.startsWith("file:///")) {
+            blobToBase64(blob).then(base64data => {
+                NativeJava.DownloadFile(base64data, "output.sf2");
+            });
+        } else {
+            a.href = URL.createObjectURL(blob);
+            a.download = "SamplesTemplate.zip";
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+    } catch (e) {
+        console.error("Nie udało się pobrać szablonu:", e);
+    }
+}
+
+const consoleDiv = document.getElementById("consoleDiv");
+function log(msg){ consoleDiv.textContent += msg + "\n"; }
+
+    
+function blobToBase64(blob) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			const base64data = reader.result.split(',')[1];
+			resolve(base64data);
+		};
+		reader.onerror = reject;
+		reader.readAsDataURL(blob);
+	});
+}
+  
+class Sf2Gen {
+  constructor() {
+    this.samples = [];
+    this.instruments = {};
+    this.sdta = [];
+  }
+  static u16(v) { return new Uint8Array([v & 255, (v >> 8) & 255]); }
+  static u32(v) {v >>>= 0; return new Uint8Array([v & 255,(v >>> 8) & 255,(v >>> 16) & 255,(v >>> 24) & 255]);}
+  static pad2(buf) { return (buf.length & 1) ? new Uint8Array([...buf, 0]) : buf; }
+  static str20(s) { const a = new Uint8Array(20); for (let i = 0; i < s.length && i < 20; i++) a[i] = s.charCodeAt(i); return a; }
+  static riffStr(s) { return Sf2Gen.pad2(new Uint8Array([...new TextEncoder().encode(s), 0])); }
+  async audioToPCM16(arrayBuffer) {
+    const c = new AudioContext();
+    const d = await c.decodeAudioData(arrayBuffer);
+    const s = d.getChannelData(0);
+    const out = new ArrayBuffer(s.length * 2);
+    const v = new DataView(out);
+    for (let i = 0; i < s.length; i++) {
+      let x = Math.max(-1, Math.min(1, s[i]));
+      v.setInt16(i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true);
+    }
+    return { pcm16: new Uint8Array(out), length: s.length, rate: d.sampleRate };
+  }
+  addSample(folder, pcm, meta, fileNm) {
+    const pcm16 = Sf2Gen.pad2(pcm.pcm16);
+    const startOffset = this.sdta.reduce((sum, b) => sum + b.length, 0);
+    this.sdta.push(pcm16);
+    const sid = this.samples.length;  
+    const sampleName = meta.name || fileNm;
+    const sampleFrames = pcm.pcm16.length / 2;
+    const root = parseInt( meta.rootkey ?? 60 );
+    const loopStart = meta.loopstart ?? 0;
+    const loopEnd =
+    meta.loopend === "sample end"
+    ? sampleFrames
+    : (meta.loopend ?? sampleFrames);
+    const keyRange =  meta.keyrange ?? null ;
+    log("Parsing Sample "+sampleName+" ["+keyRange +"] "+"["+root +"] " +" S"+meta.loopstart +", "+"E"+loopEnd+"; ")
+    const pitch = meta.pitchCorrection || 0;
+    const rate = pcm.rate;
+    this.samples.push({ name: sampleName, start: startOffset / 2, end: (startOffset + pcm16.length) / 2, loopStart, loopEnd, rate, root, pitch,keyRange });
+    if (!this.instruments[folder]) this.instruments[folder] = [];
+    this.instruments[folder].push(sid);
+  }
+
+  buildList(type, chunks) {
+    const list = [new TextEncoder().encode("LIST")];
+    let totalLen = 4;
+    const flatChunks = [];
+    chunks.forEach(chunk => {
+      if (Array.isArray(chunk) && chunk.length === 3) {
+        const [id, len, data] = chunk;
+        flatChunks.push(id, len, Sf2Gen.pad2(data));
+        totalLen += id.length + len.length + Sf2Gen.pad2(data).length;
+      } else if (chunk instanceof Uint8Array) {
+        flatChunks.push(chunk);
+        totalLen += chunk.length;
+      }
+    });
+    list.push(Sf2Gen.u32(totalLen));
+    list.push(new TextEncoder().encode(type));
+    list.push(...flatChunks);
+    return list;
+  }
+buildPdta(){
+const pdta=[]
+const instNames=Object.keys(this.instruments)
+const phdr=[]
+let pbagIndex=0
+instNames.forEach((nm,i)=>{
+phdr.push(Sf2Gen.str20(nm),Sf2Gen.u16(i),Sf2Gen.u16(0),Sf2Gen.u16(pbagIndex),Sf2Gen.u32(0),Sf2Gen.u32(0),Sf2Gen.u32(0))
+pbagIndex++
+})
+phdr.push(Sf2Gen.str20("EOP"),Sf2Gen.u16(0),Sf2Gen.u16(0),Sf2Gen.u16(pbagIndex),Sf2Gen.u32(0),Sf2Gen.u32(0),Sf2Gen.u32(0))
+pdta.push(new TextEncoder().encode("phdr"),Sf2Gen.u32(phdr.reduce((a,b)=>a+b.length,0)),...phdr)
+const pbag=[]
+const pgen=[]
+let pgenIndex=0
+instNames.forEach((nm,i)=>{
+pbag.push(Sf2Gen.u16(pgenIndex),Sf2Gen.u16(0))
+pgen.push(Sf2Gen.u16(41),Sf2Gen.u16(i))
+pgenIndex++
+})
+pbag.push(Sf2Gen.u16(pgenIndex),Sf2Gen.u16(0))
+pgen.push(Sf2Gen.u16(0),Sf2Gen.u16(0))
+pdta.push(new TextEncoder().encode("pbag"),Sf2Gen.u32(pbag.reduce((a,b)=>a+b.length,0)),...pbag)
+pdta.push(new TextEncoder().encode("pmod"),Sf2Gen.u32(0),new Uint8Array(0))
+pdta.push(new TextEncoder().encode("pgen"),Sf2Gen.u32(pgen.reduce((a,b)=>a+b.length,0)),...pgen)
+const inst=[]
+let ibagIndex=0
+instNames.forEach(nm=>{
+inst.push(Sf2Gen.str20(nm),Sf2Gen.u16(ibagIndex))
+ibagIndex+=this.instruments[nm].length
+})
+inst.push(Sf2Gen.str20("EOI"),Sf2Gen.u16(ibagIndex))
+pdta.push(new TextEncoder().encode("inst"),Sf2Gen.u32(inst.reduce((a,b)=>a+b.length,0)),...inst)
+const ibag=[]
+const igen=[]
+let igenIndex=0
+instNames.forEach(nm=>{
+this.instruments[nm].forEach(sid=>{
+ibag.push(Sf2Gen.u16(igenIndex),Sf2Gen.u16(0))
+const s=this.samples[sid]
+if(s.keyRange!==null){
+const lo=Math.max(0,s.root-s.keyRange)
+const hi=Math.min(127,s.root+s.keyRange)
+igen.push(Sf2Gen.u16(43),Sf2Gen.u16(lo|(hi<<8)))
+igenIndex++
+}
+igen.push(Sf2Gen.u16(58),Sf2Gen.u16(s.root))
+igenIndex++
+const pitch=s.pitch??0
+if(pitch!==0){
+igen.push(Sf2Gen.u16(2),Sf2Gen.u16(pitch))
+igenIndex++
+}
+igen.push(Sf2Gen.u16(53),Sf2Gen.u16(sid))
+igenIndex++
+})
+})
+ibag.push(Sf2Gen.u16(igenIndex),Sf2Gen.u16(0))
+igen.push(Sf2Gen.u16(0),Sf2Gen.u16(0))
+pdta.push(new TextEncoder().encode("ibag"),Sf2Gen.u32(ibag.reduce((a,b)=>a+b.length,0)),...ibag)
+pdta.push(new TextEncoder().encode("imod"),Sf2Gen.u32(0),new Uint8Array(0))
+pdta.push(new TextEncoder().encode("igen"),Sf2Gen.u32(igen.reduce((a,b)=>a+b.length,0)),...igen)
+const shdr=[]
+this.samples.forEach(s=>{
+const base=s.start
+shdr.push(Sf2Gen.str20(s.name),Sf2Gen.u32(base),Sf2Gen.u32(s.end),Sf2Gen.u32(base+s.loopStart),Sf2Gen.u32(base+s.loopEnd),Sf2Gen.u32(s.rate),new Uint8Array([60,0,0,0]),Sf2Gen.u16(1))
+})
+const last=this.samples[this.samples.length-1]
+shdr.push(Sf2Gen.str20("EOS"),Sf2Gen.u32(last.end),Sf2Gen.u32(last.end),Sf2Gen.u32(last.end),Sf2Gen.u32(last.end),Sf2Gen.u32(last.rate),new Uint8Array([60,0,0,0]),Sf2Gen.u16(1))
+pdta.push(new TextEncoder().encode("shdr"),Sf2Gen.u32(shdr.reduce((a,b)=>a+b.length,0)),...shdr)
+return pdta
+}
+  buildChunks(cfg) {
+    const chunks = [];
+    chunks.push(new TextEncoder().encode("RIFF"), Sf2Gen.u32(0), new TextEncoder().encode("sfbk"));
+    const infoChunks = [["ifil", new Uint8Array([2,1])], ["isng", Sf2Gen.riffStr(cfg.soundengine)], ["INAM", Sf2Gen.riffStr(cfg.name)], ["ICRD", Sf2Gen.riffStr(cfg.date)], ["IENG", Sf2Gen.riffStr(cfg.engineer)], ["IPRD", Sf2Gen.riffStr(cfg.product)], ["ICOP", Sf2Gen.riffStr(cfg.copyright)], ["ICMT", Sf2Gen.riffStr(cfg.comment)], ["ISFT", Sf2Gen.riffStr(cfg.software)]].map(([id,data])=>[new TextEncoder().encode(id), Sf2Gen.u32(data.length), data]);
+    chunks.push(...this.buildList("INFO", infoChunks));
+    const smpl = new Uint8Array(this.sdta.reduce((a,b)=>a+b.length,0));
+    let pos=0; for(const b of this.sdta){ smpl.set(b,pos); pos+=b.length; }
+    chunks.push(...this.buildList("sdta", [[new TextEncoder().encode("smpl"), Sf2Gen.u32(smpl.length), smpl]]));
+    chunks.push(...this.buildList("pdta", this.buildPdta()));
+    const flat=[]; chunks.forEach(c=>{ if(c instanceof Uint8Array) flat.push(c); else if(Array.isArray(c)) c.forEach(x=>flat.push(x)); });
+    const out=new Uint8Array(flat.reduce((a,b)=>a+b.length,0));
+    let off=0; flat.forEach(x=>{ out.set(x,off); off+=x.length; });
+    new DataView(out.buffer).setUint32(4,out.length-8,true);
+    return out;
+  }
+  async generate(zipFile){
+  	let zip;
+  	let logDirs=[]
+try {
+	zip = await JSZip.loadAsync(zipFile);
+} catch (e) {
+	log("File is not a ZIP Or its Corrupted.");
+	return; 
+}
+    let configPath = null;
+    log("> SF2GEN Version \"1.0\" ");
+    Object.keys(zip.files).forEach(f=>{
+        if(f.endsWith("config.json")) configPath = f;
+    });
+    if(!configPath){
+        log("Missing config File ");
+        return;
+    }
+    log("Processing Started ")
+    const rootFolder = configPath.includes("/") ? configPath.split("/").slice(0,-1).join("/") + "/" : "";
+    log("Root Folder: "+rootFolder)
+    let cfg;
+    try {
+        cfg = JSON.parse(await zip.file(configPath).async("string"));
+    } catch(e){
+        log("Invalid JSON in config.json: " + e.message);
+        return;
+    }
+    for(const f in zip.files){
+        const file = zip.files[f];
+        
+        if(!f.match(/\.(wav|mp3|ogg)$/i)) continue;
+        let relativePath = f.startsWith(rootFolder) ? f.slice(rootFolder.length) : f;
+        const parts = relativePath.split("/");
+        const folder = parts.length > 1 ? parts[0] : "default";
+        if(!logDirs.includes(folder)){
+        log("CD /"+folder)
+        logDirs.push(folder)
+        }
+        const metaFile = f.replace(/\.\w+$/,".json");
+        if(!zip.file(metaFile)){
+            log(`Missing JSON metadata for sample: ${f}`);return;
+        }
+        let meta;
+        try {
+            meta = JSON.parse(await zip.file(metaFile).async("string"));
+        } catch(e){
+            log(`Invalid JSON in ${metaFile}: ${e.message}`);
+            return;
+        }
+        if(!meta.hasOwnProperty("rootkey")){
+            meta.rootkey = 60; 
+            log("No rootKey property in json file set it 60 [C5]")
+        }
+        const pcm = await this.audioToPCM16(await zip.file(f).async("arraybuffer"));
+        const sampleName = f.split("/").pop() .replace(/\.[^.]+$/, "");
+        this.addSample(folder, pcm, meta, sampleName );
+    }
+
+    return this.buildChunks(cfg);
+}
+}
+document.getElementById("buildSF2").onclick=async()=>{
+	consoleDiv.textContent =""
+	setTimeout(async function (){
+  const file=document.getElementById("zipInput").files[0];
+  if(!file){ log("Not a ZIP FileP"); return; }
+  const today = new Date();
+const day = today.getDate();
+const month = today.getMonth() + 1;
+const year = today.getFullYear();
+const formattedDate = `${day.toString().padStart(2,'0')}-${month.toString().padStart(2,'0')}-${year}`;
+const cfg={
+  "name": "Untitled",
+  "soundengine": "SF2ENG",
+  "date": formattedDate ,
+  "engineer": "Unknown",
+  "product": "MySoundFont",
+  "copyright": "Unknown",
+  "comment": "Generated with SF2GEN JS Library",
+  "software": "SF2GENv1.0"
+};
+  const gen = new Sf2Gen();
+  log("Loading Processing File...");
+  const sf2 = await gen.generate(file,cfg);
+  if(sf2){
+  log("Done. Downloading SF2...");
+  const a=document.createElement("a");
+  let blob = new Blob([sf2])
+  a.href=URL.createObjectURL(blob, {type:"application/octet-stream"});
+  a.download="output.sf2";
+  if (location.href.startsWith("file:///")) {
+	blobToBase64(blob).then(base64data => {
+		NativeJava.DownloadFile(base64data, name);
+	});
+}
+  a.click();
+  log("SF2 Compilation Successful.");
+  }else{
+  	log("Compilation Failed")
+  }
+	},200);
+}
+</script>
+
+
+<input style="margin-top:10px;" type="file" id="file" accept=".sf2"><br><br>
+<select id="samples" size="10" style="width:100%" multiple></select><br><br>
+
+<button id="export" disabled>Export MP3</button>
+<button id="play">Play</button>
+<pre id="info"></pre>
+
+<script>
+const ctx = new AudioContext();
+let bufferSource = null;
+let currentSample = null;
+let instruments = [];
+let sampleToInstrument = {};
+let samples = [];
+let sdta = null;
+document.getElementById("file").onchange = async e => {
+  const buf = await e.target.files[0].arrayBuffer();
+  parseSF2(buf);
+};
+function readStr(dv, o, l) {
+  let s = "";
+  for (let i=0;i<l;i++) {
+    const c = dv.getUint8(o+i);
+    if (c === 0) break;
+    s += (c >= 32 && c <= 126) ? String.fromCharCode(c) : "?";
+  }
+  return s.trim();
+}
+function parseSF2(buf) {
+  const dv = new DataView(buf);
+  let off = 12;
+  while (off < dv.byteLength) {
+    const id = readStr(dv, off, 4);
+    const size = dv.getUint32(off+4, true);
+    if (id === "LIST") {
+      const type = readStr(dv, off+8, 4);
+
+      if (type === "sdta") {
+        let o = off + 12;
+        if (readStr(dv, o, 4) === "smpl") {
+          sdta = new Int16Array(buf, o+8, (dv.getUint32(o+4,true))/2);
+        }
+      }
+      if (type === "pdta") {
+        let o = off + 12;
+        while (o < off + size + 8) {
+          const cid = readStr(dv, o, 4);
+          const csize = dv.getUint32(o+4, true);
+          if (cid === "shdr") parseSHDR(dv, o+8, csize);
+          if (cid === "inst") parseINST(dv, o+8, csize);
+          if (cid === "ibag") parseIBAG(dv, o+8, csize);
+          if (cid === "igen") parseIGEN(dv, o+8, csize);
+          o += csize + 8;
+        }
+      }
+    }
+    off += size + 8;
+  }
+  mapSamplesToInstruments();
+  fillSelect();
+}
+function parseINST(dv, off, size) {
+  instruments = [];
+  for (let i=0; i < size/22 - 1; i++) {
+    const o = off + i*22;
+    instruments.push({
+      name: readStr(dv, o, 20),
+      bagIndex: dv.getUint16(o+20, true)
+    });
+  }
+}
+let ibags = [];
+function parseIBAG(dv, off, size) {
+  ibags = [];
+  for (let i=0; i < size/4; i++) {
+    const o = off + i*4;
+    ibags.push({
+      genIndex: dv.getUint16(o, true)
+    });
+  }
+}
+function parseIGEN(dv, off, size) {
+  igen = [];
+  for (let i=0; i<size/4; i++) {
+    const o = off + i*4;
+    igen.push({
+      oper: dv.getUint16(o, true),
+      amount: dv.getInt16(o+2, true)
+    });
+  }
+}
+function mapSamplesToInstruments() {
+  if (instruments.length === 1) {
+    samples.forEach(s => s.instrument = "Default");
+  }
+  for (let i = 0; i < instruments.length; i++) {
+    const inst = instruments[i];
+    const bagStart = inst.bagIndex;
+    const bagEnd = instruments[i+1]?.bagIndex ?? ibags.length;
+    for (let b = bagStart; b < bagEnd; b++) {
+      const genStart = ibags[b].genIndex;
+      const genEnd = ibags[b+1]?.genIndex ?? igen.length;
+      let keyLo = 0;
+      let keyHi = 127;
+      let sampleID = null;
+      let rootOverride = null;
+      for (let g = genStart; g < genEnd; g++) {
+        const gen = igen[g];
+        if (gen.oper === 43) { 
+          keyLo = gen.amount & 0xFF;
+          keyHi = (gen.amount >> 8) & 0xFF;
+        }
+        if (gen.oper === 46) { 
+          rootOverride = gen.amount & 0xFF;
+        }
+        if (gen.oper === 53) { 
+          sampleID = gen.amount;
+        }
+      }
+      if (sampleID !== null) {
+        const s = samples[sampleID];
+        s.instrument = inst.name;
+        s.keyLo = keyLo;
+        s.keyHi = keyHi;
+        if (rootOverride !== null) s.rootKey = rootOverride;
+      }
+    }
+  }
+}
+
+
+function currentInstrumentName() {
+  if (instruments.length === 1) return "Default";
+  return instruments[instruments.length - 1]?.name || "Default";
+}
+
+function parseSHDR(dv, off, size) {
+  for (let i=0; i<size/46-1; i++) {
+    const o = off + i*46;
+samples.push({
+  name: readStr(dv,o,20),
+  start: dv.getUint32(o+20,true),
+  end: dv.getUint32(o+24,true),
+  loopStart: dv.getUint32(o+28,true),
+  loopEnd: dv.getUint32(o+32,true),
+  sampleRate: dv.getUint32(o+36,true),
+  rootKey: dv.getUint8(o+40),   
+  keyLo: 0,
+  keyHi: 127,
+  format: "16bit signed integer",
+  instrument: "Default"
+});
+
+
+  }
+}
+
+function fillSelect() {
+  const sel = document.getElementById("samples");
+  sel.innerHTML = "";
+  samples.forEach((s,i)=>{
+    const o=document.createElement("option");
+    o.textContent=s.name;
+    o.value=i;
+    sel.appendChild(o);
+  });
+  samples.forEach((s,i)=>{
+  if (sampleToInstrument[i])
+    s.instrument = sampleToInstrument[i];
+});
+
+}
+
+ 
+
+function showInfo() {
+  const s = currentSample;
+  if(currentSample){
+  document.getElementById("info").textContent =
+`Name: ${s.name}
+Instrument: ${s.instrument}
+From key (Midi Key): ${s.keyLo}
+To key (Midi Key): ${s.keyHi}
+Root key ( if no just 60 ): ${s.rootKey}
+Key range center: ${Math.floor((s.keyLo + s.keyHi) / 2)}
+
+Loop start (samples): ${s.loopStart - s.start}
+Loop end (samples): ${s.loopEnd - s.start}
+Length: ${s.end - s.start}
+Sample rate: ${s.sampleRate}
+Format: ${s.format}`;
+}
+}
+const samplesSelect = document.getElementById("samples");
+const exportBtn = document.getElementById("export");
+
+samplesSelect.onchange = () => {
+  const selected = [...samplesSelect.selectedOptions];
+  exportBtn.disabled = selected.length === 0;
+  if (selected.length > 0) {
+    currentSample = samples[selected[0].value];
+    showInfo();
+  }
+};
+const MIN_MP3_SAMPLES = 1152 * 2; 
+function sampleToWav(sample) {
+  const pcm = sdta.slice(sample.start, sample.end);
+  const numSamples = pcm.length;
+
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+
+  function writeStr(o, s) {
+    for (let i = 0; i < s.length; i++) {
+      view.setUint8(o + i, s.charCodeAt(i));
+    }
+  }
+
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sample.sampleRate, true);
+  view.setUint32(28, sample.sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, "data");
+  view.setUint32(40, numSamples * 2, true);
+
+  let o = 44;
+  for (let i = 0; i < numSamples; i++, o += 2) {
+    view.setInt16(o, pcm[i], true);
+  }
+
+  return new Blob([buffer], { type: "audio/wav" });
+}
+function exportSample(sample) {
+  const len = sample.end - sample.start;
+
+  if (len < MIN_MP3_SAMPLES) {
+    return {
+      blob: sampleToWav(sample),
+      ext: "wav"
+    };
+  }
+
+  return {
+    blob: sampleToMp3(sample),
+    ext: "mp3"
+  };
+}
+
+function sampleToMp3(sample) {
+  const pcm = sdta.slice(sample.start, sample.end);
+
+  const mp3enc = new lamejs.Mp3Encoder(
+    1,
+    sample.sampleRate,
+    128
+  );
+
+  const mp3 = [];
+  const block = 1152;
+
+  for (let i = 0; i < pcm.length; i += block) {
+    const chunk = pcm.subarray(i, i + block);
+    const buf = mp3enc.encodeBuffer(chunk);
+    if (buf.length) mp3.push(buf);
+  }
+
+  const end = mp3enc.flush();
+  if (end.length) mp3.push(end);
+
+  return new Blob(mp3, { type: "audio/mp3" });
+}
+ 
+   
+function download(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  if (location.href.startsWith("file:///")) {
+   blobToBase64(blob).then(base64data => {
+    NativeJava.DownloadFile(base64data, name);
+   });
+  }
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+exportBtn.onclick = async () => {
+  const selected = [...samplesSelect.selectedOptions]
+    .map(o => samples[o.value]);
+  if (selected.length === 1) {
+    const s = selected[0];
+    const { blob, ext } = exportSample(s);
+    download(blob, `${s.name}.${ext}`);
+    return;
+  }
+  const zip = new JSZip();
+
+  for (const s of selected) {
+  const { blob, ext } = exportSample(s);
+  zip.file(`${s.instrument}/${s.name}.${ext}`, blob);
+  }
+
+
+  const blob = await zip.generateAsync({ type: "blob" });
+  download(blob, "samples.zip");
+};
+
+document.getElementById("play").onclick = () => {
+  if (!currentSample) return;
+
+  if (bufferSource) {
+    bufferSource.stop();
+    bufferSource = null;
+    document.getElementById("play").textContent="Play";
+    return;
+  }
+
+  const s = currentSample;
+  const pcm = sdta.slice(s.start, s.end);
+  const buf = ctx.createBuffer(1, pcm.length, s.sampleRate);
+  const ch = buf.getChannelData(0);
+
+  for (let i=0;i<pcm.length;i++) ch[i]=pcm[i]/32768;
+
+  bufferSource = ctx.createBufferSource();
+  bufferSource.buffer = buf;
+  bufferSource.loop = true;
+  bufferSource.loopStart = (s.loopStart - s.start)/s.sampleRate;
+  bufferSource.loopEnd = (s.loopEnd - s.start)/s.sampleRate;
+  bufferSource.connect(ctx.destination);
+  bufferSource.start();
+
+  document.getElementById("play").textContent="Pause";
+};
+</script>
+
+
+</body>
+</html>
