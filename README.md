@@ -1,5 +1,5 @@
-# FruityBox:
-FruityBox is a program maded with using "Now" code of
+# StudioBox:
+StudioBox is a online and offline software maded with using code of
 Slarmoo's Box
 
-https://kashumy.github.io/Fruity-Box/
+https://kashumy.github.io/Studio-Box/
