@@ -1747,10 +1747,10 @@ Config.expOperatorWaves = toNameMap([
         { name: "unisonOffset", pianoName: "unisonOffset", maxRawVol: Config.unisonOffsetMax*10, maxIndex: 0,newNoteVol: 1, forSong: false, convertRealFactor: 0, associatedEffect: 15, valueRealAdd: -(Config.unisonOffsetMax*5), divider:5,
         promptName: "Unison Offset", promptDesc: ["This automation is for unison offset as you can see it only work for custom unison "]
               },
-        { name: "unisonExpression", pianoName: "unisonExpression", maxRawVol: Config.unisonExpressionMax*10, newNoteVol: 1, forSong: false,maxIndex: 0, convertRealFactor: 0, associatedEffect: 15, divider:10,
+        { name: "unisonExpression", pianoName: "unisonExpression", maxRawVol: Config.unisonExpressionMax*20, newNoteVol: 1, forSong: false,maxIndex: 0, convertRealFactor: 0, associatedEffect: 15, divider:1, displayMin:-2, displayMax:2, rawMax:40,
         promptName: "Unison Volume", promptDesc: ["This automation is for unison expression as you can see it only work for custom unison "]
               },
-        { name: "unisonSign", pianoName: "unisonSign", maxRawVol: Config.unisonSignMax*10, newNoteVol: 1, forSong: false, convertRealFactor: 0, maxIndex: 0,associatedEffect: 15, valueRealAdd: -(Config.unisonSignMax*5),   divider:5,  
+        { name: "unisonSign", pianoName: "unisonSign", maxRawVol: Config.unisonSignMax*10, newNoteVol: 0, forSong: false, convertRealFactor: 0, maxIndex: 0,associatedEffect: 15, valueRealAdd: -(Config.unisonSignMax*5)+1.2,   divider:5,  
         promptName: "Unison Sign", promptDesc: ["This automation is for unison sign as you can see it only work for custom unison "]
               }, 
          { name: "octave shift", pianoName: "Octave Shift", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
@@ -20785,19 +20785,16 @@ body::after {
             primaryNote: "var(--mod4-primary-note, #fff6d3)",
         },
     ]);
-    ColorConfig._styleElement = document.head.appendChild(HTML.style({ type: "text/css" }));
+ColorConfig._styleElement = document.head.appendChild(HTML.style({ type: "text/css" }));
 updateThemes = function() {
 	if (CustomThemes) {
 		ColorConfig.themes = { ...ColorConfig.themes, ...CustomThemes };
 	}
 }
 updateThemes()
-    const scrollBarTest = document.body.appendChild(HTML.div({ style: "width:30px; height:30px; overflow: auto;" }, HTML.div({ style: "width:100%;height:40px" })));
-    if (scrollBarTest.firstChild.clientWidth < 30) {
-        document.documentElement.classList.add("obtrusive-scrollbars");
-    }
-    document.body.removeChild(scrollBarTest);
-    document.head.appendChild(HTML.style({ type: "text/css" }, `
+
+document.head.appendChild(HTML.style({ type: "text/css" }, `
+
 body::selection {
   -webkit-text-fill-color: #ffe08a;
   -webkit-text-stroke: 0px;    
@@ -32389,13 +32386,16 @@ instrument.unisonSpread = (step(((
     if (synth.isModActive(Config.modulators.dictionary["unisonSign"].index, channelIndex, instrumentIndex)) {
 instrument.unisonSign = (step(((
 	synth.getModValue(Config.modulators.dictionary["unisonSign"].index, channelIndex, instrumentIndex, true)
-)) - (Config.unisonSignMax * 5), 0.01) / 5) - 0.2
+)) - (Config.unisonSignMax * 5)+1.2, 0.01) / 5) - 0.24
     }
-    if (synth.isModActive(Config.modulators.dictionary["unisonExpression"].index, channelIndex, instrumentIndex)) {
-        instrument.unisonExpression = step(
-            synth.getModValue(Config.modulators.dictionary["unisonExpression"].index, channelIndex, instrumentIndex, true),
-            0.01
-        )/10;
+if (synth.isModActive(Config.modulators.dictionary["unisonExpression"].index, channelIndex, instrumentIndex)) {
+        const raw = synth.getModValue(
+    Config.modulators.dictionary["unisonExpression"].index,
+    channelIndex,
+    instrumentIndex,
+    true
+);
+instrument.unisonExpression = step((raw - 20) / 20, 0.01)*2;
     }
     if (synth.isModActive(Config.modulators.dictionary["unisonOffset"].index, channelIndex, instrumentIndex)) {
       instrument.unisonOffset = (step(((

@@ -467,7 +467,7 @@ function rawChipToIntegrated2(raw) {
     }
     ColorConfig.colorLookup = new Map();
     ColorConfig.usesColorFormula = false;
-    ColorConfig.defaultTheme = "FruityBox Contrast";
+    ColorConfig.defaultTheme = "FruityBox Standard";
  ColorConfig.themes = {
         "dark classic": ``,
         "dark competition": `
@@ -20692,7 +20692,7 @@ static clearAllRecoveredSongs() {
 				.beepboxEditor .trackContainer {
 					overflow: visible;
 				}
-				.beepboxEditor .trackAndMuteContainer {
+			 .beepboxEditor .trackAndMuteContainer {
 					scrollbar-width: auto;
 				}
 				.beepboxEditor .trackAndMuteContainer::-webkit-scrollbar {
@@ -21042,7 +21042,7 @@ static clearAllRecoveredSongs() {
 				.beepboxEditor .trackContainer {
 					overflow: visible;
 				}
-				.beepboxEditor .trackAndMuteContainer {
+			 .beepboxEditor .trackAndMuteContainer {
 					scrollbar-width: auto;
 				}
 				.beepboxEditor .trackAndMuteContainer::-webkit-scrollbar {
@@ -28563,7 +28563,7 @@ labels.forEach(label => {
             this.showChannels = window.localStorage.getItem("showChannels") != "false";
             this.showScrollBar = window.localStorage.getItem("showScrollBar") != "false";
             
-            this.useCustomSelectPrompt = window.localStorage.getItem("useCustomSelectPrompt") != "false";
+            this.useCustomSelectPrompt = window.localStorage.getItem("useCustomSelectPrompt") == "true";
             
             this.differentMod = window.localStorage.getItem("differentMod") != "false";
             this.newloopeditor = window.localStorage.getItem("newloopeditor") == "true";
@@ -38869,6 +38869,13 @@ if (this._doc.song.getChannelIsMod(this._doc.channel) && this._doc.prefs.differe
 				textEl.textContent = floorTo1(
 					(pin.size + Config.modulators[setting].convertRealFactor) / Config.modulators[setting].divider
 				);
+				const mod = Config.modulators[setting];
+if (mod.displayMin !== undefined) {
+    const norm = (pin.size + Config.modulators[setting].convertRealFactor) / mod.rawMax;
+    const val = mod.displayMin + norm * (mod.displayMax - mod.displayMin);
+    textEl.textContent = val.toFixed(1);
+} 
+
 			} else {
 				textEl.textContent = ((pin.size + Config.modulators[setting].convertRealFactor));
 			}
@@ -38937,6 +38944,13 @@ if (this._doc.song.getChannelIsMod(this._doc.channel) && this._doc.prefs.differe
                         this.modDragValueLabel.style.setProperty("left", "" + this._modDragValueLabelLeft + "px");
                         this.modDragValueLabel.style.setProperty("top", "" + this._modDragValueLabelTop + "px");
                         this.modDragValueLabel.textContent = "" + presValue;
+const mod = Config.modulators[setting];
+if (mod.displayMin !== undefined) {
+    const norm = presValue / mod.rawMax;
+    const val = mod.displayMin + norm * (mod.displayMax - mod.displayMin);
+    this.modDragValueLabel.textContent = val.toFixed(1);
+} 
+
                     }
                 }
             }
@@ -43003,6 +43017,7 @@ class SelectPlugin {
     this._melMaker = button$6({}, MelMakerPlugin.title);
     this._customThemes = button$6({}, CustomThemesPlugin.title);
     this._other = button$6({}, OtherPlugin.title);
+    
     this._cancelButton = button$6({ class: "cancelButton" });
     this.container = div$6(
       { class: "prompt noSelection", style: "width: 220px;" },
@@ -43016,7 +43031,7 @@ class SelectPlugin {
       this._melMaker,
       this._customThemes,
       this._other,
-      this._cancelButton
+      this._cancelButton,
     );
     this._cancelHandler = () => { editor._setPrompt(null);this._doc.undo();    }
     this._samplesOfflineHandler = () => this.openPlugin("samplesOffline");
@@ -43409,6 +43424,8 @@ const existingThemeValues = new Set(
             this._okayButton = button$6({ class: "okayButton", style: "width:45%;" }, "Okay");
             this.container = div$6({ class: "prompt noSelection", style: "width: 220px;" }, h2$5("Set Theme"), div$6({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" }, div$6({ class: "selectContainer", style: "width: 100%;" }, this._themeSelect)), div$6({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton), this._cancelButton);
             this.lastTheme = window.localStorage.getItem("colorTheme");
+            this._themeSelect.value = this.lastTheme||ColorConfig.defaultTheme;
+
             this._close = () => {
                 if (this.lastTheme != null) {
                     ColorConfig.setTheme(this.lastTheme);
@@ -47437,8 +47454,8 @@ if(this._Box==8){
 	this.canvas.style.width="180px";
 	this.canvas.style.height="180px";
 }else{
-	this.canvas.style.width = "144px";
-this.canvas.style.height = "144px";
+	this.canvas.style.width = "180px";
+this.canvas.style.height = "180px";
 }
 this.canvas.width=this._Box*24*2
 this.canvas.height=this._Box*24*2
@@ -47502,7 +47519,7 @@ class WhistleRecordContainer {
 		title.style.margin = "0 0 10px 0";
 		title.style.textAlign = "center";
 		this.container.appendChild(title);
-		
+
 		this.inputStable = this._mkInput("Stable N", _doc.synth.STABLE_N);
 		this.inputSilence = this._mkInput("Silence N", _doc.synth.SILENCE_N);
 		this.inputMin = this._mkInput("Min Note MS", _doc.synth.MIN_NOTE_MS);
@@ -47518,7 +47535,13 @@ class WhistleRecordContainer {
 		btnRow.appendChild(this.btnCancel);
 		btnRow.appendChild(this.btnDone);
 		this.container.appendChild(btnRow);
-		
+const description = document.createElement("pre");
+description.textContent = `\n\nStable N - How many frames of subsequent measurements must indicate the same note\n\nSilence N - How many frames of silence end the note\n\nMin Note Ms - minimal note length \n\nChange Hold Ms - just holds note even if you stop whistling`;
+description.style.margin = "0 0 10px 0";
+description.style.fontSize = "10px";
+description.style.whiteSpace = "pre-wrap";
+
+this.container.appendChild(description);
 		this.parent.appendChild(this.container);
 		
 		this.btnCancel.onclick = () => this.hide();
@@ -47977,7 +48000,7 @@ class CustomSelectModal{
             option({ value: "recordingSetup" }, "Note Recording..."), option({ value: "whistleRecord" }, "Record With Whistle ")),
                   optgroup({ label: "Appearance" }, option({ value: "showFifth" }, 'Highlight "Fifth" Note'), option({ value: "notesFlashWhenPlayed" }, "Notes Flash When Played"), option({ value: "instrumentButtonsAtTop" }, "Instrument Buttons at Top"), option({ value: "frostedGlassBackground" }, "Frosted Glass Prompt Backdrop"),option({ value: "pianoKeyboard" }, "Better Piano Roll ."),   option({ value: "useCustomSelectPrompt" }, "Custom Select Modal"), option({ value: "showChannels" }, "Show All Channels"), option({ value: "showScrollBar" }, "Show Octave Scroll Bar"), option$6({ value: "differentMod" }, "Better Mod Visuals"),
             option({ value: "showInstrumentScrollbars" }, "Show Intsrument Scrollbars"), option({ value: "showLetters" }, "Show Piano Keys"), option({ value: "displayVolumeBar" }, "Show Playback Volume"), option({ value: "showOscilloscope" }, "Show Oscilloscope"), option({ value: "showSampleLoadingStatus" }, "Show Sample Loading Status"), option({ value: "showDescription" }, "Show Description"), option({ value: "oldButtonSheme" }, "Old Buttons Positions ."), option({ value: "newloopeditor" }, "Not Centered Loop Editor ."),  
-              option({ value: "openPlugins" }, "Open Plugins"), option({ value: "layout" }, "Set Layout..."), option({ value: "colorTheme" }, "Set Theme..."), option({ value: "customTheme" }, "Custom Theme..."),/* option({ value: "setLanguage" }, "Set Language...")*/));
+              option({ value: "openPlugins" }, "Open Plugins"), option({ value: "layout" }, "Set Layout..."), option({ value: "colorTheme" }, "Set Theme..."), option({ value: "customTheme" }, "Custom Theme..."),option({ value: "Fullscreen" }, "Open In Fullscreen"),/* option({ value: "setLanguage" }, "Set Language...")*/));
             this._scaleSelect = buildOptions(select(), Config.scales.map(scale => scale.name));
             this.uiof8op = {operatorWaveformSelects: [],operatorFrequencySelects: [],operatorAmplitudeSliders: [],};
 
@@ -48476,6 +48499,7 @@ this._strumSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip",
                     textSpacingIcon + "Set Layout...",
                     textSpacingIcon + "Set Theme...",
                     textSpacingIcon + "Custom Theme...",
+                    textSpacingIcon + "Open In Fullscreen",
                     textSpacingIcon + "Set Language...",
                 ];
                 const technicalOptionGroup = this._optionsMenu.children[1];
@@ -48858,14 +48882,14 @@ this._feedbackAmplitudeSlider.updateValue(instrument.feedbackAmplitude);
                             this._feedback6OpRow1.style.display = "";
                             this._operatorRows[4].style.display = "";
                             this._operatorRows[5].style.display = "";
+                            this._algorithm6OpSelectRow.style.marginBottom = "40px";
+                            this._algorithm6OpSelectRow.style.marginRight = "2.5em";
                             this._operatorDropdownGroups[4].style.display = (this._openOperatorDropdowns[4] ? "" : "none");
                             this._operatorDropdownGroups[5].style.display = (this._openOperatorDropdowns[5] ? "" : "none");
                             this._operatorRows[6].style.display = "none";
                             this._operatorRows[7].style.display = "none";
                             this._algorithmSelectRow.style.display = "none";
                             this._feedbackRow1.style.display = "none";
-                            this._algorithm6OpSelectRow.style.marginBottom = "5px";
-                            this._algorithm6OpSelectRow.style.marginRight = "0.2em";
                         }else if (instrument.type == 12) {
                             setSelectedValue(this._algorithm6OpSelect, instrument.algorithm6Op);
                             setSelectedValue(this._feedback6OpTypeSelect, instrument.feedbackType6Op);
@@ -50444,7 +50468,7 @@ if(instrument.customfunction){
                             this.doc.prefs.layout = "tall";
                             this.doc.prefs.visibleOctaves = 5;
                             this.doc.prefs.closePromptByClickoff = false;
-                            this.doc.prefs.colorTheme = "slarmoosbox";
+                            this.doc.prefs.colorTheme = "Standard";
                             this.doc.prefs.language="en"
                             this.doc.prefs.frostedGlassBackground = false;
                             this.doc.prefs.pianoKeyboard=false
@@ -51354,6 +51378,9 @@ break;
                         break;
                     case "customTheme":
                         this._openPrompt("customTheme");
+                        break;
+                    case "Fullscreen":
+                        document.documentElement.requestFullscreen()
                         break;
                     case "recordingSetup":
                         this._openPrompt("recordingSetup");
