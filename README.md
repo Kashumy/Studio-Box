@@ -17,3 +17,4 @@ Changes 2.02y26 v1.0.1
 
 https://kashumy.github.io/Studio-Box/
 If you find any bug write in issues ..
+ 
