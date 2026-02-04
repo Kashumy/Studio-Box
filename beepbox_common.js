@@ -521,12 +521,12 @@ for (const chipWave of chipWaves) {
   			
   	}else if (set == 4) {
   		const chipWaves = [
-  			{ name: "Waves:Noise", expression: 2, isPercussion: false, rootKey: 60 },
   			{ name: "Waves:ExponentialPulse", expression: 2, isPercussion: false, rootKey: 60 },
   			{ name: "Waves:QWrectifiedsine", expression: 2, isPercussion: false, rootKey: 60 },
+  			{ name: "Waves:RandomShit", expression: 2, isPercussion: false, rootKey: 60 },
   			{ name: "Waves:Rectifiedsine", expression: 2, isPercussion: false, rootKey: 60 },
   			{ name: "Waves:Diodesine", expression: 2, isPercussion: false, rootKey: 60 },
-  			 
+     { name: "Waves:WhiteNoise", expression: 2, isPercussion: false, rootKey: 60 },
   		];
   		sampleLoadingState.totalSamples += chipWaves.length;
   		const startIndex = Config.rawRawChipWaves.length;
@@ -583,6 +583,7 @@ for (const chipWave of chipWaves) {
   					centerWave(QWrectifiedsine),
   					centerWave(rectifiedsine),
   					centerWave(diodesine),
+  					centerWave(WhiteNoise),
   				];
   				let chipWaveIndexOffset = 0;
   				for (const chipWaveSample of chipWaveSamples) {
@@ -2149,7 +2150,7 @@ function rawChipToIntegrated2(raw) {
             return (_a = EditorConfig.presetCategories[0].presets.dictionary) === null || _a === void 0 ? void 0 : _a[TypePresets === null || TypePresets === void 0 ? void 0 : TypePresets[instrument]];
         }
     }
-    EditorConfig.version = "0.6";
+    EditorConfig.version = "1.0.2";
     EditorConfig.versionDisplayName = "Studio Box " + EditorConfig.version;
     EditorConfig.releaseNotesURL = "./patch_notes.html";
     EditorConfig.isOnMac = /^Mac/i.test(navigator.platform) || /Mac OS X/i.test(navigator.userAgent) || /^(iPhone|iPad|iPod)/i.test(navigator.platform) || /(iPhone|iPad|iPod)/i.test(navigator.userAgent);
@@ -26811,7 +26812,7 @@ if (typeof window.rebuiltKeyboard === 'function') {
             let bits;
             let buffer = [];
             buffer.push(Song._variant);
-            buffer.push(base64IntToCharCode[Song._latestSlarmoosBoxVersion]);
+            buffer.push(base64IntToCharCode[Song._latestStudioBoxVersion]);
             buffer.push(78); 
             var encodedSongTitle = encodeURIComponent(this.title);
             buffer.push(base64IntToCharCode[encodedSongTitle.length >> 6], base64IntToCharCode[encodedSongTitle.length & 0x3f]);
@@ -27053,7 +27054,7 @@ buffer.push(110,
                     if (effectsIncludeRingModulation(instrument.effects)) {
                         buffer.push(base64IntToCharCode[instrument.ringModulation]);
                         buffer.push(base64IntToCharCode[instrument.ringModulationHz]);
-                        buffer.push(base64IntToCharCode[instrument.ringModWaveformIndex]);
+                        writeSequenceB64(buffer, instrument.ringModWaveformIndex , 3);//3 base64 characters
                         buffer.push(base64IntToCharCode[(instrument.ringModPulseWidth)]);
                         buffer.push(base64IntToCharCode[(instrument.ringModHzOffset - Config.rmHzOffsetMin) >> 6], base64IntToCharCode[(instrument.ringModHzOffset - Config.rmHzOffsetMin) & 0x3F]);
                     }
@@ -27069,16 +27070,7 @@ buffer.push(110,
                         }
                         harmonicsBits.encodeBase64(buffer);
                     }
- 
- 
-
-
-	
-	
 if (instrument.type == 0) {
- 
-     
-	
 buffer.push(119) 
 let waveName = Config.chipWaves[instrument.chipWave]?.name ?? "unknown";
 let i4=0; for (let wave of Config.chipWaves) {	if (wave.name === instrument.wave) { i4=true;	}
@@ -27099,10 +27091,6 @@ buffer.push(
     base64IntToCharCode[encodedWave.length & 0x3f]
 )
 for (let i = 0; i < encodedWave.length; i++) buffer.push(encodedWave.charCodeAt(i))
- 
-
-
-
                         buffer.push(104, base64IntToCharCode[instrument.unison]);
                         if (instrument.unison == Config.unisons.length)
                             encodeUnisonSettings(buffer, instrument.unisonVoices, instrument.unisonSpread, instrument.unisonOffset, instrument.unisonExpression, instrument.unisonSign);
@@ -27617,7 +27605,7 @@ buffer.push(
                 return;
             if (fromUltraBox && (version == -1 || version > Song._latestUltraBoxVersion || version < Song._oldestUltraBoxVersion))
                 return;
-            if (fromSlarmoosBox && (version == -1 || version > Song._latestSlarmoosBoxVersion || version < Song._oldestSlarmoosBoxVersion))
+            if (fromSlarmoosBox&&!fromFruityBox && (version == -1 || version > Song._latestSlarmoosBoxVersion || version < Song._oldestSlarmoosBoxVersion))
                 return;
             const beforeTwo = version < 2;
             const beforeThree = version < 3;
@@ -27627,6 +27615,8 @@ buffer.push(
             const beforeSeven = version < 7;
             const beforeEight = version < 8;
             const beforeNine = version < 9;
+            const beforeTen = version < 10;
+            
             this.initToDefault((fromBeepBox && beforeNine) || ((fromJummBox && beforeFive) || (beforeFour && fromGoldBox)));
             const forceSimpleFilter = (fromBeepBox && beforeNine || fromJummBox && beforeFive);
             let willLoadLegacySamplesForOldSongs = false;
@@ -28917,7 +28907,8 @@ break;
                                 if (effectsIncludeRingModulation(instrument.effects)) {
                                     instrument.ringModulation = clamp(0, Config.ringModRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                     instrument.ringModulationHz = clamp(0, Config.ringModHzRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
-                                    instrument.ringModWaveformIndex = clamp(0, Config.operatorWaves.length, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                    instrument.ringModWaveformIndex = clamp(0, Config.operatorWaves.length+Config.chipWaves.length,readSequenceB64(compressed, charIndex, 3));charIndex += 3;
+                                    
                                     instrument.ringModPulseWidth = clamp(0, Config.pulseWidthRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                     instrument.ringModHzOffset = clamp(Config.rmHzOffsetMin, Config.rmHzOffsetMax + 1, (base64CharCodeToInt[compressed.charCodeAt(charIndex++)] << 6) + base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
                                 }
@@ -30853,6 +30844,7 @@ break;
     Song._latestUltraBoxVersion = 5;
     Song._oldestSlarmoosBoxVersion = 1;
     Song._latestSlarmoosBoxVersion = 5;
+    Song._latestStudioBoxVersion = 10;
     Song._variant = 0x74; 
    class PickedString {
    	constructor() {
@@ -35938,8 +35930,7 @@ else if (instrument.type === 12) {
             const operators = new Array(operatorCount);
             for (let j = 0; j < operatorCount; j++) {
                 let wave = tone.operatorWaves[j]?.samples || [0];
-                wave = wave.slice(); 
-                const wl = wave.length || 1;
+                const wl = wave.length > 256 ? wave.length - 1 : 1;
                 operators[j] = {
                     Phase: ((tone.phases[j] - (tone.phases[j] | 0))) * wl,
                     PhaseDelta: tone.phaseDeltas[j] * wl,
@@ -36877,8 +36868,13 @@ else {
                 let ringModMixFadeDelta = +instrumentState.ringModMixFadeDelta;
                 
                 let ringModPulseWidth = +instrumentState.ringModPulseWidth;
-
-                let waveform = Config.operatorWaves[ringModWaveformIndex].samples; 
+              
+                let waveform ;
+                if(ringModWaveformIndex > Config.operatorWaves.length){
+                waveform = Synth.getOperatorWave(ringModWaveformIndex-Config.operatorWaves.length, 0).samples;
+                }else{
+                	waveform = Config.operatorWaves[ringModWaveformIndex].samples; 
+                }
                 if (ringModWaveformIndex == Config.operatorWaves.dictionary['pulse width'].index) {
                     waveform = Synth.getOperatorWave(ringModWaveformIndex, ringModPulseWidth).samples;
                 }
@@ -37156,7 +37152,7 @@ else {
                 }
                 if (usesRingModulation) {
                     effectsSource += ` 
-                
+
                 const ringModOutput = sample * waveform[(ringModPhase*waveformLength)|0];
                 const ringModMixF = Math.max(0, ringModMix * ringModMixFade);
                 sample = sample * (1 - ringModMixF) + ringModOutput * ringModMixF;
@@ -37166,7 +37162,6 @@ else {
                 ringModPhase -= ringModPhase | 0;
                 ringModPhaseDelta *= ringModPhaseDeltaScale;
                 ringModMixFade += ringModMixFadeDelta;
-                 
                 `;
                 }
                    if (usesPhaser) {
@@ -38597,8 +38592,9 @@ async function loadFiles2() {
 		}
 	};
 }
-setTimeout(loadFiles2, 800) 
-
+if (willLoadEditor == false){
+loadFiles2()
+}
 
 
 

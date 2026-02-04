@@ -27971,16 +27971,7 @@ addPerformedNote(note) {
         }
         
         
-selectMore() {
-let oo = new SelectMoreContainer();
-oo.ondone = ( x2, y2) => {
-	new ChangePatternSelection(this._doc, 0, 0);
-	 this._doc.selection.setTrackSelection(this._doc.selection.boxSelectionX0, x2-1, this._doc.selection.boxSelectionY0, y2-1);
-  this._doc.selection.selectionUpdated();
-	this.selectionUpdated();
-}
- oo.show();
-}
+
 whistleRecord() {
 	let _1doc= this._doc
  let oo = new WhistleRecordContainer(document.body, _1doc);
@@ -40060,7 +40051,9 @@ container.querySelector('#varname').value = '';
 container.querySelector('#fileInput').value = '';
 selectedFile = null;
 container.querySelector('#generateButton2').disabled = true;
+skipsamplesLoading=false
 loadFiles();
+updateSampledWaves()
 isFileIn=0
 });
 container.querySelector('#generateButton').addEventListener('click', async () => {
@@ -40104,11 +40097,15 @@ container.querySelector('#fileInput').value = '';
 selectedFile = null; 
 container.querySelector('#fileInput').value = '';
 container.querySelector('#generateButton').disabled = true;
+skipsamplesLoading=false
 loadFiles()
+updateSampledWaves()
 isFileIn=0
     });
 container.querySelector('#reload').addEventListener('click', async () => {
+	skipsamplesLoading=false
 	loadFiles()
+	updateSampledWaves()
 	renderFileList();
 	reloadsite()
 });
@@ -40202,7 +40199,9 @@ container.querySelector('#importZip').addEventListener('click', () => {
 			}
 		}
 		renderFileList();
+		skipsamplesLoading=false
 		loadFiles()
+		updateSampledWaves()
 	};
 	input.click();
 });
@@ -40251,7 +40250,9 @@ container.querySelector('#importZipReplace').addEventListener('click', () => {
 			}
 		}
 		renderFileList();
+		skipsamplesLoading=false
 		loadFiles()
+		updateSampledWaves()
 	};
 	input.click();
 });
@@ -42739,27 +42740,149 @@ class CustomThemesPlugin {
 static title = "Custom Themes";constructor() {this.paused = false;this.ticks = 0;this._raf = null;}
 render() {
   return `
-    <h2>Custom Themes</h2>
-    <div class="menu">
-      <label>Theme Name:</label>
-      <input id="varname2" type="text">
+    <h2 style="color: var(--primary-text); font-size: 1.4em; margin-bottom: 0.5em;">Custom Themes</h2>
+    <div class="menu" style="
+      display: flex; 
+      flex-direction: column; 
+      gap: 0.5em; 
+      width: 100%; 
+      max-width: 900px;">
+      
+      <label style="color: var(--secondary-text); font-weight: bold;">Theme Name:</label>
+      <input id="varname2" type="text" placeholder="Enter theme name" style="
+        padding: 0.4em 0.6em; 
+        font-size: 1em; 
+        border-radius: 0.3em; 
+        border: 1px solid var(--input-box-outline); 
+        background-color: var(--editor-background); 
+        color: var(--primary-text);
+        width: 100%;">
 
-      <label>Base theme:</label>
-
-      <label>Your Css Theme:</label>
-      <textarea id="cssInput"
-        style="white-space: pre; overflow-wrap: normal; overflow-x: scroll; width:100%; height:100px;">
-      </textarea><br>
-
-      <button id="generateButton222" disabled>Create</button>
+      <label style="color: var(--secondary-text); font-weight: bold;">Theme CSS:</label>
+      <div style="display: flex; gap: 1em; flex-wrap: wrap; width: 100%;">
+        <textarea id="cssInput" placeholder="Paste your CSS here..." style="
+          flex: 1 1 60%; 
+          outline:none;
+          min-height: 250px; 
+          resize: vertical; 
+          padding: 0.6em; 
+          font-family: monospace; 
+          font-size: 0.9em; 
+          border-radius: 0.4em; 
+          border: 1px solid var(--input-box-outline); 
+          background-color: var(--editor-background); 
+          color: var(--primary-text); 
+          overflow: auto;"></textarea>
+        <div id="fileManager" style="
+          flex: 1 1 35%; 
+          max-height: 250px; 
+          overflow-y: auto; 
+          padding: 0.5em; 
+          border-radius: 0.4em; 
+          background-color: var(--ui-widget-background);
+          border: 1px solid var(--input-box-outline);
+          color: var(--primary-text);
+          font-size: 0.85em;">
+        </div>
+      </div>
     </div>
-    <div id="themeList"></div>
-    
-          <select id="themeSelect"></select>
-      <button id="getCssBtn">Get CSS</button>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 0.5em; margin-top: 1em;">
+      <button id="generateButton222" disabled style="
+        background-color: var(--loop-accent); 
+        color: var(--primary-text); 
+        border: none; 
+        padding: 0.5em 1em; 
+        border-radius: 0.3em; 
+        cursor: pointer;">Create Theme</button>
+      <button id="addImageBtn" style="
+        background-color: var(--overwriting-mod-slider); 
+        color: var(--primary-text); 
+        border: none; 
+        padding: 0.5em 1em; 
+        border-radius: 0.3em; 
+        cursor: pointer;">Add Image</button>
+      <button id="loadRawBtn" style="
+        background-color: var(--multiplicative-mod-slider); 
+        color: var(--primary-text); 
+        border: none; 
+        padding: 0.5em 1em; 
+        border-radius: 0.3em; 
+        cursor: pointer;">Load CSS</button>
+      <button id="exportCssBtn" style="
+        background-color: var(--indicator-primary); 
+        color: var(--primary-text); 
+        border: none; 
+        padding: 0.5em 1em; 
+        border-radius: 0.3em; 
+        cursor: pointer;">Export CSS</button>
+      <select id="themeSelect" style="
+        padding: 0.4em 0.6em; 
+        border-radius: 0.3em; 
+        border: 1px solid var(--input-box-outline); 
+        background-color: var(--editor-background); 
+        outline:none;
+        color: var(--primary-text);
+        font-size: 0.95em;">
+      </select>
+      <button id="getCssBtn" style="
+        background-color: var(--indicator-secondary); 
+        color: var(--primary-text); 
+        border: none; 
+        padding: 0.5em 1em; 
+        border-radius: 0.3em; 
+        cursor: pointer;">Get CSS</button>
+    </div>
+
+    <div id="themeList" style="
+      margin-top: 1em; 
+      display: flex; 
+      flex-direction: column; 
+      gap: 0.4em; 
+      max-height: 300px; 
+      overflow-y: auto;">
+    </div>
   `;
 }
+
 script(container) {
+	let imageVars = {};
+let imageExample=`
+:root{
+	--image-example: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+}
+.pattern-area.load,
+#pattern-area.load {
+  background-image: var(--image-example);
+  background-size: 250px 350px;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+}
+.pattern-area.load::before,
+#pattern-area.load::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+body:not(:has(.beepboxEditorContainer)) {
+  background-image: var(--image-example);
+  background-size: 250px 350px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.pattern-area,
+#pattern-area,
+.track-editor,
+#track-editor {
+  background-color: transparent !important;
+}
+.editor-background {
+  background: transparent !important;
+}
+`
 function normalizeCss(css) {
   return css
     .split('\n')
@@ -42767,28 +42890,192 @@ function normalizeCss(css) {
     .join('\n')
     .trim();
 }
+function extractImagesFromCss(css) {
+  const lines = css.split('\n');
+  const cleanLines = [];
+  imageVars = {};
+  for (let line of lines) {
+    line = line.trim();
+    if (!line) continue;
+    if (line.startsWith('--image-') && line.includes('url(')) {
+      const parts = line.split(':');
+      if (parts.length < 2) continue;
+      const varName = parts[0].trim();
+      let val = parts.slice(1).join(':').trim();
+      val = val.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
+      let mime = 'image/png';
+      let data = val;
+      if (val.startsWith('data:')) {
+        const match = val.match(/^data:(.*?);base64,(.*)$/);
+        if (match) {
+          mime = match[1];
+          data = match[2];
+        }
+      }
+      imageVars[varName] = { mime, data };
+      continue;
+    }
+    cleanLines.push(line);
+  }
+  renderImageManager();
+  return cleanLines.join('\n').trim();
+}
+function normalizeCssVar(name) {
+  return name
+    .toLowerCase()
+    .replace(/\.[^/.]+$/, "")
+    .replace(/[^a-z0-9-]/g, "-");
+}
 
 
 	container.querySelector('#getCssBtn').onclick = () => {
   const selected = container.querySelector('#themeSelect').value;
-  const themeVars = ColorConfig.themes[selected];
-
+  let themeVars
+  if(selected=="Example Theme With Image"){
+  	themeVars = imageExample
+  }else{
+  themeVars = ColorConfig.themes[selected];
+  }
   if (!themeVars) return;
-
-  container.querySelector('#cssInput').value = normalizeCss(themeVars)
+  const cleanCss = extractImagesFromCss(themeVars);
+  renderImageManager();
+  container.querySelector('#cssInput').value = normalizeCss(cleanCss);
 };
 
 	function renderThemeSelect() {
   const select = container.querySelector('#themeSelect');
   select.innerHTML = '';
-
-  Object.keys(ColorConfig.themes).forEach(themeName => {
+  Object.keys( ColorConfig.themes ).forEach(themeName => {
     const opt = document.createElement('option');
     opt.value = themeName;
     opt.textContent = themeName;
     select.appendChild(opt);
   });
+  const opt2 = document.createElement('option');
+  opt2.value = "Example Theme With Image";
+  opt2.textContent = "Example Theme With Image";
+  select.appendChild(opt2)
 }
+function getCss() {
+  const textarea = container.querySelector('#cssInput');
+  const lines = textarea.value.split('\n');
+  const cleanCss = [];
+  let insideRoot = false;
+
+  for (let line of lines) {
+    line = line.trim();
+    if (line.startsWith(':root{')) {
+      insideRoot = true;
+      continue;
+    }
+    if (insideRoot && line.endsWith('}')) {
+      insideRoot = false;
+      continue;
+    }
+    if (!insideRoot && line) cleanCss.push(line);
+  }
+
+  let rootBlock = '';
+  if (Object.keys(imageVars).length) {
+    rootBlock = ':root{\n';
+    for (let k in imageVars) {
+      const img = imageVars[k];
+      if (typeof img === "string") {
+        rootBlock += `  ${k}: url("${img}");\n`;
+      } else {
+        rootBlock += `  ${k}: url("data:${img.mime};base64,${img.data}");\n`;
+      }
+    }
+    rootBlock += '}\n\n';
+  }
+
+  return rootBlock + cleanCss.join('\n').trim();
+}
+
+container.querySelector('#exportCssBtn').onclick = () => {
+  const css = getCss();
+  if (!css) return;
+
+  const blob = new Blob([css], { type: 'text/css' });
+  const url = URL.createObjectURL(blob);
+  save(blob, container.querySelector(`#varname2`).value + '.css',css)
+
+  URL.revokeObjectURL(url);
+};
+
+
+
+function blobToBase64(blob) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			const base64data = reader.result.split(',')[1];
+			resolve(base64data);
+		};
+		reader.onerror = reject;
+		reader.readAsDataURL(blob);
+	});
+}
+function renderImageManager() {
+  container.querySelector('#fileManager').innerHTML = '';
+  Object.keys(imageVars).forEach(cssVar => {
+    const name = cssVar.replace('--image-','');
+    const div = document.createElement('div');
+    div.textContent = name;
+    const copy = document.createElement('button');
+    copy.style="margin-left:10px; background-color: var(--editor-background); padding:1px; border-radius:0px;"
+    copy.textContent = 'cp';
+    copy.onclick = () => {
+      navigator.clipboard.writeText(`var(${cssVar})`);
+    };
+    const del = document.createElement('button');
+    del.textContent = 'X';
+    del.style="margin-left:10px; background-color: var(--editor-background); padding:1px; border-radius:0px;"
+    del.onclick = () => {
+      delete imageVars[cssVar];
+      renderImageManager();
+    };
+    div.appendChild(copy);
+    div.appendChild(del);
+    container.querySelector('#fileManager').appendChild(div);
+  });
+}
+container.querySelector('#loadRawBtn').onclick = () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.css';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    const cleanCss = extractImagesFromCss(text);
+    renderImageManager();
+    container.querySelector('#cssInput').value = normalizeCss(cleanCss);
+  };
+  input.click();
+};
+
+container.querySelector('#addImageBtn').onclick = () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = 'image/*';
+  input.onchange = async () => {
+    for (const file of input.files) {
+      const base64 = await blobToBase64(file);
+      const varName = "--image-" + normalizeCssVar(file.name);
+      imageVars[varName] = {
+        mime: file.type || 'image/png', 
+        data: base64
+      };
+    }
+    renderImageManager();
+  };
+  input.click();
+};
+
+
+
 
 function renderFileList2() {
 	const list = container.querySelector('#themeList');
@@ -42809,7 +43096,7 @@ function renderFileList2() {
 			container.querySelector(`#file-${id}`).remove();
 		};
 		btn1.onclick = () => {
-  container.querySelector(`#cssInput`).value=CustomThemes[id];
+  container.querySelector(`#cssInput`).value=extractImagesFromCss(CustomThemes[id]);
   container.querySelector(`#varname2`).value=id;
   };
 		div.appendChild(span);
@@ -42855,7 +43142,7 @@ function blobToBase6422(blob) {
 }
 container.querySelector('#generateButton222').addEventListener('click', async () => {
   const name = container.querySelector('#varname2').value;
-  const css = container.querySelector('#cssInput').value;
+  let css = getCss()
   CustomThemes[name] = css;
   await THEMESDB.save(name, css); 
   container.querySelector('#varname2').value = '';
@@ -43965,7 +44252,7 @@ const existingThemeValues = new Set(
                     break;
                 case "ringModChipWave":
                     {
-                        message = div$5(h2$4("Ring Mod Chip Wave"), p("This is the shape of the wave modulating your instrument's sound"));
+                        message = div$5(h2$4("Ring Mod Chip Wave"), p("This is the shape of the wave modulating your instrument's sound"),p("No matter how long sample you will put here it will be squeezed "));
                     }
                     break;
                 case "granular":
@@ -44244,10 +44531,6 @@ this._whenSelectChanged = () => {
         _updatePreview() {
             let channel = this._mouseChannel;
             let bar = this._mouseBar;
-            if (this._touchMode) {
-                bar = this._doc.bar;
-                channel = this._doc.channel;
-            }
             const selected = (bar == this._doc.bar && channel == this._doc.channel);
             const overTrackEditor = (this._mouseY >= Config.barEditorHeight);
             if (this._mouseDragging && this._mouseStartBar != this._mouseBar) {
@@ -44258,6 +44541,12 @@ this._whenSelectChanged = () => {
                     }
                     if (bar < this._doc.barScrollPos && this._doc.barScrollPos > 0) {
                         this._songEditor.changeBarScrollPos(-1);
+                    } // fuck this i added Scroll Y in Track Editor because i hate "select more"
+                    const trackRect = this._svg.getBoundingClientRect();const scrollSpeed = 20; const scrollMargin = 50;
+                    if (this._mouseY + trackRect.top > window.innerHeight - scrollMargin){
+                      window.scrollBy({ top: scrollSpeed });
+                    } else if (this._mouseY + trackRect.top < scrollMargin) {
+                      window.scrollBy({ top: -scrollSpeed });
                     }
                     this._lastScrollTime = timestamp;
                 }
@@ -47606,156 +47895,6 @@ this.container.appendChild(description);
 	destroy() { this.container.remove(); }
 }
         
-class SelectMoreContainer {
-	constructor(parent = document.body) {
-		this.parent = parent;
-		this.container = document.createElement('div');
-		Object.assign(this.container.style, {
-			position: 'fixed',
-			right: '12px',
-			top: '50vh',
-			left: "50vw",
-			minHeight: "40vh",
-			transform: "translate(-50%,-50%)",
-			zIndex: '5',
-			borderRadius: "15px",
-			border: `4px solid ${ColorConfig.uiWidgetBackground}`,
-			color: `${ColorConfig.primaryText}`,
-			background: 'var(--editor-background)',
-			padding: '8px',
-			width: "calc(100vw - 48px)",
-			overflow: "hidden scroll",
-			borderRadius: '6px',
-			boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-			fontFamily: 'Arial, sans-serif',
-			fontSize: '13px',
-			display: 'none'
-		});
-		const inputsWrap = document.createElement('div');
-		Object.assign(inputsWrap.style, {
-			display: 'grid',
-			background: "transparent",
-			color: ColorConfig.primaryText,
-			gridTemplateColumns: 'repeat(2, 1fr)',
-			gap: '6px',
-			marginBottom: '8px',
-			color: "white"
-		});
-		const placeholderClass = 'custom-placeholder';
-		const style = document.createElement('style');
-		style.textContent = `
-			.${placeholderClass}::placeholder {
-				color: ${ColorConfig.primaryText};
-			}
-		`;
-		document.head.appendChild(style);
-		this.inputX2 = document.createElement('input');
-		this.inputX2.type = 'number';
-		this.inputX2.placeholder = 'bar index';
-		Object.assign(this.inputX2.style, {
-			padding: '6px',
-			width: '100%',
-			boxSizing: 'border-box',
-			background: "transparent",
-			border: `1px solid ${ColorConfig.uiWidgetBackground}`,
-			borderRadius: "0px",
-			color: ColorConfig.primaryText,
-		});
-		this.inputX2.classList.add(placeholderClass);
-		this.inputY2 = document.createElement('input');
-		this.inputY2.type = 'number';
-		this.inputY2.placeholder = 'channel index';
-		Object.assign(this.inputY2.style, {
-			padding: '6px',
-			width: '100%',
-			boxSizing: 'border-box',
-			background: "transparent",
-			border: `1px solid ${ColorConfig.uiWidgetBackground}`,
-			borderRadius: "0px",
-			color: ColorConfig.primaryText,
-		});
-		this.inputY2.classList.add(placeholderClass);
-		inputsWrap.appendChild(this.inputX2);
-		inputsWrap.appendChild(this.inputY2);
-		const buttonsWrap = document.createElement('div');
-		Object.assign(buttonsWrap.style, {
-			display: 'flex',
-			gap: '6px',
-			justifyContent: 'flex-end'
-		});
-		this.btnCancel = document.createElement('button');
-		this.btnCancel.type = 'button';
-		this.btnCancel.textContent = 'Cancel';
-		Object.assign(this.btnCancel.style, {
-			padding: '6px 10px',
-			borderRadius: '4px',
-			border: '1px solid #ccc',
-			background: '#f5f5f5',
-			cursor: 'pointer',
-		});
-		this.btnDone = document.createElement('button');
-		this.btnDone.type = 'button';
-		this.btnDone.textContent = 'Done';
-		Object.assign(this.btnDone.style, {
-			padding: '6px 10px',
-			borderRadius: '4px',
-			border: '1px solid #0a66ff',
-			background: '#0a66ff',
-			color: '#fff',
-			cursor: 'pointer',
-			opacity: '0.6'
-		});
-		this.btnDone.disabled = true;
-		buttonsWrap.appendChild(this.btnCancel);
-		buttonsWrap.appendChild(this.btnDone);
-		this.container.appendChild(inputsWrap);
-		this.container.appendChild(buttonsWrap);
-		document.body.appendChild(this.container);
-		this.ondone = null;
-		this._onInput = this._onInput.bind(this);
-		this._onDone = this._onDone.bind(this);
-		this._onCancel = this._onCancel.bind(this);
-		this.inputX2.addEventListener('input', this._onInput);
-		this.inputY2.addEventListener('input', this._onInput);
-		this.btnDone.addEventListener('click', this._onDone);
-		this.btnCancel.addEventListener('click', this._onCancel);
-	}
-	_isValid(v) {
-		return v !== '' && !Number.isNaN(Number(v));
-	}
-	_onInput() {
-		const v2 = this.inputX2.value;
-		const v4 = this.inputY2.value;
-		const ok = this._isValid(v2) && this._isValid(v4);
-		this.btnDone.disabled = !ok;
-		this.btnDone.style.opacity = ok ? '1' : '0.6';
-	}
-	_onDone() {
-		const x2 = Number(this.inputX2.value);
-		const y2 = Number(this.inputY2.value);
-		if (this.ondone) this.ondone(x2, y2);
-		this.hide();
-	}
-	_onCancel() {
-		this.hide();
-	}
-	show(x2 = '', y2 = '') {
-		this.inputX2.value = x2 !== '' ? x2 : '';
-		this.inputY2.value = y2 !== '' ? y2 : '';
-		this.container.style.display = 'block';
-		this._onInput();
-	}
-	hide() {
-		this.container.style.display = 'none';
-	}
-	destroy() {
-		this.inputX2.removeEventListener('input', this._onInput);
-		this.inputY2.removeEventListener('input', this._onInput);
-		this.btnDone.removeEventListener('click', this._onDone);
-		this.btnCancel.removeEventListener('click', this._onCancel);
-		this.container.remove();
-	}
-}
 
 let lastScrollY = 0
 let savedScrollY=0
@@ -47992,7 +48131,7 @@ class CustomSelectModal{
             this._volumeBarContainer = SVG.svg({ style: `touch-action: none; overflow: visible; margin: auto; max-width: 20vw;`, width: "160px", height: "100%", preserveAspectRatio: "none", viewBox: "0 0 160 12" }, this._defs, this._outVolumeBarBg, this._outVolumeBar, this._outVolumeCap);
             this._volumeBarBox = div({ class: "playback-volume-bar", style: "height: 12px; align-self: center;" }, this._volumeBarContainer);
             this._fileMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "File"), option({ value: "new" }, "+ New Blank Song (⇧`)"), option({ value: "import" }, "↑ Import Song... (" + EditorConfig.ctrlSymbol + "O)"), option({ value: "export" }, "↓ Export Song... (" + EditorConfig.ctrlSymbol + "S)"), option({ value: "copyUrl" }, "⎘ Copy Song URL"), option({ value: "shareUrl" }, "⤳ Share Song URL"), option({ value: "configureShortener" }, "🛠 Customize Url Shortener..."), option({ value: "shortenUrl" }, "… Shorten Song URL"), option({ value: "viewPlayer" }, "▶ View in Song Player (⇧P)"), option({ value: "copyEmbed" }, "⎘ Copy HTML Embed Code"), option({ value: "songRecovery" }, "⚠ Recover Recent Song... (`)"));
-            this._editMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "Edit Song"), option({ value: "undo" }, "Undo (Z)"), option({ value: "redo" }, "Redo (Y)"), option({ value: "copy" }, "Copy Pattern (C)"), option({ value: "pasteNotes" }, "Paste Pattern Notes (V)"),   option({ value: "pasteNumbers" }, "Paste Pattern Numbers (" + EditorConfig.ctrlSymbol + "⇧V)"), option({ value: "insertBars" }, "Insert Bar (⏎)"), option({ value: "deleteBars" }, "Delete Selected Bars (⌫)"), option({ value: "insertChannel" }, "Insert Channel (" + EditorConfig.ctrlSymbol + "⏎)"), option({ value: "deleteChannel" }, "Delete Selected Channels (" + EditorConfig.ctrlSymbol + "⌫)"), option({ value: "selectChannel" }, "Select Channel (⇧A)"), option({ value: "selectAll" }, "Select All (A)"),option$6({ value: "selectMore" }, "Select More (XY)"),  option({ value: "duplicatePatterns" }, "Duplicate Reused Patterns (D)"), option({ value: "transposeUp" }, "Move Notes Up (+ or ⇧+)"), option({ value: "transposeDown" }, "Move Notes Down (- or ⇧-)"), option$6({ value: "transposeOctaveUp" }, "Move Notes Up Octave +"), option$6({ value: "transposeOctaveDown" }, "Move Notes Down Octave -")  , option({ value: "moveNotesSideways" }, "Move All Notes Sideways... (W)"), option({ value: "generateEuclideanRhythm" }, "Generate Euclidean Rhythm... (" + EditorConfig.ctrlSymbol + "E)"), option({ value: "beatsPerBar" }, "Change Beats Per Bar... (⇧B)"), option({ value: "barCount" }, "Change Song Length... (L)"), option({ value: "channelSettings" }, "Channel Settings... (Q)"), option({ value: "limiterSettings" }, "Limiter Settings... (⇧L)"), option({ value: "addExternal" }, "Add Custom Samples... (⇧Q)"));
+            this._editMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "Edit Song"), option({ value: "undo" }, "Undo (Z)"), option({ value: "redo" }, "Redo (Y)"), option({ value: "copy" }, "Copy Pattern (C)"), option({ value: "pasteNotes" }, "Paste Pattern Notes (V)"),   option({ value: "pasteNumbers" }, "Paste Pattern Numbers (" + EditorConfig.ctrlSymbol + "⇧V)"), option({ value: "insertBars" }, "Insert Bar (⏎)"), option({ value: "deleteBars" }, "Delete Selected Bars (⌫)"), option({ value: "insertChannel" }, "Insert Channel (" + EditorConfig.ctrlSymbol + "⏎)"), option({ value: "deleteChannel" }, "Delete Selected Channels (" + EditorConfig.ctrlSymbol + "⌫)"), option({ value: "selectChannel" }, "Select Channel (⇧A)"), option({ value: "selectAll" }, "Select All (A)"), option({ value: "duplicatePatterns" }, "Duplicate Reused Patterns (D)"), option({ value: "transposeUp" }, "Move Notes Up (+ or ⇧+)"), option({ value: "transposeDown" }, "Move Notes Down (- or ⇧-)"), option$6({ value: "transposeOctaveUp" }, "Move Notes Up Octave +"), option$6({ value: "transposeOctaveDown" }, "Move Notes Down Octave -")  , option({ value: "moveNotesSideways" }, "Move All Notes Sideways... (W)"), option({ value: "generateEuclideanRhythm" }, "Generate Euclidean Rhythm... (" + EditorConfig.ctrlSymbol + "E)"), option({ value: "beatsPerBar" }, "Change Beats Per Bar... (⇧B)"), option({ value: "barCount" }, "Change Song Length... (L)"), option({ value: "channelSettings" }, "Channel Settings... (Q)"), option({ value: "limiterSettings" }, "Limiter Settings... (⇧L)"), option({ value: "addExternal" }, "Add Custom Samples... (⇧Q)"));
             this._optionsMenu = select({ style: "width: 100%;" }, option({ selected: true, disabled: true, hidden: false }, "Settings"), optgroup({ label: "Technical" }, option({ value: "autoPlay" }, "Auto Play on Load"), option({ value: "autoFollow" }, "Auto Follow Playhead"), option({ value: "enableNotePreview" }, "Hear Added Notes"), option({ value: "notesOutsideScale" }, "Place Notes Out of Scale"), option({ value: "setDefaultScale" }, "Set Current Scale as Default"), option({ value: "alwaysFineNoteVol" }, "Always Fine Note Volume"), option({ value: "enableChannelMuting" }, "Enable Channel Muting"), option({ value: "instrumentCopyPaste" }, "Enable Copy/Paste Buttons"), option({ value: "instrumentImportExport" }, "Enable Import/Export Buttons"), option({ value: "displayBrowserUrl" }, "Enable Song Data in URL"), option({ value: "closePromptByClickoff" }, "Close Prompts on Click Off"),
             
             option({ value: "increaseAllPins" }, "Increase All Pins ."),  
@@ -48768,7 +48907,6 @@ this._strumSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip",
                         this._chipWavePlayBackwardsRow.style.display = "none";
                         
                         // sorry for that ugly writen code but basically this shit rebuilds waveform Select in Fm6Op and Fm8Op 
-                        
 const FeedSelectEl =this._feedback6OpTypeSelect;
 FeedSelectEl.innerHTML = ""; 
 if (instrument.type == 12) {
@@ -49124,6 +49262,25 @@ this._feedbackAmplitudeSlider.updateValue(instrument.feedbackAmplitude);
                         this._ringModContainerRow.style.display = "";
                         this._ringModSlider.updateValue(instrument.ringModulation);
                         this._ringModHzSlider.updateValue(instrument.ringModulationHz);
+                        const select = this._ringModWaveSelect;
+                        select.innerHTML = "";
+                        const classicGroup = document.createElement("optgroup");
+                        classicGroup.label = "Normal";
+                        Config.operatorWaves.forEach((wave, w) => {
+                        const opt = document.createElement("option");
+                        opt.value = w;
+                        opt.textContent = wave.name;classicGroup.appendChild(opt);
+                        });
+                        select.appendChild(classicGroup);
+                        const chipGroup = document.createElement("optgroup");
+                        chipGroup.label = "Custom";
+                        Config.chipWaves.forEach((wave, w) => {
+                        if (!wave.samples) return;
+                        const opt = document.createElement("option");
+                        opt.value = w + Config.operatorWaves.length;
+                        opt.textContent = wave.name;
+                        chipGroup.appendChild(opt);});
+                        select.appendChild(chipGroup);
                         setSelectedValue(this._ringModWaveSelect, instrument.ringModWaveformIndex);
                         this._ringModPulsewidthSlider.updateValue(instrument.ringModPulseWidth);
                     }
@@ -49178,19 +49335,17 @@ this._feedbackAmplitudeSlider.updateValue(instrument.feedbackAmplitude);
                     setSelectedValue(this._vibratoSelect, instrument.vibrato);
                     setSelectedValue(this._vibratoTypeSelect, instrument.vibratoType);
                     setSelectedValue(this._chordSelect, instrument.chord);
-                    
-if (instrument.pitchShift) {
-	this._pitchShiftBox.value = instrument.pitchShift
-}
-if (instrument.octaveShift) {
-	this._octaveShiftBox.value = instrument.octaveShift
-}
-if(instrument.customfunction){
-	if(instrument.customfunction[1]){this._fnInput.value = instrument.customfunction[1]}
- if(instrument.customfunction[0]){}
-}
-                    this._instrumentName.value=this.doc.song.channels[this.doc.channel].name
-                    
+                    if (instrument.pitchShift) {
+                     	this._pitchShiftBox.value = instrument.pitchShift
+                    }
+                    if (instrument.octaveShift) {
+                     	this._octaveShiftBox.value = instrument.octaveShift
+                    }
+                    if(instrument.customfunction){
+                       	if(instrument.customfunction[1]){this._fnInput.value = instrument.customfunction[1]}
+                        if(instrument.customfunction[0]){}
+                    }
+                    this._instrumentName.value=this.doc.song.channels[this.doc.channel].name 
                     this._panSliderInputBox.value = instrument.pan + "";
                     this._pwmSliderInputBox.value = instrument.pulseWidth + "";
                     this._detuneSliderInputBox.value = (instrument.detune - Config.detuneCenter) + "";
@@ -50471,7 +50626,7 @@ if(instrument.customfunction){
                             this.doc.prefs.colorTheme = "Standard";
                             this.doc.prefs.language="en"
                             this.doc.prefs.frostedGlassBackground = false;
-                            this.doc.prefs.pianoKeyboard=false
+                            this.doc.prefs.pianoKeyboard=true
                             this.doc.prefs.instrumentButtonsAtTop = true;
                             this.doc.prefs.instrumentCopyPaste = true;
                             this.doc.prefs.instrumentImportExport = true;
@@ -51280,10 +51435,6 @@ break;
 case "transposeOctaveDown":
 this.doc.selection.transpose(false, true);
 break;
-case "selectMore":
-this.doc.selection.selectMore();
-break;
-                        
                     case "selectAll":
                         this.doc.selection.selectAll();
                         break;
@@ -52235,11 +52386,6 @@ case "plugin:other": {
                         this.doc.performance.pause();
                     }
                     this._promptContainer.style.display = "";
-
-
-
- 
-
                     if (this.doc.prefs.frostedGlassBackground == true) {
 this._promptContainerBG.style.display = "block"
 this._promptContainerBG.style.backgroundColor = "rgba(0,0,0,0.01)"
@@ -52670,4 +52816,4 @@ pressPianoKey = function(pitchIndex, duration = 200) {
 }catch (error){
     alert(error)
 }
-}
+}   

@@ -276,6 +276,7 @@ loadingScreen.addEventListener("click",()=>{
 	RUNBEEPBOX()
 	setTimeout(() => {
 		setTimeout(() => { loadingText.innerText = "Some Samples Is Still Not Loaded" }, 10);
+		
 	loadingScreen.style.opacity = "0";
 	setTimeout(() => {
 		loadingScreen.style.display = "none";
@@ -313,7 +314,6 @@ function loadFiles() {
 				cursor.continue();
 			} else {
 				allfilesloaded = 1;
-				
 				if(window.location.hash){
 				await loadScriptsSequentially();
 				}
@@ -345,23 +345,10 @@ if (document.readyState !== "loading") {
 				} else if(loadedBB==1){
  				updateSampledWaves()
 				}
-				
 			}
 		};
 	};
 }
-/*function getFileBuffer(key) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(["files"], "readonly");
-    const store = tx.objectStore("files");
-    const req = store.get(key);
-    req.onsuccess = () => {
-      if (!req.result) return reject("No File");
-      resolve(req.result.buffer); 
-    };
-    req.onerror = reject;
-  });
-}*/
 var updateThemes = function() {}
 function POPUP(x, y, title, content, framecolor = "#000080") {
 	const win = document.createElement("div");

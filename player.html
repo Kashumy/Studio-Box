@@ -30,6 +30,7 @@
 </body>
  
 <script>
+let willLoadEditor=false
 function createStorage(dbName = "myDB", storeName = "store") {
   const dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);

@@ -19579,7 +19579,7 @@ class SongPlayerLayout {
 
 	body {
 		color: ${ColorConfig.primaryText};
-		background: ${ColorConfig.songPlayerMargin};
+		background: ${ColorConfig.editorBackground}; 
 	}
 	.songPlayerContainer {
 		display:flex; 
@@ -19774,6 +19774,7 @@ class SongPlayerLayout {
     };
     }
     window.addEventListener("resize",()=>{resizeOscilloscope()})
+    resizeOscilloscope();
     const showOscilloscope = getLocalStorage("showOscilloscope") != "false";
     if (!showOscilloscope) {
         oscilloscope.canvas.style.display = "none";
@@ -20284,7 +20285,7 @@ function renderPlayhead() {
  }
 function renderTimeline() {
     	timeline.innerHTML = "";
-    	if (synth.song == null)
+    	if (synth.song == null) 
     		return;
     	const boundingRect = visualizationContainer.getBoundingClientRect();
     	let timelineHeight;
