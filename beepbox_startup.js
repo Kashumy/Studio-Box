@@ -2,8 +2,6 @@ if(typeof updateSampledWaves == "function"){ } else { var updateSampledWaves = f
 if (window.filesMap==undefined) {
 	window.filesMap = []
 }
-	
-	
 const loadingScreen = document.createElement("div");
 loadingScreen.style.position = "fixed";
 loadingScreen.style.inset = "0";
@@ -475,7 +473,6 @@ This will remove all your songs you made in the recovery tab "Are You Sure?"
         </button>
     </div>
   `;
-
   POPUP(x, y, "Confirm", content, "#444");
   setTimeout(() => {
     const confirmBtn = document.getElementById("popupConfirmBtn");
@@ -491,15 +488,19 @@ This will remove all your songs you made in the recovery tab "Are You Sure?"
     });
   }, 10);
 }
-
 function showToast(message, duration = 3000) {
     const toast = document.createElement("div");
+    let expanded = false;
+    let hideTimeout;
+
     toast.textContent = message;
+
     Object.assign(toast.style, {
         position: "fixed",
         bottom: "30px",
         left: "50%",
         transform: "translateX(-50%)",
+        maxWidth: "90vw",
         backgroundColor: "#333",
         color: "#fff",
         padding: "10px 20px",
@@ -508,19 +509,71 @@ function showToast(message, duration = 3000) {
         fontSize: "14px",
         zIndex: "9999",
         opacity: "0",
-        transition: "opacity 0.3s ease",
-        pointerEvents: "none", 
+        transition: "all 0.3s ease",
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis"
     });
+
     document.body.appendChild(toast);
+
     requestAnimationFrame(() => {
         toast.style.opacity = "1";
     });
-    setTimeout(() => {
+
+    function startTimer() {
+        hideTimeout = setTimeout(hideToast, duration);
+    }
+
+    function hideToast() {
         toast.style.opacity = "0";
-        setTimeout(() => {
-            toast.remove();
-        }, 300); 
-    }, duration);
+        setTimeout(() => toast.remove(), 300);
+    }
+
+    startTimer();
+
+    toast.addEventListener("click", () => {
+        clearTimeout(hideTimeout);
+
+        if (!expanded) {
+            expanded = true;
+            Object.assign(toast.style, {
+                top: "0",
+                bottom: "0",
+                left: "0",
+                right: "0",
+                transform: "none",
+                maxWidth: "100vw",
+                borderRadius: "0",
+                whiteSpace: "normal",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
+                fontSize: "20px",
+                padding: "40px"
+            });
+        } else {
+            expanded = false;
+            Object.assign(toast.style, {
+                top: "",
+                right: "",
+                bottom: "30px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                maxWidth: "90vw",
+                borderRadius: "8px",
+                whiteSpace: "nowrap",
+                fontSize: "14px",
+                padding: "10px 20px",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis"
+            });
+            startTimer();
+        }
+    });
 }
  let loadedBB = 0
 let pageloaded = 0

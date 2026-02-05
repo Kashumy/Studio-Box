@@ -1594,7 +1594,7 @@ Config.pitchShiftRange = Config.justIntonationSemitones.length;
         { name: "exp wave", samples: _a$1.generateExpWave(0.5) },
     ]);
     Config.pwmOperatorWaves = toNameMap([
-        { name: "1%", samples: _a$1.generateSquareWave(0.01) },
+        { name: "1%", samples: _a$1.generateSquareWave(0.01) }, 
         { name: "5%", samples: _a$1.generateSquareWave(0.05) },
         { name: "12.5%", samples: _a$1.generateSquareWave(0.125) },
         { name: "25%", samples: _a$1.generateSquareWave(0.25) },
@@ -2150,7 +2150,7 @@ function rawChipToIntegrated2(raw) {
             return (_a = EditorConfig.presetCategories[0].presets.dictionary) === null || _a === void 0 ? void 0 : _a[TypePresets === null || TypePresets === void 0 ? void 0 : TypePresets[instrument]];
         }
     }
-    EditorConfig.version = "1.0.2";
+    EditorConfig.version = "1.0.3";
     EditorConfig.versionDisplayName = "Studio Box " + EditorConfig.version;
     EditorConfig.releaseNotesURL = "./patch_notes.html";
     EditorConfig.isOnMac = /^Mac/i.test(navigator.platform) || /Mac OS X/i.test(navigator.userAgent) || /^(iPhone|iPad|iPod)/i.test(navigator.platform) || /(iPhone|iPad|iPod)/i.test(navigator.userAgent);
@@ -3024,7 +3024,7 @@ function rawChipToIntegrated2(raw) {
             if (theme == undefined)
                 theme = ColorConfig.defaultTheme;
             this._styleElement.textContent = theme;
-            let valuesToAdd = ":root{";
+            let valuesToAdd = ":root{--hex-channel-label:false}\n:root{";
             if (getComputedStyle(this._styleElement).getPropertyValue("--oscilloscope-line-L") == "")
                 valuesToAdd += "--oscilloscope-line-L:var(--primary-text,white);";
             if (getComputedStyle(this._styleElement).getPropertyValue("--oscilloscope-line-R") == "")
@@ -13979,6 +13979,7 @@ body::before {
 }
  :root {
  --page-margin: #000000;
+ --hex-channel-label:true;
  --editor-background: #000000;
  --playhead: rgba(0, 255, 22, 0.44);
  --secondary-text: #7EFF80;
@@ -16427,16 +16428,16 @@ body::before {
   --noise2-primary-note: #FFE0AA;
   --noise2-secondary-note: #BB8844;
 
-  --mod1-primary-channel: #33CCFF;
-  --mod1-secondary-channel: #66EEFF;
-  --mod1-primary-note: #99FFFF;
-  --mod1-secondary-note: #44BBBB;
+  --mod1-primary-channel: #3DFFED;
+  --mod1-secondary-channel: #00FFE0;
+  --mod1-primary-note: #AAFFF8;
+  --mod1-secondary-note: #00887A;
 
-  --mod2-primary-channel: #33FFAA;
-  --mod2-secondary-channel: #66FFCC;
-  --mod2-primary-note: #AAFFEE;
-  --mod2-secondary-note: #44BBBB;
-
+  --mod2-primary-channel: #3DAAFF;
+  --mod2-secondary-channel: #007BFF;
+  --mod2-primary-note: #AAD8FF;
+  --mod2-secondary-note: #0055AA;
+  
   --mod-label-primary: #FFFFFF;
   --mod-label-secondary-text: #AAAAAA;
   --mod-label-primary-text: #FFDD88;
@@ -20462,6 +20463,8 @@ body::after {
 "custom": `${localStorage.getItem("customColors") || `:root {  }`}`,
 };
     ColorConfig.pageMargin = "var(--page-margin, black)";
+    ColorConfig.useHexChannelLabel = "var(--hex-channel-label, false)"; 
+    
     ColorConfig.editorBackground = "var(--editor-background, black)";
     ColorConfig.patternBackground = "var(--pattern-background)";
     
@@ -20791,6 +20794,74 @@ updateThemes = function() {
 	if (CustomThemes) {
 		ColorConfig.themes = { ...ColorConfig.themes, ...CustomThemes };
 	}
+}
+function createStorage(dbName = "myDB", storeName = "store") {
+	const dbPromise = new Promise((resolve, reject) => {
+		const request = indexedDB.open(dbName, 1);
+		request.onupgradeneeded = (event) => {
+			const db = event.target.result;
+			if (!db.objectStoreNames.contains(storeName)) {
+				db.createObjectStore(storeName);
+			}
+		};
+		request.onsuccess = () => {
+			resolve(request.result);
+		};
+		request.onerror = () => {
+			reject(request.error);
+		};
+	});
+	async function save(slot, data) {
+		const db = await dbPromise;
+		return new Promise((resolve, reject) => {
+			const tx = db.transaction([storeName], "readwrite");
+			const store = tx.objectStore(storeName);
+			const req = store.put(data, slot);
+			req.onsuccess = () => resolve();
+			req.onerror = () => reject(req.error);
+		});
+	}
+	async function remove(slot) {
+		const db = await dbPromise;
+		return new Promise((resolve, reject) => {
+			const tx = db.transaction([storeName], "readwrite");
+			const store = tx.objectStore(storeName);
+			const req = store.delete(slot);
+			req.onsuccess = () => resolve();
+			req.onerror = () => reject(req.error);
+		});
+	}
+	
+	function load(slot, callback) {
+		dbPromise.then(db => {
+			const tx = db.transaction([storeName], "readonly");
+			const store = tx.objectStore(storeName);
+			const req = store.get(slot);
+			req.onsuccess = () => callback(req.result ?? null);
+			req.onerror = () => callback(null);
+		}).catch(() => callback(null));
+	}
+	return { save, load, remove, dbPromise };
+}
+let THEMESDB = createStorage("Themes", "themes")
+async function loadFiles2() {
+	CustomThemes = {};
+	const db = await THEMESDB.dbPromise;
+	const tx = db.transaction(["themes"], "readonly");
+	const store = tx.objectStore("themes");
+	const req = store.openCursor();
+	req.onsuccess = (event) => {
+		const cursor = event.target.result;
+		if (cursor) {
+			CustomThemes[cursor.key] = cursor.value;
+			cursor.continue();
+		} else {
+			updateThemes()
+		}
+	};
+}
+if (willLoadEditor == false) {
+	loadFiles2()
 }
 updateThemes()
 
@@ -38527,74 +38598,6 @@ instrumentState.customfunction[1] +'} catch {};'
 
  
   
-function createStorage(dbName = "myDB", storeName = "store") {
-	const dbPromise = new Promise((resolve, reject) => {
-		const request = indexedDB.open(dbName, 1);
-		request.onupgradeneeded = (event) => {
-			const db = event.target.result;
-			if (!db.objectStoreNames.contains(storeName)) {
-				db.createObjectStore(storeName);
-			}
-		};
-		request.onsuccess = () => {
-			resolve(request.result);
-		};
-		request.onerror = () => {
-			reject(request.error);
-		};
-	});
-	async function save(slot, data) {
-		const db = await dbPromise;
-		return new Promise((resolve, reject) => {
-			const tx = db.transaction([storeName], "readwrite");
-			const store = tx.objectStore(storeName);
-			const req = store.put(data, slot);
-			req.onsuccess = () => resolve();
-			req.onerror = () => reject(req.error);
-		});
-	}
-	async function remove(slot) {
-		const db = await dbPromise;
-		return new Promise((resolve, reject) => {
-			const tx = db.transaction([storeName], "readwrite");
-			const store = tx.objectStore(storeName);
-			const req = store.delete(slot);
-			req.onsuccess = () => resolve();
-			req.onerror = () => reject(req.error);
-		});
-	}
-	
-	function load(slot, callback) {
-		dbPromise.then(db => {
-			const tx = db.transaction([storeName], "readonly");
-			const store = tx.objectStore(storeName);
-			const req = store.get(slot);
-			req.onsuccess = () => callback(req.result ?? null);
-			req.onerror = () => callback(null);
-		}).catch(() => callback(null));
-	}
-	return { save, load, remove, dbPromise };
-}
-let THEMESDB = createStorage("Themes", "themes")
-async function loadFiles2() {
-	CustomThemes = {};
-	const db = await THEMESDB.dbPromise;
-	const tx = db.transaction(["themes"], "readonly");
-	const store = tx.objectStore("themes");
-	const req = store.openCursor();
-	req.onsuccess = (event) => {
-		const cursor = event.target.result;
-		if (cursor) {
-			CustomThemes[cursor.key] = cursor.value;
-			cursor.continue();
-		} else {
-			updateThemes()
-		}
-	};
-}
-if (willLoadEditor == false){
-loadFiles2()
-}
 
 
 

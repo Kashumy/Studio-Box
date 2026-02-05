@@ -32,6 +32,7 @@
     <style type="text/css">
 html { background: var(--page-margin, black); overflow-x: hidden; font-size: large; font-family: 'B612', sans-serif; line-height: 1.3; color: var(--primary-text, white); } body { margin: auto; overflow-x: hidden; display: none; flex-direction: column; align-items: center; align-content: center; } button{ background:var(--ui-widget-background, #444); color:var(--primary-text, black); padding:4px; border:none; outline:none; border-radius: 5px; margin:1px; } button:disabled{ background:color-mix(in srgb, var(--ui-widget-background, #444) 70%, black); color:#777; cursor:not-allowed; } input[type="number"] { background: var(--editor-background, black); color: var(--primary-text, black); padding: 2px; border: 1px solid var(--input-box-outline, black); border-radius: 5px; margin: 1px; width: 60px; } input[type="text"] { background: var(--editor-background, black); color: var(--primary-text, black); padding: 2px; border: 1px solid var(--input-box-outline, black); border-radius: 5px; margin: 1px; width: 60px; } input[type="file"]::file-selector-button { background: var(--ui-widget-background, #222); color: var(--primary-text, white); border: 1px solid var(--input-box-outline, black); border-radius: 6px; padding: 6px 12px; margin-right: 8px; cursor: pointer; transition: background 0.2s, transform 0.1s; } input[type="file"]::file-selector-button:hover { background: var(--primary-hover, #444); } input[type="file"]::file-selector-button:active { transform: scale(0.97); } select { background: var(--editor-background, black); color: var(--primary-text, black); padding: 4px; border: 2px solid var(--input-box-outline, black); border-radius: 5px; margin: 1px; width: 60px; }
 #beepboxEditorContainer { min-height: 645px; overflow: auto; background: var(--editor-background, black); width: 100%; max-width: 710px; padding-left: 30px; padding-right: 30px; } #text-content { overflow: auto; background: var(--editor-background, black); width: 100%; max-width: 710px; padding-left: 30px; padding-right: 30px; } #Hotdog { display: none; } h1 { font-size: 1.7rem; text-align: center; margin-top: 0.5em; margin-bottom: 0.5em; -webkit-text-stroke-width: 0; color: var(--mod-title, #247d1d); } h2 { font-size: 1.5rem; text-align: center; margin-top: 0.5em; margin-bottom: 0.5em; -webkit-text-stroke-width: 0; } .centerDiv { margin: 0px auto; } a { color: var(--link-accent, #98f); } .donation form { display: inline; } .donation input[type="submit"] { appearance: none; -webkit-appearance: none; background: none; border: none; font-family: inherit; font-size: inherit; color: var(--link-accent, #98f); text-decoration: underline; cursor: pointer; padding: 0; margin: 0; } ; @media (min-width: 711px) { html { width: 100%; } body { width: 100%; } .column-container { width: 710px; display: flex; gap: 25px; } .instructions-column { min-width: 0; } .bsky-column { width: 300px; flex-shrink: 0; } }; @media (max-width: 710px) { body { width: 100%; } .column-container { display: flex; flex-direction: column; align-items: center; } }
+#randomtext{color:#159E58;font-size: 25px;}
 * {
   -webkit-tap-highlight-color: rgba(255,255,255,0.05);
 }
@@ -67,17 +68,9 @@ html { background: var(--page-margin, black); overflow-x: hidden; font-size: lar
 <span id="jummboxPlant" style=" color:#62a13b"></span>
             </h1>
 			<strong id="introduction">
-				<center><t id="randomtext">Studio Box That's because its Studio</t></font></center>
-            </strong>
-			<p>
-                <center><font color="#ed908a">Studio Box is distribution  of <a href="https://slarmoo.github.io/slarmoosbox/website" target="_blank">Slarmoo's box</a> </font></center>
-			</p>
-			<p>
-				<font color="#edbebb">Studio Box was made to create music with more customisation !</font>
-			</p>
-			<p>
-				<font color="#edbebb">The original program beepbox made by <font color="#adeeeb">John Neski</font> </font> <br>
-				<font color="#edbebb">Mod is maded by <font color="#adeeeb">Kashumy Github</font> </font>
+				<center><t id="randomtext"></t></font></center>
+            </strong><p>
+                <center><font color="#ed908a">Studio Box is Mod of <a href="https://slarmoo.github.io/slarmoosbox/website" target="_blank">Slarmoo's box</a> , <a href="https://choptop84.github.io/abyssbox-app/" target="_blank">Abyss's box</a> </font></center></p><p><font color="#edbebb">The original program "Beepbox" made by <font color="#adeeeb">John Neski</font> </font><font color="#edbebb">Mod is maded by <font color="#adeeeb">Kashumy Github</font> </font>
             </p>
             <p id="introduction">
              Studio Box is a tool for making and sharing your music. Make sure that your volume is turned up, then press the play button!
@@ -86,9 +79,140 @@ html { background: var(--page-margin, black); overflow-x: hidden; font-size: lar
         </section>
         <div class="column-container">
             <main class="instructions-column">
+                <section>
+                    <h2> 
+                        Instructions
+                    </h2>
+                    <p>
+                        You can add or remove notes by clicking on the gray rows at the top.
+                        Studio's Box automatically plays the notes out loud for you. Try it!
+                    </p>
+                    <p>
+                        Notes go into patterns, and you can edit one pattern at a time.
+                        Those numbered boxes at the bottom of the editor are the different patterns you can edit.
+                        <span id="bar-editing">
+                            Click the boxes to move to a different part of the song, or click the arrows on the currently selected box to swap which pattern is played during that part of the song.
+                        </span>
+                    </p>
+                    <p>
+                        Studio's Box can play several rows of patterns simultaneously, and each row has its own set of patterns.
+                        Most rows can play melodies or harmonies, but the bottom row is for drums.
+                    </p>
+                    <p>
+                        All song data is contained in the URL at the top of your browser.
+                        When you make changes to the song, the URL is updated to reflect your changes.
+                        When you are satisfied with your song, just copy and paste the URL to save and share your song!
+                    </p>
+                    Keyboard Shortcuts
+                    <details id="keyboard-instructions">
+                        <ul>
+                            <li><b>Spacebar</b>: play or pause the song</li>
+                            <li><b>Shift Spacebar</b>: play from mouse location</li>
+																												<li><b>Z</b>: undo, <b>Y or Shift Z</b>: redo</li>
+                            <li><b>C</b>: copy pattern from selection</li>
+                            <li><b>V</b>: paste pattern into selection</li>
+                            <li><b>X</b>: cut pattern</li>
+                            <li><b>0-9</b>: assign pattern number to selection</li>
+																												<li><b>Arrows</b>: move selection</li>
+																												<li><b>Ctrl & Arrows</b>: move selected channel up or down</li>
+																												<li><b>[ ]</b>: move playhead backward or forward one bar</li>
+																												<li><b>F/H</b>: move to First or Highlighted pattern</li>
+                            <li><b>Shift F</b>: move to start of loop</li>
+																												<li><b>Shift & Drag</b>: select part of a pattern</li>
+                            <li><b>Enter</b>: add a new bar after currently selected one</li>
+                            <li><b>Shift Enter</b>: add a new bar before currently selected one</li>
+                            <li><b>Backspace</b>: delete currently selected bar</li>
+                            <li><b>Ctrl Enter</b>: add channel</li>
+                            <li><b>Ctrl Backspace</b>: delete currently selected channel</li>
+                            <li><b>D</b>: duplicate a pattern</li>
+                            <li><b>N</b>: create a new blank pattern</li>
+                            <li><b>+/-</b>: move notes up or down</li>
+                            <li><b>Shift & +/-</b>: move notes up or down one octave</li>
+                            <li><b>A</b>: select entire song</li>
+                            <li><b>Shift A</b>: select current channel</li>
+                            <li><b>Shift ~</b>: new blank song</li>
+                            <li><b>B</b>: loop bar</li>
+                            <li><b>R</b>: random preset</li>
+                            <li><b>Shift R</b>: random instrument</li>
+                            <li><b>Shift P</b>: open song player</li>
+                            <li><b>Alt E</b>: open/close all envelope dropdowns</li>
+                            <li><b>Alt F</b>: open/close all fm dropdowns</li>
+                        </ul>
+                        If you have channel muting enabled: 
+                        <ul>
+                            <li><b>S</b>: Solo/unsolo a channel</li>
+                            <li><b>M</b> (or shift S): Mute/unmute a channel</li>
+                            <li><b>Shift M</b>: Mute/unmute entire song</li>
+                        </ul>
+                        And if you're in the song player:
+                        <ul>
+                            <li><b>Spacebar</b>: play or pause the song</li>
+                            <li><b>[ ]</b>: move playhead backward or forward one bar</li>
+                            <li><b>F</b>: move to first pattern </li>
+                            <li><b>L</b>: toggle loop</li>
+                            <li><b>Z/+/-</b>: toggle zoom</li>
+                            <li><b> Ctrl E/P</b>: return to editor</li>
+                            <li><b>Ctrl S</b>: shorten song player link</li>
+                            <li><b>C</b>: copy link</li>
+                        </ul>
+                        <p>These are just a few shortcuts, check Studio's Box edit menu for more!</p>
+                    </details>
+                    <p>
+                        In the note pattern editor, you can click and drag horizontally on a note to adjust its duration.
+                        You can also click above or below an existing note to add more notes to be played simultaneously, which is called a chord.
+                    </p>
+                    <div id="mobile-instructions" style="display: none;">
+			              			<p>
+					              		You can also long-press in the pattern editor to select a time range within a pattern, which you can then drag to move multiple notes at once.<br/>
+						             </p>
+				              	</div>
+                    <p>
+                        ADVANCED: Drag vertically from an existing note to bend its pitch, or drag vertically from above or below the note to adjust its volume. You can perform fine volume adjustment if you hold Control while doing this!
+                    </p>
+                    <p>
+                        ADVANCED: Click and drag on the pattern grid to make a selection. You can then press C/V to mass copy/paste parts of your song.
+
+                    </p>
+                    <p>
+                        Studio's Box has many more features.
+                        Try playing with the buttons and menus on the right side to find out what it can do!
+                        You can also click on the label next to each option for a description of what it does.
+                        Some features are hard to find anywhere though - for example, if your song has any modulator channels, you can hold Ctrl or Shift while the song is playing to record the movement of sliders directly! If you want to learn more tips, tricks, and best practices though, see below.
+                    </p>
+                    <p>
+			               			Want to see what people have made with BeepBox? Songs that were shared on Twitter prior to 2023-05-22 can now be browsed in <a href="https://twitter-archive.beepbox.co/" target="_blank">this interactive archive</a>!
+                    </p>
+                </section>
+                <section>
+                    <h2>
+                        About
+                    </h2>
+                    <p>
+                        Studio's Box does not claim ownership over songs created with it, so original songs belong to their authors.
+                    </p>
+                    <p>
+                        Studio's Box is not responsible for copyrighted material played on Studio's Box . There is no Studio's Box servers that will receive, record, or distribute any tracks. All track data is contained in the URL after the hash symbol (#), and the track data will not leave your device unless you copy and share that URL. Studio's Box  does not collect, track, or share any user data.
+                    </p>
+                    <p>
+                        Studio's Box does not collect or share any your data.
+                    </p>
+                    <p>
+                        You can download and use <a href="https://github.com/Kashumy/Studio-Box/tree/musicapp" target="_blank">the source code</a>
+                        The original BeepBox source code by John Nesky can be found <a href="https://github.com/johnnesky/beepbox" target="_blank">here</a>.
+                    </p>
+                    <p>
+                        The patch notes of Studio's Box are available <a href="./patch_notes.html">here</a>.
+                    </p>     
+                </section>
             </main>
-        </div>
-        </div>
+            <aside class="bsky-column">
+		    	 	<h2>
+				</h2>
+				<div>
+				</div>
+			</aside>
+</div>
+</div>
 <script>
 let willLoadEditor=true
 let randomarr2 = ["≽(◕ ᴗ ◕)≼", "≽(ᴗ _ ᴗ)≼", "≽(⌐ _ ⌐)≼", "≽(ᵕ ‿ ᵕ)≼", "♥️", "💚", "🌺", "🌷", "🌹", "💐", "🌿", "🌾", "🌵", "🍀", "☘️", "🌲", "🌳", "🪨", "⛰️", "✨", "🍉", "🍑", "🍊", "🍒", "🍓", "🥭", "🍍", "🍌", "🌽", "🍋", "🥑", "🫐", "🍇", "🚴", "👋", "`\\(`^`)/`", "☕", "🎤","🥸🤌🏽"]
@@ -100,7 +224,7 @@ let randomarr = ["Slarmoos Box! And Abyssbox",
  "Did you know old version of Studiobox is less responsible with json songs from slarmoo LOL",
  "...",
  " Is Your JavaScript Enabled ? ",
- "I just putted here random useless long text just to make you read this for no reason . Also did you know you can disable showdescription in preferences",
+ "Did you know you can disable showdescription in preferences",
  "Please don't feed the synthesizer",
  "404 Melody Not Found", "808 Error not found ",
  "You can use samples!",
