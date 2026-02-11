@@ -3,6 +3,12 @@ StudioBox is a online and offline software maded with using code of
 Slarmoo's Box.
 Studio Box Orginal Code is Not In "Main" Branch!
 
+Now 11.0wy26 19h
+- Fixed Jsons to be compact with slarmoos box (Older Jsons Doesn't Work
+- Added Unisons to Frequency Modulator's 
+- Added distortion types
+- Reverb Feedback !!
+
 Now 2.02y26 11:48 UTC+1
 - Fixed unisonExpression modulation
 - Fixed Fullscreen
