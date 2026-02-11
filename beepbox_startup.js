@@ -546,13 +546,12 @@ function showToast(message, duration = 3000) {
                 transform: "none",
                 maxWidth: "100vw",
                 borderRadius: "0",
-                whiteSpace: "normal",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                textAlign: "center",
+                whiteSpace: "pre-wrap",
                 fontSize: "20px",
-                padding: "40px"
+                padding: "0px",
+                height:"100%",
+                overflow:"hidden",
+                overflowY:"scroll"
             });
         } else {
             expanded = false;
@@ -568,6 +567,7 @@ function showToast(message, duration = 3000) {
                 fontSize: "14px",
                 padding: "10px 20px",
                 whiteSpace: "nowrap",
+                height:"auto",
                 overflow: "hidden",
                 textOverflow: "ellipsis"
             });

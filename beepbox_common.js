@@ -521,12 +521,12 @@ for (const chipWave of chipWaves) {
   			
   	}else if (set == 4) {
   		const chipWaves = [
+  			{ name: "Waves:Noise", expression: 2, isPercussion: false, rootKey: 60 },
   			{ name: "Waves:ExponentialPulse", expression: 2, isPercussion: false, rootKey: 60 },
   			{ name: "Waves:QWrectifiedsine", expression: 2, isPercussion: false, rootKey: 60 },
-  			{ name: "Waves:RandomShit", expression: 2, isPercussion: false, rootKey: 60 },
   			{ name: "Waves:Rectifiedsine", expression: 2, isPercussion: false, rootKey: 60 },
   			{ name: "Waves:Diodesine", expression: 2, isPercussion: false, rootKey: 60 },
-     { name: "Waves:WhiteNoise", expression: 2, isPercussion: false, rootKey: 60 },
+  			 
   		];
   		sampleLoadingState.totalSamples += chipWaves.length;
   		const startIndex = Config.rawRawChipWaves.length;
@@ -583,7 +583,6 @@ for (const chipWave of chipWaves) {
   					centerWave(QWrectifiedsine),
   					centerWave(rectifiedsine),
   					centerWave(diodesine),
-  					centerWave(WhiteNoise),
   				];
   				let chipWaveIndexOffset = 0;
   				for (const chipWaveSample of chipWaveSamples) {
@@ -1581,6 +1580,7 @@ Config.pitchShiftRange = Config.justIntonationSemitones.length;
 { name: "phaserMix", perNote: false,  computeIndex: 58, displayName: "phaser", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
 { name: "phaserFeedback", perNote: false,  computeIndex: 59, displayName: "phaser feedback", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },
 { name: "phaserStages", perNote: false,  computeIndex: 60, displayName: "phaser stages", interleave: false, isFilter: false, maxCount: 1, effect: 16, compatibleInstruments: null },  
+	{ name: "reverbfeedback", computeIndex: 47, displayName: "rev feedback", perNote: false, interleave: false, isFilter: false, maxCount: 1, effect: 0, compatibleInstruments: null },
 	{ name: "function", perNote: false,  computeIndex: 61, displayName: "function", perNote: true, interleave: false, isFilter: false, maxCount: 1, effect: 17, compatibleInstruments: null },  
 ]);
     Config.operatorWaves = toNameMap([
@@ -1594,7 +1594,7 @@ Config.pitchShiftRange = Config.justIntonationSemitones.length;
         { name: "exp wave", samples: _a$1.generateExpWave(0.5) },
     ]);
     Config.pwmOperatorWaves = toNameMap([
-        { name: "1%", samples: _a$1.generateSquareWave(0.01) }, 
+        { name: "1%", samples: _a$1.generateSquareWave(0.01) },
         { name: "5%", samples: _a$1.generateSquareWave(0.05) },
         { name: "12.5%", samples: _a$1.generateSquareWave(0.125) },
         { name: "25%", samples: _a$1.generateSquareWave(0.25) },
@@ -1616,54 +1616,47 @@ Config.expOperatorWaves = toNameMap([
 ]),]);
 
     Config.barEditorHeight = 10;
+    
+    
       Config.modulators = toNameMap([
-        { name: "none", pianoName: "None", maxRawVol: 6, newNoteVol: 6, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "none", pianoName: "None", maxRawVol: 6, newNoteVol: 6, forSong: true, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "No Mod Setting", promptDesc: ["No setting has been chosen yet, so this modulator will have no effect. Try choosing a setting with the dropdown, then click this '?' again for more info.", "[$LO - $HI]"] },
-        { name: "song volume", pianoName: "Volume", maxRawVol: 100, newNoteVol: 100, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "song volume", pianoName: "Volume", maxRawVol: 100, newNoteVol: 100, forSong: true, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "Song Volume", promptDesc: ["This setting affects the overall volume of the song, just like the main volume slider.", "At $HI, the volume will be unchanged from default, and it will get gradually quieter down to $LO.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
         { name: "tempo",
             pianoName: "Tempo",
             maxRawVol: Config.tempoMax - Config.tempoMin, newNoteVol: Math.ceil((Config.tempoMax - Config.tempoMin) / 2), forSong: true, convertRealFactor: Config.tempoMin, associatedEffect: 15,
             promptName: "Song Tempo",
             promptDesc: ["This setting controls the speed your song plays at, just like the tempo slider.", "When you first make a note for this setting, it will default to your current tempo. Raising it speeds up the song, up to $HI BPM, and lowering it slows it down, to a minimum of $LO BPM.", "Note that you can make a 'swing' effect by rapidly changing between two tempo values.", "[OVERWRITING] [$LO - $HI] [BPM]"] },
-        { name: "song reverb", pianoName: "Reverb", maxRawVol: _a$1.reverbRange * 2, newNoteVol: _a$1.reverbRange, forSong: true, convertRealFactor: -_a$1.reverbRange, associatedEffect: 15, maxIndex: 0,
+        { name: "song reverb", pianoName: "Reverb", maxRawVol: _a$1.reverbRange * 2, newNoteVol: _a$1.reverbRange, forSong: true, convertRealFactor: -_a$1.reverbRange, associatedEffect: 16, maxIndex: 0,
             promptName: "Song Reverb", promptDesc: ["This setting affects the overall reverb of your song. It works by multiplying existing reverb for instruments, so those with no reverb set will be unaffected.", "At $MID, all instruments' reverb will be unchanged from default. This increases up to double the reverb value at $HI, or down to no reverb at $LO.", "[MULTIPLICATIVE] [$LO - $HI]"] },
-        { name: "next bar", pianoName: "Next Bar", maxRawVol: 1, newNoteVol: 1, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "next bar", pianoName: "Next Bar", maxRawVol: 1, newNoteVol: 1, forSong: true, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "Go To Next Bar", promptDesc: ["This setting functions a little different from most. Wherever a note is placed, the song will jump immediately to the next bar when it is encountered.", "This jump happens at the very start of the note, so the length of a next-bar note is irrelevant. Also, the note can be value 0 or 1, but the value is also irrelevant - wherever you place a note, the song will jump.", "You can make mixed-meter songs or intro sections by cutting off unneeded beats with a next-bar modulator.", "[$LO - $HI]"] },
-        { name: "note volume", pianoName: "Note Vol.", maxRawVol: _a$1.volumeRange, newNoteVol: Math.ceil(_a$1.volumeRange / 2), forSong: false, convertRealFactor: Math.ceil(-_a$1.volumeRange / 2.0), associatedEffect: 15, maxIndex: 0,
+        { name: "note volume", pianoName: "Note Vol.", maxRawVol: _a$1.volumeRange, newNoteVol: Math.ceil(_a$1.volumeRange / 2), forSong: false, convertRealFactor: Math.ceil(-_a$1.volumeRange / 2.0), associatedEffect: 16, maxIndex: 0,
             promptName: "Note Volume", promptDesc: ["This setting affects the volume of your instrument as if its note size had been scaled.", "At $MID, an instrument's volume will be unchanged from default. This means you can still use the volume sliders to mix the base volume of instruments. The volume gradually increases up to $HI, or decreases down to mute at $LO.", "This setting was the default for volume modulation in JummBox for a long time. Due to some new effects like distortion and bitcrush, note volume doesn't always allow fine volume control. Also, this modulator affects the value of FM modulator waves instead of just carriers. This can distort the sound which may be useful, but also may be undesirable. In those cases, use the 'mix volume' modulator instead, which will always just scale the volume with no added effects.", "For display purposes, this mod will show up on the instrument volume slider, as long as there is not also an active 'mix volume' modulator anyhow. However, as mentioned, it works more like changing note volume.", "[MULTIPLICATIVE] [$LO - $HI]"] },
         { name: "pan", pianoName: "Pan", maxRawVol: _a$1.panMax, newNoteVol: Math.ceil(_a$1.panMax / 2), forSong: false, convertRealFactor: 0, associatedEffect: 2, maxIndex: 0,
             promptName: "Instrument Panning", promptDesc: ["This setting controls the panning of your instrument, just like the panning slider.", "At $LO, your instrument will sound like it is coming fully from the left-ear side. At $MID it will be right in the middle, and at $HI, it will sound like it's on the right.", "[OVERWRITING] [$LO - $HI] [L-R]"] },
         { name: "reverb", pianoName: "Reverb", maxRawVol: _a$1.reverbRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 0, maxIndex: 0,
             promptName: "Instrument Reverb", promptDesc: ["This setting controls the reverb of your insturment, just like the reverb slider.", "At $LO, your instrument will have no reverb. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
         { name: "distortion", pianoName: "Distortion", maxRawVol: _a$1.distortionRange - 1, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 3, maxIndex: 0,
-            promptName: "Instrument Distortion", promptDesc: ["This setting controls the amount of distortion for your instrument, just like the distortion slider.", "At $LO, your instrument will have no distortion. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
-        { name: "fm slider 1", pianoName: "FM 1", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+            promptName: "Instrument Distortion", promptDesc: ["This setting controls the amount of distortion for your instrument, just like the distortion slider. Also Studio Box allows you to pickup distortion type ! ", "At $LO, your instrument will have no distortion. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "fm slider 1", pianoName: "FM 1", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "FM Slider 1", promptDesc: ["This setting affects the strength of the first FM slider, just like the corresponding slider on your instrument.", "It works in a multiplicative way, so at $HI your slider will sound the same is its default value, and at $LO it will sound like it has been moved all the way to the left.", "For the full range of control with this mod, move your underlying slider all the way to the right.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
-        { name: "fm slider 2", pianoName: "FM 2", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "fm slider 2", pianoName: "FM 2", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "FM Slider 2", promptDesc: ["This setting affects the strength of the second FM slider, just like the corresponding slider on your instrument.", "It works in a multiplicative way, so at $HI your slider will sound the same is its default value, and at $LO it will sound like it has been moved all the way to the left.", "For the full range of control with this mod, move your underlying slider all the way to the right.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
-        { name: "fm slider 3", pianoName: "FM 3", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "fm slider 3", pianoName: "FM 3", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "FM Slider 3", promptDesc: ["This setting affects the strength of the third FM slider, just like the corresponding slider on your instrument.", "It works in a multiplicative way, so at $HI your slider will sound the same is its default value, and at $LO it will sound like it has been moved all the way to the left.", "For the full range of control with this mod, move your underlying slider all the way to the right.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
-        { name: "fm slider 4", pianoName: "FM 4", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "fm slider 4", pianoName: "FM 4", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "FM Slider 4", promptDesc: ["This setting affects the strength of the fourth FM slider, just like the corresponding slider on your instrument.", "It works in a multiplicative way, so at $HI your slider will sound the same is its default value, and at $LO it will sound like it has been moved all the way to the left.", "For the full range of control with this mod, move your underlying slider all the way to the right.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
-         { name: "fm slider 5", pianoName: "FM 5", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
-            promptName: "FM Slider 5", promptDesc: ["This setting affects the strength of the fifth FM slider, just like the corresponding slider on your instrument.", "It works in a multiplicative way, so at $HI your slider will sound the same is its default value, and at $LO it will sound like it has been moved all the way to the left.", "For the full range of control with this mod, move your underlying slider all the way to the right.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
-        { name: "fm slider 6", pianoName: "FM 6", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
-            promptName: "FM Slider 6", promptDesc: ["This setting affects the strength of the sixth FM slider, just like the corresponding slider on your instrument.", "It works in a multiplicative way, so at $HI your slider will sound the same is its default value, and at $LO it will sound like it has been moved all the way to the left.", "For the full range of control with this mod, move your underlying slider all the way to the right.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
-        { name: "fm slider 7", pianoName: "FM 7", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
-            promptName: "FM Slider 7", promptDesc: ["This setting affects the strength of the seventh FM slider, just like the corresponding slider on your instrument.", "It works in a multiplicative way, so at $HI your slider will sound the same is its default value, and at $LO it will sound like it has been moved all the way to the left.", "For the full range of control with this mod, move your underlying slider all the way to the right.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
-        { name: "fm slider 8", pianoName: "FM 8", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
-            promptName: "FM Slider 8", promptDesc: ["This setting affects the strength of the eighth FM slider, just like the corresponding slider on your instrument.", "It works in a multiplicative way, so at $HI your slider will sound the same is its default value, and at $LO it will sound like it has been moved all the way to the left.", "For the full range of control with this mod, move your underlying slider all the way to the right.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
-
-        { name: "fm feedback", pianoName: "FM Feedbck", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "fm feedback", pianoName: "FM Feedbck", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "FM Feedback", promptDesc: ["This setting affects the strength of the FM feedback slider, just like the corresponding slider on your instrument.", "It works in a multiplicative way, so at $HI your slider will sound the same is its default value, and at $LO it will sound like it has been moved all the way to the left.", "For the full range of control with this mod, move your underlying slider all the way to the right.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
-        { name: "pulse width", pianoName: "Pulse Width", maxRawVol: _a$1.pulseWidthRange, newNoteVol: _a$1.pulseWidthRange, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "pulse width", pianoName: "Pulse Width", maxRawVol: _a$1.pulseWidthRange, newNoteVol: _a$1.pulseWidthRange, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "Pulse Width", promptDesc: ["This setting controls the width of this instrument's pulse wave, just like the pulse width slider.", "At $HI, your instrument will sound like a pure square wave (on 50% of the time). It will gradually sound narrower down to $LO, where it will be inaudible (as it is on 0% of the time).", "Changing pulse width randomly between a few values is a common strategy in chiptune music to lend some personality to a lead instrument.", "[OVERWRITING] [$LO - $HI] [%Duty]"] },
         { name: "detune", pianoName: "Detune", maxRawVol: _a$1.detuneMax - _a$1.detuneMin, newNoteVol: _a$1.detuneCenter, forSong: false, convertRealFactor: -_a$1.detuneCenter, associatedEffect: 8, maxIndex: 0,
             promptName: "Instrument Detune", promptDesc: ["This setting controls the detune for this instrument, just like the detune slider.", "At $MID, your instrument will have no detune applied. Each tick corresponds to one cent, or one-hundredth of a pitch. Thus, each change of 100 ticks corresponds to one half-step of detune, up to two half-steps up at $HI, or two half-steps down at $LO.", "[OVERWRITING] [$LO - $HI] [cents]"] },
         { name: "vibrato depth", pianoName: "Vibrato Depth", maxRawVol: 50, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 9, maxIndex: 0,
             promptName: "Vibrato Depth", promptDesc: ["This setting controls the amount that your pitch moves up and down by during vibrato, just like the vibrato depth slider.", "At $LO, your instrument will have no vibrato depth so its vibrato would be inaudible. This increases up to $HI, where an extreme pitch change will be noticeable.", "[OVERWRITING] [$LO - $HI] [pitch ÷25]"] },
-        { name: "song detune", pianoName: "Detune", maxRawVol: _a$1.songDetuneMax - _a$1.songDetuneMin, newNoteVol: Math.ceil((_a$1.songDetuneMax - _a$1.songDetuneMin) / 2), forSong: true, convertRealFactor: -250, associatedEffect: 15, maxIndex: 0,
+        { name: "song detune", pianoName: "Detune", maxRawVol: _a$1.songDetuneMax - _a$1.songDetuneMin, newNoteVol: Math.ceil((_a$1.songDetuneMax - _a$1.songDetuneMin) / 2), forSong: true, convertRealFactor: -250, associatedEffect: 16, maxIndex: 0,
             promptName: "Song Detune", promptDesc: ["This setting controls the overall detune of the entire song. There is no associated slider.", "At $MID, your song will have no extra detune applied and sound unchanged from default. Each tick corresponds to four cents, or four hundredths of a pitch. Thus, each change of 25 ticks corresponds to one half-step of detune, up to 10 half-steps up at $HI, or 10 half-steps down at $LO.", "[MULTIPLICATIVE] [$LO - $HI] [cents x4]"] },
         { name: "vibrato speed", pianoName: "Vibrato Speed", maxRawVol: 30, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 9, maxIndex: 0,
             promptName: "Vibrato Speed", promptDesc: ["This setting controls the speed your instrument will vibrato at, just like the slider.", "A setting of $LO means there will be no oscillation, and vibrato will be disabled. Higher settings will increase the speed, up to a dramatic trill at the max value, $HI.", "[OVERWRITING] [$LO - $HI]"] },
@@ -1676,7 +1669,7 @@ Config.expOperatorWaves = toNameMap([
             promptName: "Panning Delay", promptDesc: ["This setting controls the delay applied to panning for your instrument, just like the pan delay slider.", "With more delay, the panning effect will generally be more pronounced. $MID is the default value, whereas $LO will remove any delay at all. No delay can be desirable for chiptune songs.", "[OVERWRITING] [$LO - $HI]"] },
         { name: "reset arp", pianoName: "Reset Arp", maxRawVol: 1, newNoteVol: 1, forSong: false, convertRealFactor: 0, associatedEffect: 11, maxIndex: 0,
             promptName: "Reset Arpeggio", promptDesc: ["This setting functions a little different from most. Wherever a note is placed, the arpeggio of this instrument will reset at the very start of that note. This is most noticeable with lower arpeggio speeds. The lengths and values of notes for this setting don't matter, just the note start times.", "This mod can be used to sync up your apreggios so that they always sound the same, even if you are using an odd-ratio arpeggio speed or modulating arpeggio speed.", "[$LO - $HI]"] },
-        { name: "eq filter", pianoName: "EQFlt", maxRawVol: 10, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "eq filter", pianoName: "EQFlt", maxRawVol: 10, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "EQ Filter", promptDesc: ["This setting controls a few separate things for your instrument's EQ filter.", "When the option 'morph' is selected, your modulator values will indicate a sub-filter index of your EQ filter to 'morph' to over time. For example, a change from 0 to 1 means your main filter (default) will morph to sub-filter 1 over the specified duration. You can shape the main filter and sub-filters in the large filter editor ('+' button). If your two filters' number, type, and order of filter dots all match up, the morph will happen smoothly and you'll be able to hear them changing. If they do not match up, the filters will simply jump between each other.", "Note that filters will morph based on endpoints in the pattern editor. So, if you specify a morph from sub-filter 1 to 4 but do not specifically drag in new endpoints for 2 and 3, it will morph directly between 1 and 4 without going through the others.", "If you target Dot X or Dot Y, you can finely tune the coordinates of a single dot for your filter. The number of available dots to choose is dependent on your main filter's dot count.", "[OVERWRITING] [$LO - $HI]"] },
         { name: "note filter", pianoName: "N.Flt", maxRawVol: 10, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 5, maxIndex: 0,
             promptName: "Note Filter", promptDesc: ["This setting controls a few separate things for your instrument's note filter.", "When the option 'morph' is selected, your modulator values will indicate a sub-filter index of your note filter to 'morph' to over time. For example, a change from 0 to 1 means your main filter (default) will morph to sub-filter 1 over the specified duration. You can shape the main filter and sub-filters in the large filter editor ('+' button). If your two filters' number, type, and order of filter dots all match up, the morph will happen smoothly and you'll be able to hear them changing. If they do not match up, the filters will simply jump between each other.", "Note that filters will morph based on endpoints in the pattern editor. So, if you specify a morph from sub-filter 1 to 4 but do not specifically drag in new endpoints for 2 and 3, it will morph directly between 1 and 4 without going through the others.", "If you target Dot X or Dot Y, you can finely tune the coordinates of a single dot for your filter. The number of available dots to choose is dependent on your main filter's dot count.", "[OVERWRITING] [$LO - $HI]"] },
@@ -1687,41 +1680,44 @@ Config.expOperatorWaves = toNameMap([
         { name: "echo", pianoName: "Echo", maxRawVol: _a$1.echoSustainRange - 1, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 6, maxIndex: 0,
             promptName: "Instrument Echo Sustain", promptDesc: ["This setting controls the echo sustain (echo loudness) of your instrument, just like the echo slider.", "At $LO, your instrument will have no echo sustain and echo will not be audible. Echo sustain increases and the echo effect gets more noticeable up to the max value, $HI.", "[OVERWRITING] [$LO - $HI]"] },
         { name: "echo delay", pianoName: "Echo Delay", maxRawVol: _a$1.echoDelayRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 6, maxIndex: 0,
-            promptName: "Instrument Echo Delay", promptDesc: ["This setting controls the echo delay of your instrument, just like the echo delay slider.", "At $LO, your instrument will have very little echo delay, and this increases up to 2 beats of delay at $HI.", "[OVERWRITING] [$LO - $HI] [~beats ÷12]"]
-        },
+            promptName: "Instrument Echo Delay", promptDesc: ["This setting controls the echo delay of your instrument, just like the echo delay slider.", "At $LO, your instrument will have very little echo delay, and this increases up to 2 beats of delay at $HI.", "[OVERWRITING] [$LO - $HI] [~beats ÷12]"] },
         { name: "chorus", pianoName: "Chorus", maxRawVol: _a$1.chorusRange - 1, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 1, maxIndex: 0,
             promptName: "Instrument Chorus", promptDesc: ["This setting controls the chorus strength of your instrument, just like the chorus slider.", "At $LO, the chorus effect will be disabled. The strength of the chorus effect increases up to the max value, $HI.", "[OVERWRITING] [$LO - $HI]"] },
-        { name: "eq filt cut", pianoName: "EQFlt Cut", maxRawVol: _a$1.filterSimpleCutRange - 1, newNoteVol: _a$1.filterSimpleCutRange - 1, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "eq filt cut", pianoName: "EQFlt Cut", maxRawVol: _a$1.filterSimpleCutRange - 1, newNoteVol: _a$1.filterSimpleCutRange - 1, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "EQ Filter Cutoff Frequency", promptDesc: ["This setting controls the filter cut position of your instrument, just like the filter cut slider.", "This setting is roughly analagous to the horizontal position of a single low-pass dot on the advanced filter editor. At lower values, a wider range of frequencies is cut off.", "[OVERWRITING] [$LO - $HI]"] },
-        { name: "eq filt peak", pianoName: "EQFlt Peak", maxRawVol: _a$1.filterSimplePeakRange - 1, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "eq filt peak", pianoName: "EQFlt Peak", maxRawVol: _a$1.filterSimplePeakRange - 1, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "EQ Filter Peak Gain", promptDesc: ["This setting controls the filter peak position of your instrument, just like the filter peak slider.", "This setting is roughly analagous to the vertical position of a single low-pass dot on the advanced filter editor. At lower values, the cutoff frequency will not be emphasized, and at higher values you will hear emphasis on the cutoff frequency.", "[OVERWRITING] [$LO - $HI]"] },
         { name: "note filt cut", pianoName: "N.Flt Cut", maxRawVol: _a$1.filterSimpleCutRange - 1, newNoteVol: _a$1.filterSimpleCutRange - 1, forSong: false, convertRealFactor: 0, associatedEffect: 5, maxIndex: 0,
             promptName: "Note Filter Cutoff Frequency", promptDesc: ["This setting controls the filter cut position of your instrument, just like the filter cut slider.", "This setting is roughly analagous to the horizontal position of a single low-pass dot on the advanced filter editor. At lower values, a wider range of frequencies is cut off.", "[OVERWRITING] [$LO - $HI]"] },
         { name: "note filt peak", pianoName: "N.Flt Peak", maxRawVol: _a$1.filterSimplePeakRange - 1, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 5, maxIndex: 0,
-            promptName: "Note Filter Peak Gain", promptDesc: ["This setting controls the filter peak position of your instrument, just like the filter peak slider.", "This setting is roughly analagous to the vertical position of a single low-pass dot on the advanced filter editor. At lower values, the cutoff frequency will not be emphasized, and at higher values you will hear emphasis on the cutoff frequency.", "[OVERWRITING] [$LO - $HI]"] },
+            promptName: "Note Filter Peak Gain", promptDesc: ["This setting controls the filter peak position of your instrument, just like the filter peak slider.", "This setting is roughly analagous to the vertical position of a single low-pass dot on the advanced filter editor. At lower values, the cutoff frequency will not be emphasized, and at higher values you will hear emphasis on the cutoff frequency.", "[OVERWRITING] [$LO - $HI]"] }, 
         { name: "pitch shift", pianoName: "Pitch Shift", maxRawVol: _a$1.pitchShiftRange - 1, newNoteVol: _a$1.pitchShiftCenter, forSong: false, convertRealFactor: -_a$1.pitchShiftCenter, associatedEffect: 7, maxIndex: 0,
             promptName: "Pitch Shift", promptDesc: ["This setting controls the pitch offset of your instrument, just like the pitch shift slider.", "At $MID your instrument will have no pitch shift. This increases as you decrease toward $LO pitches (half-steps) at the low end, or increases towards +$HI pitches at the high end.", "[OVERWRITING] [$LO - $HI] [pitch]"] },
-        { name: "sustain", pianoName: "Sustain", maxRawVol: _a$1.stringSustainRange - 1, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "sustain", pianoName: "Sustain", maxRawVol: _a$1.stringSustainRange - 1, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "Picked String Sustain", promptDesc: ["This setting controls the sustain of your picked string instrument, just like the sustain slider.", "At $LO, your instrument will have minimum sustain and sound 'plucky'. This increases to a more held sound as your modulator approaches the maximum, $HI.", "[OVERWRITING] [$LO - $HI]"] },
-        { name: "mix volume", pianoName: "Mix Vol.", maxRawVol: _a$1.volumeRange, newNoteVol: Math.ceil(_a$1.volumeRange / 2), forSong: false, convertRealFactor: Math.ceil(-_a$1.volumeRange / 2.0), associatedEffect: 15, maxIndex: 0,
+        { name: "mix volume", pianoName: "Mix Vol.", maxRawVol: _a$1.volumeRange, newNoteVol: Math.ceil(_a$1.volumeRange / 2), forSong: false, convertRealFactor: Math.ceil(-_a$1.volumeRange / 2.0), associatedEffect: 16, maxIndex: 0,
             promptName: "Mix Volume", promptDesc: ["This setting affects the volume of your instrument as if its volume slider had been moved.", "At $MID, an instrument's volume will be unchanged from default. This means you can still use the volume sliders to mix the base volume of instruments, since this setting and the default value work multiplicatively. The volume gradually increases up to $HI, or decreases down to mute at $LO.", "Unlike the 'note volume' setting, mix volume is very straightforward and simply affects the resultant instrument volume after all effects are applied.", "[MULTIPLICATIVE] [$LO - $HI]"] },
-        { name: "decimal offset", pianoName: "Decimal Offset", maxRawVol: 99, newNoteVol: 0, forSong: false, convertRealFactor: 0, invertSliderIndicator: true, associatedEffect: 15, maxIndex: 0,
-            promptName: "Decimal Offset", promptDesc: ["This setting controls the decimal offset that is subtracted from the pulse width; use this for creating values like 12.5 or 6.25.", "[$LO - $HI]"] },
-        { name: "envelope speed", pianoName: "EnvelopeSpd", maxRawVol: 50, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "fm slider 5", pianoName: "FM 5", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
+            promptName: "FM Slider 5", promptDesc: ["This setting affects the strength of the fifth FM slider, just like the corresponding slider on your instrument.", "It works in a multiplicative way, so at $HI your slider will sound the same is its default value, and at $LO it will sound like it has been moved all the way to the left.", "For the full range of control with this mod, move your underlying slider all the way to the right.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
+        { name: "fm slider 6", pianoName: "FM 6", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
+            promptName: "FM Slider 6", promptDesc: ["This setting affects the strength of the sixth FM slider, just like the corresponding slider on your instrument.", "It works in a multiplicative way, so at $HI your slider will sound the same is its default value, and at $LO it will sound like it has been moved all the way to the left.", "For the full range of control with this mod, move your underlying slider all the way to the right.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
+        { name: "decimal offset", pianoName: "Decimal Offset", maxRawVol: 99, newNoteVol: 0, forSong: false, convertRealFactor: 0, invertSliderIndicator: true, associatedEffect: 16, maxIndex: 0,
+            promptName: "Decimal Offset", promptDesc: ["This setting controls the decimal offset that is subtracted from the pulse width; use this for creating values like 12.5 or 6.25.", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "envelope speed", pianoName: "EnvelopeSpd", maxRawVol: 50, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "Envelope Speed", promptDesc: ["This setting controls how fast all of the envelopes for the instrument play.", "At $LO, your instrument's envelopes will be frozen, and at values near there they will change very slowly. At 12, the envelopes will work as usual, performing at normal speed. This increases up to $HI, where the envelopes will change very quickly. The speeds are given below:",
                 "[0-4]: x0, x1/16, x⅛, x⅕, x¼,", "[5-9]: x⅓, x⅖, x½, x⅔, x¾,", "[10-14]: x⅘, x0.9, x1, x1.1, x1.2,", "[15-19]: x1.3, x1.4, x1.5, x1.6, x1.7,", "[20-24]: x1.8, x1.9, x2, x2.1, x2.2,", "[25-29]: x2.3, x2.4, x2.5, x2.6, x2.7,", "[30-34]: x2.8, x2.9, x3, x3.1, x3.2,", "[35-39]: x3.3, x3.4, x3.5, x3.6, x3.7,", "[40-44]: x3.8, x3.9, x4, x4.15, x4.3,", "[45-50]: x4.5, x4.8, x5, x5.5, x6, x8", "[OVERWRITING] [$LO - $HI]"] },
-        { name: "dynamism", pianoName: "Dynamism", maxRawVol: _a$1.supersawDynamismMax, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "dynamism", pianoName: "Dynamism", maxRawVol: _a$1.supersawDynamismMax, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "Supersaw Dynamism", promptDesc: ["This setting controls the supersaw dynamism of your instrument, just like the dynamism slider.", "At $LO, your instrument will have only a single pulse contributing. Increasing this will raise the contribution of other waves which is similar to a chorus effect. The effect gets more noticeable up to the max value, $HI.", "[OVERWRITING] [$LO - $HI]"] },
-        { name: "spread", pianoName: "Spread", maxRawVol: _a$1.supersawSpreadMax, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "spread", pianoName: "Spread", maxRawVol: _a$1.supersawSpreadMax, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "Supersaw Spread", promptDesc: ["This setting controls the supersaw spread of your instrument, just like the spread slider.", "At $LO, all the pulses in your supersaw will be at the same frequency. Increasing this value raises the frequency spread of the contributing waves, up to a dissonant spread at the max value, $HI.", "[OVERWRITING] [$LO - $HI]"] },
-        { name: "saw shape", pianoName: "Saw Shape", maxRawVol: _a$1.supersawShapeMax, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "saw shape", pianoName: "Saw Shape", maxRawVol: _a$1.supersawShapeMax, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "Supersaw Shape", promptDesc: ["This setting controls the supersaw shape of your instrument, just like the Saw↔Pulse slider.", "As the slider's name implies, this effect will give you a sawtooth wave at $LO, and a full pulse width wave at $HI. Values in between will be a blend of the two.", "[OVERWRITING] [$LO - $HI] [%]"] },
-        { name: "individual envelope speed", pianoName: "IndvEnvSpd", maxRawVol: 63, newNoteVol: 23, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: _a$1.maxEnvelopeCount - 1,
+        { name: "individual envelope speed", pianoName: "IndvEnvSpd", maxRawVol: 63, newNoteVol: 23, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: _a$1.maxEnvelopeCount - 1,
             promptName: "Individual Envelope Speed", promptDesc: ["This setting controls how fast the specified envelope of the instrument will play.", "At $LO, your the envelope will be frozen, and at values near there they will change very slowly. At 23, the envelope will work as usual, performing at normal speed. This increases up to $HI, where the envelope will change very quickly. The speeds are given below:",
                 "[0-4]: x0, x0.01, x0.02, x0.03, x0.04,", "[5-9]: x0.05, x0.06, x0.07, x0.08, x0.09,", "[10-14]: x0.1, x0.2, x0.25, x0.3, x0.33,", "[15-19]: x0.4, x0.5, x0.6, x0.6667, x0.7,", "[20-24]: x0.75, x0.8, x0.9, x1, x1.25,", "[25-29]: x1.3333, x1.5, x1.6667, x1.75, x2,", "[30-34]: x2.25, x2.5, x2.75, x3, x3.5,", "[35-39]: x4, x4.5, x5, x5.5, x6,", "[40-44]: x6.5, x7, x7.5, x8, x8.5,", "[45-49]: x9, x9.5, x10, x11, x12", "[50-54]: x13, x14, x15, x16, x17", "[55-59]: x18, x19, x20, x24, x32", "[60-63]: x40, x64, x128, x256", "[OVERWRITING] [$LO - $HI]"] },
-        { name: "song eq", pianoName: "Song EQ", maxRawVol: 10, newNoteVol: 0, forSong: true, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+        { name: "song eq", pianoName: "Song EQ", maxRawVol: 10, newNoteVol: 0, forSong: true, convertRealFactor: 0, associatedEffect: 16, maxIndex: 0,
             promptName: "Song EQ Filter", promptDesc: ["This setting overwrites every instrument's eq filter. You can do this in a few separate ways, similar to the per instrument eq filter modulator.", "When the option 'morph' is selected, your modulator values will indicate a sub-filter index of your EQ filter to 'morph' to over time. For example, a change from 0 to 1 means your main filter (default) will morph to sub-filter 1 over the specified duration. You can shape the main filter and sub-filters in the large filter editor ('+' button). If your two filters' number, type, and order of filter dots all match up, the morph will happen smoothly and you'll be able to hear them changing. If they do not match up, the filters will simply jump between each other.", "Note that filters will morph based on endpoints in the pattern editor. So, if you specify a morph from sub-filter 1 to 4 but do not specifically drag in new endpoints for 2 and 3, it will morph directly between 1 and 4 without going through the others.", "If you target Dot X or Dot Y, you can finely tune the coordinates of a single dot for your filter. The number of available dots to choose is dependent on your main filter's dot count.", "[OVERWRITING] [$LO - $HI]"] },
-        { name: "reset envelope", pianoName: "ResetEnv", maxRawVol: 1, newNoteVol: 1, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: _a$1.maxEnvelopeCount - 1,
+        { name: "reset envelope", pianoName: "ResetEnv", maxRawVol: 1, newNoteVol: 1, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: _a$1.maxEnvelopeCount - 1,
             promptName: "Reset Envelope", promptDesc: ["This setting functions a lot like the reset arp modulator. Wherever a note is placed, the envelope of this instrument at the specified index will reset at the very start of that note. ", "[$LO - $HI]",] },
         { name: "ring modulation", pianoName: "Ring Mod", maxRawVol: _a$1.ringModRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 13, maxIndex: 0,
             promptName: "Ring Modulation", promptDesc: ["This setting controls the Ring Modulation effect in your instrument.", "[OVERWRITING] [$LO - $HI]"] },
@@ -1729,18 +1725,28 @@ Config.expOperatorWaves = toNameMap([
             promptName: "Ring Modulation (Hertz)", promptDesc: ["This setting controls the Hertz (Hz) used in the Ring Modulation effect in your instrument.", "[OVERWRITING] [$LO - $HI]"] },
         { name: "granular", pianoName: "Granular", maxRawVol: _a$1.granularRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 14, maxIndex: 0,
             promptName: "Granular", promptDesc: ["This setting controls the granular effect in your instrument.", "[OVERWRITING] [$LO - $HI]"] },
-        { name: "grain freq", pianoName: "Grain #", maxRawVol: _a$1.grainAmountsMax, newNoteVol: 8, forSong: false, convertRealFactor: 0, associatedEffect: 14, maxIndex: 0,
+        { name: "grain freq", pianoName: "Grain #", maxRawVol: _a$1.grainFreqMax, newNoteVol: 8, forSong: false, convertRealFactor: 0, associatedEffect: 14, maxIndex: 0,
             promptName: "Grain Count", promptDesc: ["This setting controls the density of grains for the granular effect on your instrument.", "[OVERWRITING] [$LO - $HI]"] },
         { name: "grain size", pianoName: "Grain Size", maxRawVol: _a$1.grainSizeMax / _a$1.grainSizeStep, newNoteVol: _a$1.grainSizeMin / _a$1.grainSizeStep, forSong: false, convertRealFactor: 0, associatedEffect: 14, maxIndex: 0,
             promptName: "Grain Size", promptDesc: ["This setting controls the grain size of the granular effect in your instrument.", "The number shown in the mod channel is multiplied by " + _a$1.grainSizeStep + " to get the actual grain size.", "[OVERWRITING] [$LO - $HI]"] },
         { name: "grain range", pianoName: "Grain Range", maxRawVol: _a$1.grainRangeMax / _a$1.grainSizeStep, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 14, maxIndex: 0,
             promptName: "Grain Range", promptDesc: ["This setting controls the range of values for your grain size of the granular effect in your instrument, from no variation to a lot", "The number shown in the mod channel is multiplied by " + _a$1.grainSizeStep + " to get the actual grain size.", "[OVERWRITING] [$LO - $HI]"] },
-        { name: "individual envelope lower bound", pianoName: "IndvEnvLow", maxRawVol: _a$1.perEnvelopeBoundMax * 10, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: _a$1.maxEnvelopeCount - 1,
-            promptName: "Individual Envelope Lower Bound", promptDesc: ["This setting controls the envelope lower bound", "At $LO, your the envelope will output an upper envelope bound to 0, and at $HI your envelope will output an upper envelope bound to 2.", "This settings will not work if your lower envelope bound is higher than your upper envelope bound",] },
-        { name: "individual envelope upper bound", pianoName: "IndvEnvUp", maxRawVol: _a$1.perEnvelopeBoundMax * 10, newNoteVol: 10, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: _a$1.maxEnvelopeCount - 1,
-            promptName: "Individual Envelope Upper Bound", promptDesc: ["This setting controls the envelope upper bound", "At $LO, your the envelope will output a 0 to lower envelope bound, and at $HI your envelope will output a 2 to lower envelope bound.", "This settings will not work if your lower envelope bound is higher than your upper envelope bound",] },
-         { name: "song limitratio", pianoName: "LimitRatio", maxRawVol: 50, newNoteVol: 10, forSong: true, convertRealFactor: -250, associatedEffect: 15 }, { name: "song mastergain", pianoName: "MasterGain", maxRawVol: 50, newNoteVol: 5, forSong: true, convertRealFactor: -250, associatedEffect: 15 },
-                  { name: "unisonVoices", pianoName: "unisonVoices", maxRawVol: Config.unisonVoicesMax*10,maxIndex: 0, newNoteVol: 1, forSong: false, convertRealFactor: 0, associatedEffect: 15, promptName: "Unison Voices", promptDesc: ["This automation is for unison voices as you can see it only work for custom unison "]
+        { name: "individual envelope lower bound", pianoName: "IndvEnvLow", maxRawVol: _a$1.perEnvelopeBoundMax * 10, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: _a$1.maxEnvelopeCount - 1,
+            promptName: "Individual Envelope Lower Bound", promptDesc: ["This setting controls the envelope lower bound", "At $LO, your the envelope will output an upper envelope bound to 0, and at $HI your envelope will output an upper envelope bound to 2.", "This settings will not work if your lower envelope bound is higher than your upper envelope bound", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "individual envelope upper bound", pianoName: "IndvEnvUp", maxRawVol: _a$1.perEnvelopeBoundMax * 10, newNoteVol: 10, forSong: false, convertRealFactor: 0, associatedEffect: 16, maxIndex: _a$1.maxEnvelopeCount - 1,
+            promptName: "Individual Envelope Upper Bound", promptDesc: ["This setting controls the envelope upper bound", "At $LO, your the envelope will output a 0 to lower envelope bound, and at $HI your envelope will output a 2 to lower envelope bound.", "This settings will not work if your lower envelope bound is higher than your upper envelope bound", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "slide speed", pianoName: "Slide Speed", maxRawVol: _a$1.maxSlideTicks - 1, newNoteVol: _a$1.maxSlideTicks - 3, forSong: false, convertRealFactor: 1, associatedEffect: 10, maxIndex: 0,
+            promptName: "Slide Speed", promptDesc: ["This setting controls the slide speed of the slide (or slide in pattern) transition type", "This ranges from nearly instantaneous to several beats long", "[OVERWRITING] [$LO - $HI]"] },
+        { name: "strum speed", pianoName: "Strum Speed", maxRawVol: _a$1.strumSpeedMax - 1, newNoteVol: 1, forSong: false, convertRealFactor: 1, associatedEffect: 11, maxIndex: 0,
+            promptName: "Strum Speed", promptDesc: ["This setting controls the strum speed of the strum chord type", "This ranges from nearly instantaneous to over several bars", "[OVERWRITING] [$LO - $HI]"] },
+            
+         { name: "fm slider 7", pianoName: "FM 7", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+            promptName: "FM Slider 7", promptDesc: ["This setting affects the strength of the seventh FM slider, just like the corresponding slider on your instrument.", "It works in a multiplicative way, so at $HI your slider will sound the same is its default value, and at $LO it will sound like it has been moved all the way to the left.", "For the full range of control with this mod, move your underlying slider all the way to the right.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
+        { name: "fm slider 8", pianoName: "FM 8", maxRawVol: 15, newNoteVol: 15, forSong: false, convertRealFactor: 0, associatedEffect: 15, maxIndex: 0,
+            promptName: "FM Slider 8", promptDesc: ["This setting affects the strength of the eighth FM slider, just like the corresponding slider on your instrument.", "It works in a multiplicative way, so at $HI your slider will sound the same is its default value, and at $LO it will sound like it has been moved all the way to the left.", "For the full range of control with this mod, move your underlying slider all the way to the right.", "[MULTIPLICATIVE] [$LO - $HI] [%]"] },
+         { name: "song limitratio", pianoName: "LimitRatio", maxRawVol: 50, newNoteVol: 10, forSong: true, convertRealFactor: -250, associatedEffect: 15 },
+         { name: "song mastergain", pianoName: "MasterGain", maxRawVol: 50, newNoteVol: 5, forSong: true, convertRealFactor: -250, associatedEffect: 15 },
+         { name: "unisonVoices", pianoName: "unisonVoices", maxRawVol: Config.unisonVoicesMax*10,maxIndex: 0, newNoteVol: 1, forSong: false, convertRealFactor: 0, associatedEffect: 15, promptName: "Unison Voices", promptDesc: ["This automation is for unison voices as you can see it only work for custom unison "]
               },
         { name: "unisonSpread", pianoName: "unisonSpread", maxRawVol: Config.unisonSpreadMax*10,maxIndex: 0, newNoteVol: 1, forSong: false, convertRealFactor: 0, valueRealAdd: -(Config.unisonSpreadMax*5), divider:5,  associatedEffect: 15,
         promptName: "Unison Spread", promptDesc: ["This automation is for unison spread as you can see it only work for custom unison "]
@@ -1778,8 +1784,12 @@ Config.expOperatorWaves = toNameMap([
             promptDesc: ["This setting controls the number of phaser stages in your insturment, just like the phaser stages slider.", "At $LO, your instrument will have no phaser stages. At $HI, it will be at maximum.", "[OVERWRITING] [$LO - $HI]"] },
          { name: "function", pianoName: "Function", maxRawVol: 24, newNoteVol: 12, forSong: false, convertRealFactor: 0, associatedEffect: 17, maxIndex: 0,
             promptName: "Function", promptDesc: ["This setting controls the buffer with custom algorithm you made. p is point it has p.v value and p.i index b[] is arraybuffer of realtime audio . safe() is safe function if buffer for example doesn't exist just returns 0", "[CURRENT BUFFER VALUE]  -> [§ALGORITHM]"] },
-    ]);
-     
+         { name: "ODmode", pianoName: "Mode", maxRawVol: _a$1.distortionRange - 1, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 3, maxIndex: 0,
+            promptName: "Instrument Distortion Mode", promptDesc: ["Select Mode of the Distortion effect ", " ", ""] },
+         { name: "reverbfeedback", pianoName: "Feedback", maxRawVol: _a$1.reverbRange, newNoteVol: 0, forSong: false, convertRealFactor: 0, associatedEffect: 0, maxIndex: 0,
+            promptName: "Instrument Reverb Feedback", promptDesc: ["Reverb Feedback is basically setting for reverb thats routing the output of a reverb processor back into its input, creating a loop that regenerates and sustains the sound, significantly extending the decay tail and adding density", "At $LO, your instrument will have no reverb feedback. At $HI, it will be at maximum reverb feedback.", "[OVERWRITING] [$LO - $HI]"] },
+    ])
+ 
     function centerWave(wave) {
     	let sum = 0.0;
     	for (let i = 0; i < wave.length; i++)
@@ -2150,7 +2160,7 @@ function rawChipToIntegrated2(raw) {
             return (_a = EditorConfig.presetCategories[0].presets.dictionary) === null || _a === void 0 ? void 0 : _a[TypePresets === null || TypePresets === void 0 ? void 0 : TypePresets[instrument]];
         }
     }
-    EditorConfig.version = "1.0.3";
+    EditorConfig.version = "1.0.5";
     EditorConfig.versionDisplayName = "Studio Box " + EditorConfig.version;
     EditorConfig.releaseNotesURL = "./patch_notes.html";
     EditorConfig.isOnMac = /^Mac/i.test(navigator.platform) || /Mac OS X/i.test(navigator.userAgent) || /^(iPhone|iPad|iPod)/i.test(navigator.platform) || /(iPhone|iPad|iPod)/i.test(navigator.userAgent);
@@ -3024,7 +3034,7 @@ function rawChipToIntegrated2(raw) {
             if (theme == undefined)
                 theme = ColorConfig.defaultTheme;
             this._styleElement.textContent = theme;
-            let valuesToAdd = ":root{--hex-channel-label:false}\n:root{";
+            let valuesToAdd = ":root{";
             if (getComputedStyle(this._styleElement).getPropertyValue("--oscilloscope-line-L") == "")
                 valuesToAdd += "--oscilloscope-line-L:var(--primary-text,white);";
             if (getComputedStyle(this._styleElement).getPropertyValue("--oscilloscope-line-R") == "")
@@ -3339,7 +3349,7 @@ function rawChipToIntegrated2(raw) {
     }
     ColorConfig.colorLookup = new Map();
     ColorConfig.usesColorFormula = false;
-    ColorConfig.defaultTheme = "FruityBox Contrast";
+    ColorConfig.defaultTheme = "StudioBox Contrast";
  ColorConfig.themes = {
         "dark classic": ``,
         "dark competition": `
@@ -13979,8 +13989,8 @@ body::before {
 }
  :root {
  --page-margin: #000000;
- --hex-channel-label:true;
  --editor-background: #000000;
+ --hex-channel-label:true;
  --playhead: rgba(0, 255, 22, 0.44);
  --secondary-text: #7EFF80;
  --text-selection: rgba(0, 255, 75, 0.99);
@@ -13992,8 +14002,8 @@ body::before {
  --pitch-background: #000000;
  --tonic: #0C4F0C;
  --fifth-note: #0B1F0F;
- --white-piano-key: #edc;
- --black-piano-key: #456;
+ --white-piano-key: #aa9;
+ --black-piano-key: #232;
  --use-color-formula: true;
  --track-editor-bg-pitch: #333333;
  --track-editor-bg-pitch-dim: #000000;
@@ -16206,7 +16216,7 @@ body::before {
 `,
 
 
-"FruityBox":` 
+"StudioBox":` 
 :root {
 				-webkit-text-stroke-width: 0.5px;
   --page-margin: #764FCE;
@@ -16428,16 +16438,16 @@ body::before {
   --noise2-primary-note: #FFE0AA;
   --noise2-secondary-note: #BB8844;
 
-  --mod1-primary-channel: #3DFFED;
-  --mod1-secondary-channel: #00FFE0;
-  --mod1-primary-note: #AAFFF8;
-  --mod1-secondary-note: #00887A;
+  --mod1-primary-channel: #33CCFF;
+  --mod1-secondary-channel: #66EEFF;
+  --mod1-primary-note: #99FFFF;
+  --mod1-secondary-note: #44BBBB;
 
-  --mod2-primary-channel: #3DAAFF;
-  --mod2-secondary-channel: #007BFF;
-  --mod2-primary-note: #AAD8FF;
-  --mod2-secondary-note: #0055AA;
-  
+  --mod2-primary-channel: #33FFAA;
+  --mod2-secondary-channel: #66FFCC;
+  --mod2-primary-note: #AAFFEE;
+  --mod2-secondary-note: #44BBBB;
+
   --mod-label-primary: #FFFFFF;
   --mod-label-secondary-text: #AAAAAA;
   --mod-label-primary-text: #FFDD88;
@@ -16446,7 +16456,7 @@ body::before {
 }
 
 `,
-"FruityBox Dark": `
+"StudioBox Dark": `
 :root {
   -webkit-text-stroke-width: 0.6px;
   --page-margin: #5A3EB0;
@@ -16594,7 +16604,7 @@ body::before {
 `,
 
 
-"FruityBox Nano": `
+"StudioBox Nano": `
 :root {  
   -webkit-text-stroke-width: 0.6px;
   --page-margin: #407DA4;
@@ -16762,7 +16772,7 @@ border: 1px solid #5DC5C2  !important; outline:none;
 }
  
 `,
-"FruityBox Standard Blue": `
+"StudioBox Standard Blue": `
  
 :root {
 			--oscilloscope-line-R: #0099A1;
@@ -16929,7 +16939,7 @@ select , button, .selection *, input{
  
  
 `,
-"FruityBox Standard": `
+"StudioBox Standard": `
  
 :root {
  			--oscilloscope-line-R: #0099A1;
@@ -17098,7 +17108,7 @@ select , button, .selection *, input{
 }
  
 `,
-"FruityBox Contrast": ` 
+"StudioBox Contrast": ` 
  
 				 
 				.beepboxEditor input[type="range"]::-webkit-slider-thumb
@@ -17283,7 +17293,7 @@ select , button, .selection *, input{
 
  
 `,
-"FruityBoxLight":`
+"StudioBox Light":`
 :root {
   --page-margin: #F2ECFF;
   --editor-background: #F8F7FF;
@@ -20463,8 +20473,6 @@ body::after {
 "custom": `${localStorage.getItem("customColors") || `:root {  }`}`,
 };
     ColorConfig.pageMargin = "var(--page-margin, black)";
-    ColorConfig.useHexChannelLabel = "var(--hex-channel-label, false)"; 
-    
     ColorConfig.editorBackground = "var(--editor-background, black)";
     ColorConfig.patternBackground = "var(--pattern-background)";
     
@@ -20794,74 +20802,6 @@ updateThemes = function() {
 	if (CustomThemes) {
 		ColorConfig.themes = { ...ColorConfig.themes, ...CustomThemes };
 	}
-}
-function createStorage(dbName = "myDB", storeName = "store") {
-	const dbPromise = new Promise((resolve, reject) => {
-		const request = indexedDB.open(dbName, 1);
-		request.onupgradeneeded = (event) => {
-			const db = event.target.result;
-			if (!db.objectStoreNames.contains(storeName)) {
-				db.createObjectStore(storeName);
-			}
-		};
-		request.onsuccess = () => {
-			resolve(request.result);
-		};
-		request.onerror = () => {
-			reject(request.error);
-		};
-	});
-	async function save(slot, data) {
-		const db = await dbPromise;
-		return new Promise((resolve, reject) => {
-			const tx = db.transaction([storeName], "readwrite");
-			const store = tx.objectStore(storeName);
-			const req = store.put(data, slot);
-			req.onsuccess = () => resolve();
-			req.onerror = () => reject(req.error);
-		});
-	}
-	async function remove(slot) {
-		const db = await dbPromise;
-		return new Promise((resolve, reject) => {
-			const tx = db.transaction([storeName], "readwrite");
-			const store = tx.objectStore(storeName);
-			const req = store.delete(slot);
-			req.onsuccess = () => resolve();
-			req.onerror = () => reject(req.error);
-		});
-	}
-	
-	function load(slot, callback) {
-		dbPromise.then(db => {
-			const tx = db.transaction([storeName], "readonly");
-			const store = tx.objectStore(storeName);
-			const req = store.get(slot);
-			req.onsuccess = () => callback(req.result ?? null);
-			req.onerror = () => callback(null);
-		}).catch(() => callback(null));
-	}
-	return { save, load, remove, dbPromise };
-}
-let THEMESDB = createStorage("Themes", "themes")
-async function loadFiles2() {
-	CustomThemes = {};
-	const db = await THEMESDB.dbPromise;
-	const tx = db.transaction(["themes"], "readonly");
-	const store = tx.objectStore("themes");
-	const req = store.openCursor();
-	req.onsuccess = (event) => {
-		const cursor = event.target.result;
-		if (cursor) {
-			CustomThemes[cursor.key] = cursor.value;
-			cursor.continue();
-		} else {
-			updateThemes()
-		}
-	};
-}
-if (willLoadEditor == false) {
-	loadFiles2()
 }
 updateThemes()
 
@@ -24001,6 +23941,7 @@ function readSequenceB64(str, index, chars) {
         }
         fromJsonObject(patternObject, song, channel, importedPartsPerBeat, isNoiseChannel, isModChannel, jsonFormat = "auto") {  
             const format = jsonFormat.toLowerCase();
+            
             if (song.patternInstruments) {
                 if (Array.isArray(patternObject["instruments"])) {
                     const instruments = patternObject["instruments"];
@@ -24120,26 +24061,26 @@ function readSequenceB64(str, index, chars) {
         }
     }
     class Operator {
-        constructor(index) {
-            this.frequency = 4;
-            this.amplitude = 0;
-            this.waveform = 0; 
-            this.pulseWidth = 0.5;
-            this.reset(index);
-        }
-        reset(index) {
-            this.frequency = 4;
-            this.amplitude = (index <= 1) ? Config.operatorAmplitudeMax : 0;
-            this.waveform = 0;
-            this.pulseWidth = 5;
-        }
-        copy(other) {
-            this.frequency = other.frequency;
-            this.amplitude = other.amplitude;
-            this.waveform = other.waveform;
-            this.pulseWidth = other.pulseWidth;
-        }
-    }
+ constructor(index) {
+  this.frequency = 4;
+  this.amplitude = 0;
+  this.waveform = 0;
+  this.pulseWidth = 0.5;
+  this.reset(index);
+ }
+ reset(index) {
+  this.frequency = 4;
+  this.amplitude = (index <= 1) ? Config.operatorAmplitudeMax : 0;
+  this.waveform = 0;
+  this.pulseWidth = 5;
+ }
+ copy(other) {
+  this.frequency = other.frequency;
+  this.amplitude = other.amplitude;
+  this.waveform = other.waveform;
+  this.pulseWidth = other.pulseWidth;
+ }
+}
 class CustomAlgorithmOp { 
     constructor(opType = 8) { 
         this.init(opType);
@@ -25004,6 +24945,7 @@ class CustomFeedBack {
             this.stringSustain = 10;
             this.stringSustainType = 1;
             this.distortion = 0;
+            this.ODmode = 0;
             this.bitcrusherFreq = 0;
             this.bitcrusherQuantization = 0;
             this.boost = Config.ringModRange >> 1;
@@ -25018,6 +24960,7 @@ class CustomFeedBack {
             this.grainRange = 40;
             this.chorus = 0;
             this.reverb = 0;
+            this.reverbfeedback = 0;
             this.echoSustain = 0;
             this.echoDelay = 0;
             this.algorithm = 0;
@@ -25082,6 +25025,7 @@ class CustomFeedBack {
             this.effects = (1 << 2);
             this.chorus = Config.chorusRange - 1;
             this.reverb = 0;
+            this.reverbfeedback = 0;
             this.phaserFreq = 0;
             this.phaserFeedback = 0;
             this.phaserStages = 2;
@@ -25101,6 +25045,7 @@ class CustomFeedBack {
             this.noteFilterSimpleCut = Config.filterSimpleCutRange - 1;
             this.noteFilterSimplePeak = 0;
             this.distortion = Math.floor((Config.distortionRange - 1) * 0.75);
+            this.ODmode = 0;
             this.bitcrusherFreq = Math.floor((Config.bitcrusherFreqRange - 1) * 0.5);
             this.bitcrusherQuantization = Math.floor((Config.bitcrusherQuantizationRange - 1) * 0.5);
             this.boost = Config.ringModRange >> 1;
@@ -25455,6 +25400,7 @@ class CustomFeedBack {
             if (effectsIncludeDistortion(this.effects)) {
                 instrumentObject["distortion"] = Math.round(100 * this.distortion / (Config.distortionRange - 1));
                 instrumentObject["aliases"] = this.aliases;
+                instrumentObject["ODmode"] = this.ODmode;
             }
             if (effectsIncludeBitcrusher(this.effects)) { 
                 instrumentObject["bitcrusherOctave"] = (Config.bitcrusherFreqRange - 1 - this.bitcrusherFreq) * Config.bitcrusherOctaveStep;
@@ -25479,6 +25425,9 @@ class CustomFeedBack {
             }
             if (effectsIncludeReverb(this.effects)) {
                 instrumentObject["reverb"] = Math.round(100 * this.reverb / (Config.reverbRange - 1));
+            }
+            if (effectsIncludeReverb(this.effects)) {
+                instrumentObject["reverbfeedback"] = Math.round(100 * this.reverbfeedback / (Config.reverbRange - 1));
             }
             if (this.type != 4) {
                 instrumentObject["fadeInSeconds"] = Math.round(10000 * Synth.fadeInSettingToSeconds(this.fadeIn)) / 10000;
@@ -25933,6 +25882,9 @@ class CustomFeedBack {
             if (instrumentObject["distortion"] != undefined) {
                 this.distortion = clamp(0, Config.distortionRange, Math.round((Config.distortionRange - 1) * (instrumentObject["distortion"] | 0) / 100));
             }
+            if (instrumentObject["ODmode"] != undefined) {
+                this.ODmode = instrumentObject["ODmode"] 
+            } 
             if (instrumentObject["bitcrusherOctave"] != undefined) {
                 this.bitcrusherFreq = Config.bitcrusherFreqRange - 1 - (+instrumentObject["bitcrusherOctave"]) / Config.bitcrusherOctaveStep;
             }
@@ -25965,6 +25917,12 @@ class CustomFeedBack {
             }
             else {
                 this.reverb = legacyGlobalReverb;
+            }
+            if (instrumentObject["reverbfeedback"] != undefined) {
+                this.reverbfeedback = clamp(0, Config.reverbRange, Math.round((Config.reverbRange - 1) * (instrumentObject["reverbfeedback"] | 0) / 100));
+            }
+            else {
+                this.reverbfeedback = 24;
             }
             if (instrumentObject["pulseWidth"] != undefined) {
                 this.pulseWidth = clamp(1, Config.pulseWidthRange + 1, Math.round(instrumentObject["pulseWidth"]));
@@ -26819,6 +26777,7 @@ break;
             this.loopLength = 8;
             this.tempo = 110;
             this.reverb = 0;
+            this.reverbfeedback=0;
             this.beatsPerBar = 8;
             this.barCount = 16;
             this.patternsPerChannel = 50;
@@ -27091,8 +27050,9 @@ buffer.push(110,
                         }
                     }
                     if (effectsIncludeDistortion(instrument.effects)) {
-                        buffer.push(base64IntToCharCode[instrument.distortion]);
+                        buffer.push(base64IntToCharCode[instrument.distortion*4]);
                         buffer.push(base64IntToCharCode[+instrument.aliases]);
+                        buffer.push(base64IntToCharCode[instrument.ODmode]);
                     }
                     if (effectsIncludePhaser(instrument.effects)) {
                         buffer.push(base64IntToCharCode[instrument.phaserFreq]);
@@ -27115,6 +27075,9 @@ buffer.push(110,
                     }
                     if (effectsIncludeReverb(instrument.effects)) {
                         buffer.push(base64IntToCharCode[instrument.reverb]);
+                    }
+                    if (effectsIncludeReverb(instrument.effects)) {
+                        buffer.push(base64IntToCharCode[instrument.reverbfeedback]);
                     }
                     if (effectsIncludeGranular(instrument.effects)) {
                         buffer.push(base64IntToCharCode[instrument.granular]);
@@ -27163,8 +27126,8 @@ buffer.push(
 )
 for (let i = 0; i < encodedWave.length; i++) buffer.push(encodedWave.charCodeAt(i))
                         buffer.push(104, base64IntToCharCode[instrument.unison]);
-                        if (instrument.unison == Config.unisons.length)
-                            encodeUnisonSettings(buffer, instrument.unisonVoices, instrument.unisonSpread, instrument.unisonOffset, instrument.unisonExpression, instrument.unisonSign);
+                        if (instrument.unison == Config.unisons.length){
+                            encodeUnisonSettings(buffer, instrument.unisonVoices, instrument.unisonSpread, instrument.unisonOffset, instrument.unisonExpression, instrument.unisonSign);}
                         buffer.push(121);
                         const encodedLoopMode = ((clamp(0, 31 + 1, instrument.chipWaveLoopMode) << 1)
                             | (instrument.isUsingAdvancedLoopControls ? 1 : 0));
@@ -27224,6 +27187,9 @@ for (let i = 0; i < encodedWave.length; i++) buffer.push(encodedWave.charCodeAt(
                                 buffer.push(base64IntToCharCode[instrument.operators[o].pulseWidth]);
                             }
                         }
+                        buffer.push(104, base64IntToCharCode[instrument.unison]);
+                        if (instrument.unison == Config.unisons.length){
+                            encodeUnisonSettings(buffer, instrument.unisonVoices, instrument.unisonSpread, instrument.unisonOffset, instrument.unisonExpression, instrument.unisonSign);}
                     }
                     else if (instrument.type == 12 ) {
   		buffer.push(65, base64IntToCharCode[instrument.algorithm6Op]); 
@@ -27263,6 +27229,9 @@ for (let o = 0; o < 8; o++) {
   			buffer.push(base64IntToCharCode[instrument.operators[o].pulseWidth]);
   		}
   	}
+  	buffer.push(104, base64IntToCharCode[instrument.unison]);
+if (instrument.unison == Config.unisons.length){
+encodeUnisonSettings(buffer, instrument.unisonVoices, instrument.unisonSpread, instrument.unisonOffset, instrument.unisonExpression, instrument.unisonSign);}
   }
 else if (instrument.type == 9) {
 buffer.push(123);
@@ -27634,7 +27603,7 @@ buffer.push(
             let fromGoldBox = false;
             let fromUltraBox = false;
             let fromSlarmoosBox = false;
-            let fromFruityBox = false;
+            let fromStudioBox = false;
              
             if (variantTest == 0x6A) {
                 fromJummBox = true;
@@ -27660,7 +27629,7 @@ buffer.push(
                 fromSlarmoosBox = true;
                 charIndex++;
             } else if (variantTest == 0x74) {
-               	fromFruityBox = true;
+               	fromStudioBox = true;
                	fromSlarmoosBox = true;
                	charIndex++;
             }
@@ -27676,7 +27645,7 @@ buffer.push(
                 return;
             if (fromUltraBox && (version == -1 || version > Song._latestUltraBoxVersion || version < Song._oldestUltraBoxVersion))
                 return;
-            if (fromSlarmoosBox&&!fromFruityBox && (version == -1 || version > Song._latestSlarmoosBoxVersion || version < Song._oldestSlarmoosBoxVersion))
+            if (fromSlarmoosBox&&!fromStudioBox && (version == -1 || version > Song._latestSlarmoosBoxVersion || version < Song._oldestSlarmoosBoxVersion))
                 return;
             const beforeTwo = version < 2;
             const beforeThree = version < 3;
@@ -27686,12 +27655,13 @@ buffer.push(
             const beforeSeven = version < 7;
             const beforeEight = version < 8;
             const beforeNine = version < 9;
-            const beforeTen = version < 10;
+            const beforeEleven = version < 11;
+            const before12 = version < 12
             
             this.initToDefault((fromBeepBox && beforeNine) || ((fromJummBox && beforeFive) || (beforeFour && fromGoldBox)));
             const forceSimpleFilter = (fromBeepBox && beforeNine || fromJummBox && beforeFive);
             let willLoadLegacySamplesForOldSongs = false;
-            if (fromSlarmoosBox || fromUltraBox || fromGoldBox || fromFruityBox) {
+            if (fromSlarmoosBox || fromUltraBox || fromGoldBox || fromStudioBox) {
                 compressed = compressed.replaceAll("%7C", "|");
                 var compressed_array = compressed.split("|");
                 compressed = compressed_array.shift();
@@ -28202,7 +28172,7 @@ case 119: {
         if (instrument.type==2) {
             instrument.chipNoise=clamp(0,Config.chipNoises.length,base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
         } else {
-   if (fromFruityBox) {
+   if (fromStudioBox) {
    	const len =
    		(base64CharCodeToInt[compressed.charCodeAt(charIndex++)] << 6) |
    		base64CharCodeToInt[compressed.charCodeAt(charIndex++)];
@@ -28792,6 +28762,8 @@ break;
                                 }
                                 else if (effectsIncludeReverb(instrument.effects)) {
                                     instrument.reverb = legacyGlobalReverb;
+                                }else if (effectsIncludeReverb(instrument.effects)) {
+                                    instrument.reverbfeedback = legacyGlobalReverb;
                                 }
                                 instrument.effects |= 1 << 2;
                                 if (instrument.vibrato != Config.vibratos.dictionary["none"].index) {
@@ -28925,9 +28897,16 @@ break;
                                     }
                                 }
                                 if (effectsIncludeDistortion(instrument.effects)) {
+                                	if(beforeEleven){
                                     instrument.distortion = clamp(0, Config.distortionRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
-                                    if ((fromJummBox && !beforeFive) || fromGoldBox || fromUltraBox || fromSlarmoosBox)
-                                        instrument.aliases = base64CharCodeToInt[compressed.charCodeAt(charIndex++)] ? true : false;
+                                	}else{
+                                		instrument.distortion = clamp(0, Config.distortionRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]/4 );
+                                	}
+                                    if ((fromJummBox && !beforeFive) || fromGoldBox || fromUltraBox || fromSlarmoosBox || fromStudioBox)
+                                    instrument.aliases = base64CharCodeToInt[compressed.charCodeAt(charIndex++)] ? true : false;
+                                    if( fromStudioBox && !beforeEleven){
+                                    instrument.ODmode = base64CharCodeToInt[compressed.charCodeAt(charIndex++)];
+                                    }
                                 }
                                 if (effectsIncludePhaser(instrument.effects)) {
                                     instrument.phaserFreq = clamp(0, Config.phaserFreqRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
@@ -28967,6 +28946,9 @@ break;
                                     }
                                     else {
                                         instrument.reverb = clamp(0, Config.reverbRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                        if(!before12){
+                                        instrument.reverbfeedback = clamp(0, Config.reverbRange, base64CharCodeToInt[compressed.charCodeAt(charIndex++)]);
+                                        }
                                     }
                                 }
                                 if (effectsIncludeGranular(instrument.effects)) {
@@ -29646,7 +29628,7 @@ break;
                                                     songReverbIndex = mod;
                                                 }
                                             }
-                                            if (jumfive && Config.modulators[instrument.modulators[mod]].associatedEffect != 15) {
+                                            if (jumfive && Config.modulators[instrument.modulators[mod]].associatedEffect != 16) { 
                                                 this.channels[instrument.modChannels[mod]].instruments[instrument.modInstruments[mod]].effects |= 1 << Config.modulators[instrument.modulators[mod]].associatedEffect;
                                             }
                                         }
@@ -30915,7 +30897,7 @@ break;
     Song._latestUltraBoxVersion = 5;
     Song._oldestSlarmoosBoxVersion = 1;
     Song._latestSlarmoosBoxVersion = 5;
-    Song._latestStudioBoxVersion = 10;
+    Song._latestStudioBoxVersion = 12;
     Song._variant = 0x74; 
    class PickedString {
    	constructor() {
@@ -31703,116 +31685,116 @@ default: throw new Error("Unrecognized operator envelope type.");
         }
     }
     class Tone {
-        constructor() {
-            this.pitches = Array(Config.maxChordSize + 4).fill(0);
-            this.pitchCount = 0;
-            this.chordSize = 0;
-            this.drumsetPitch = null;
-            this.note = null;
-            this.prevNote = null;
-            this.nextNote = null;
-            this.prevNotePitchIndex = 0;
-            this.nextNotePitchIndex = 0;
-            this.freshlyAllocated = true;
-            this.atNoteStart = false;
-            this.isOnLastTick = false;
-            this.passedEndOfNote = false;
-            this.forceContinueAtStart = false;
-            this.forceContinueAtEnd = false;
-            this.noteStartPart = 0;
-            this.noteEndPart = 0;
-            this.ticksSinceReleased = 0;
-            this.liveInputSamplesHeld = 0;
-            this.lastInterval = 0;
-            this.stringSustainStart = 0;
-            this.stringSustainEnd = 0;
-            this.noiseSamples = [];
-            this.phases = [];
-            this.operatorWaves = [];
-            this.phaseDeltas = [];
-            this.directions = [];
-            this.chipWaveCompletions = [];
-            this.chipWavePrevWaves = [];
-            this.chipWaveCompletionsLastWave = [];
-            this.phaseDeltaScales = [];
-            this.expression = 0.0;
-            this.expressionDelta = 0.0;
-            this.operatorExpressions = [];
-            this.operatorExpressionDeltas = [];
-            this.prevPitchExpressions = Array(Config.maxPitchOrOperatorCount).fill(null);
-            this.prevVibrato = null;
-            this.prevStringDecay = null;
-            this.pulseWidth = 0.0;
-            this.pulseWidthDelta = 0.0;
-            this.decimalOffset = 0.0;
-            this.supersawDynamism = 0.0;
-            this.supersawDynamismDelta = 0.0;
-            this.supersawUnisonDetunes = [];
-            this.supersawShape = 0.0;
-            this.supersawShapeDelta = 0.0;
-            this.supersawDelayLength = 0.0;
-            this.supersawDelayLengthDelta = 0.0;
-            this.supersawDelayLine = null;
-            this.supersawDelayIndex = -1;
-            this.supersawPrevPhaseDelta = null;
-            this.pickedStrings = [];
-            this.noteFilters = [];
-            this.prevWaveIntegrals=[]
-            this.noteFilterCount = 0;
-            this.initialNoteFilterInput1 = 0.0;
-            this.initialNoteFilterInput2 = 0.0;
-            this.specialIntervalExpressionMult = 1.0;
-            this.feedbackOutputs = [];
-            this.feedbackMult = 0.0;
-            this.feedbackDelta = 0.0;
-            this.stereoVolumeLStart = 0.0;
-            this.stereoVolumeRStart = 0.0;
-            this.stereoVolumeLDelta = 0.0;
-            this.stereoVolumeRDelta = 0.0;
-            this.stereoDelayStart = 0.0;
-            this.stereoDelayEnd = 0.0;
-            this.stereoDelayDelta = 0.0;
-            this.customVolumeStart = 0.0;
-            this.customVolumeEnd = 0.0;
-            this.filterResonanceStart = 0.0;
-            this.filterResonanceDelta = 0.0;
-            this.isFirstOrder = false;
-            this.envelopeComputer = new EnvelopeComputer();
-            this.reset();
-        }
-        reset() {
-            for (let i = 0; i < Config.unisonVoicesMax; i++) {
-                this.noiseSamples[i] = 0.0;
-            }
-            for (let i = 0; i < Config.maxPitchOrOperatorCount; i++) {
-                this.phases[i] = 0.0;
-                this.directions[i] = 1;
-                this.chipWaveCompletions[i] = 0;
-                this.chipWavePrevWaves[i] = 0;
-                this.chipWaveCompletionsLastWave[i] = 0;
-                this.operatorWaves[i] = Config.operatorWaves[0];
-                this.feedbackOutputs[i] = 0.0;
-                this.prevWaveIntegrals[i] = 0.0
-                this.prevPitchExpressions[i] = null;
-            }
-            for (let i = 0; i < this.noteFilterCount; i++) {
-                this.noteFilters[i].resetOutput();
-            }
-            this.noteFilterCount = 0;
-            this.initialNoteFilterInput1 = 0.0;
-            this.initialNoteFilterInput2 = 0.0;
-            this.liveInputSamplesHeld = 0;
-            this.supersawDelayIndex = -1;
-            for (const pickedString of this.pickedStrings) {
-                pickedString.reset();
-            }
-            this.envelopeComputer.reset();
-            this.prevVibrato = null;
-            this.prevStringDecay = null;
-            this.supersawPrevPhaseDelta = null;
-            this.drumsetPitch = null;
-        }
-    }
+	constructor() {
+		this.pitches = Array(Config.maxChordSize + 2).fill(0);
+		this.pitchCount = 0;
+		this.chordSize = 0;
+		this.drumsetPitch = null;
+		this.note = null;
+		this.prevNote = null;
+		this.nextNote = null;
+		this.prevNotePitchIndex = 0;
+		this.nextNotePitchIndex = 0;
+		this.freshlyAllocated = true;
+		this.atNoteStart = false;
+		this.isOnLastTick = false;
+		this.passedEndOfNote = false;
+		this.forceContinueAtStart = false;
+		this.forceContinueAtEnd = false;
+		this.noteStartPart = 0;
+		this.noteEndPart = 0;
+		this.ticksSinceReleased = 0;
+		this.liveInputSamplesHeld = 0;
+		this.lastInterval = 0;
+		this.stringSustainStart = 0;
+		this.stringSustainEnd = 0;
+		this.noiseSamples = [];
+		this.phases = [];
+		this.operatorWaves = [];
+		this.phaseDeltas = [];
+		this.directions = [];
+		this.chipWaveCompletions = [];
+		this.chipWavePrevWaves = [];
+		this.chipWaveCompletionsLastWave = [];
+		this.phaseDeltaScales = [];
+		this.expression = 0.0;
+		this.expressionDelta = 0.0;
+		this.operatorExpressions = [];
+		this.operatorExpressionDeltas = [];
+		this.prevPitchExpressions = Array(Config.maxPitchOrOperatorCount).fill(null);
+		this.prevVibrato = null;
+		this.prevStringDecay = null;
+		this.pulseWidth = 0.0;
+		this.pulseWidthDelta = 0.0;
+		this.decimalOffset = 0.0;
+		this.supersawDynamism = 0.0;
+		this.supersawDynamismDelta = 0.0;
+		this.supersawUnisonDetunes = [];
+		this.supersawShape = 0.0;
+		this.supersawShapeDelta = 0.0;
+		this.supersawDelayLength = 0.0;
+		this.supersawDelayLengthDelta = 0.0;
+		this.supersawDelayLine = null;
+		this.supersawDelayIndex = -1;
+		this.supersawPrevPhaseDelta = null;
+		this.unisonHasUpdated = false;
+		this.pickedStrings = [];
+		this.noteFilters = [];
+		this.noteFilterCount = 0;
+		this.initialNoteFilterInput1 = 0.0;
+		this.initialNoteFilterInput2 = 0.0;
+		this.specialIntervalExpressionMult = 1.0;
+		this.feedbackOutputs = [];
+		this.feedbackMult = 0.0;
+		this.feedbackDelta = 0.0;
+		this.stereoVolumeLStart = 0.0;
+		this.stereoVolumeRStart = 0.0;
+		this.stereoVolumeLDelta = 0.0;
+		this.stereoVolumeRDelta = 0.0;
+		this.stereoDelayStart = 0.0;
+		this.stereoDelayEnd = 0.0;
+		this.stereoDelayDelta = 0.0;
+		this.customVolumeStart = 0.0;
+		this.customVolumeEnd = 0.0;
+		this.filterResonanceStart = 0.0;
+		this.filterResonanceDelta = 0.0;
+		this.isFirstOrder = false;
+		this.envelopeComputer = new EnvelopeComputer();
+		this.reset();
+	}
+	reset() {
+		for (let i = 0; i < Config.unisonVoicesMax; i++) {
+			this.noiseSamples[i] = 0.0;
+		}
+		for (let i = 0; i < Config.maxPitchOrOperatorCount * Config.unisonVoicesMax; i++) {
+			this.phases[i] = 0.0;
+			this.directions[i] = 1;
+			this.chipWaveCompletions[i] = 0;
+			this.chipWavePrevWaves[i] = 0;
+			this.chipWaveCompletionsLastWave[i] = 0;
+			this.operatorWaves[i] = Config.operatorWaves[0];
+			this.feedbackOutputs[i] = 0.0;
+			this.prevPitchExpressions[i] = null;
+		}
+		for (let i = 0; i < this.noteFilterCount; i++) {
+			this.noteFilters[i].resetOutput();
+		}
+		this.noteFilterCount = 0;
+		this.initialNoteFilterInput1 = 0.0;
+		this.initialNoteFilterInput2 = 0.0;
+		this.liveInputSamplesHeld = 0;
+		this.supersawDelayIndex = -1;
+		this.unisonHasUpdated = false;
+		for (const pickedString of this.pickedStrings) {
+			pickedString.reset();
+		}
+		this.envelopeComputer.reset();
+		this.prevVibrato = null;
+		this.prevStringDecay = null;
+		this.supersawPrevPhaseDelta = null;
+		this.drumsetPitch = null;
+	}
+}
     class InstrumentState {
         constructor() {
             this.awake = false;
@@ -31875,6 +31857,7 @@ default: throw new Error("Unrecognized operator envelope type.");
             this.ringModMixFade = 1.0;
             this.ringModMixFadeDelta = 0;
             this.distortion = 0.0;
+            this.ODmode = 0;
             this.customfunction = ["",""];  
             this.distortionDelta = 0.0;
             this.distortionDrive = 0.0;
@@ -31938,6 +31921,8 @@ default: throw new Error("Unrecognized operator envelope type.");
             this.reverbDelayPos = 0;
             this.reverbMult = 0.0;
             this.reverbMultDelta = 0.0;
+            this.reverbFeedback = 0.0;
+            this.reverbFeedbackDelta = 0.0
             this.reverbShelfA1 = 0.0;
             this.reverbShelfB0 = 0.0;
             this.reverbShelfB1 = 0.0;
@@ -31995,7 +31980,8 @@ default: throw new Error("Unrecognized operator envelope type.");
             }
             if (effectsIncludeReverb(instrument.effects)) {
                 if (this.reverbDelayLine == null) {
-                    this.reverbDelayLine = new Float32Array(Config.reverbDelayBufferSize);
+                let prevClose = 1;if (instrument.reverbfeedback > 19) { prevClose = 80}
+                    this.reverbDelayLine = new Float32Array(Config.reverbDelayBufferSize*prevClose);
                 }
             }
             if (effectsIncludePhaser(instrument.effects)) {
@@ -32054,7 +32040,7 @@ default: throw new Error("Unrecognized operator envelope type.");
             }
             this.eqFilterCount = 0;
             this.initialEqFilterInput1 = 0.0;
-            this.initialEqFilterInput2 = 0.0;
+            this.initialEqFilterInput2 = 0.0; 
             this.distortionFractionalInput1 = 0.0;
             this.distortionFractionalInput2 = 0.0;
             this.distortionFractionalInput3 = 0.0;
@@ -32247,6 +32233,7 @@ default: throw new Error("Unrecognized operator envelope type.");
                 const distortionDriveStart = (1.0 + 2.0 * distortionSliderStart) / Config.distortionBaseVolume;
                 const distortionDriveEnd = (1.0 + 2.0 * distortionSliderEnd) / Config.distortionBaseVolume;
                 this.distortion = distortionStart;
+                this.ODmode = instrument.ODmode;
                 this.distortionDelta = (distortionEnd - distortionStart) / roundedSamplesPerTick;
                 this.distortionDrive = distortionDriveStart;
                 this.distortionDriveDelta = (distortionDriveEnd - distortionDriveStart) / roundedSamplesPerTick;
@@ -32619,10 +32606,21 @@ instrument.unisonExpression = step((raw - 20) / 20, 0.01)*2;
                 const reverbEnvelopeEnd = envelopeEnds[47];
                 let useReverbStart = instrument.reverb;
                 let useReverbEnd = instrument.reverb;
+                let useReverbFeedbackStart = instrument.reverbfeedback;
+                let useReverbFeedbackEnd = instrument.reverbfeedback;
+                if (synth.isModActive(Config.modulators.dictionary["reverbfeedback"].index, channelIndex, instrumentIndex)) {
+                 useReverbFeedbackStart = synth.getModValue(Config.modulators.dictionary["reverbfeedback"].index, channelIndex, instrumentIndex, false);
+                 useReverbFeedbackEnd = synth.getModValue(Config.modulators.dictionary["reverbfeedback"].index, channelIndex, instrumentIndex, true);
+                 }
+                const reverbFeedbackStart =  useReverbFeedbackStart / Config.reverbRange;
+                const reverbFeedbackEnd =  useReverbFeedbackEnd / Config.reverbRange;
                 if (synth.isModActive(Config.modulators.dictionary["reverb"].index, channelIndex, instrumentIndex)) {
                     useReverbStart = synth.getModValue(Config.modulators.dictionary["reverb"].index, channelIndex, instrumentIndex, false);
                     useReverbEnd = synth.getModValue(Config.modulators.dictionary["reverb"].index, channelIndex, instrumentIndex, true);
                 }
+                this.reverbFeedback = reverbFeedbackStart;
+                this.reverbFeedbackDelta =(reverbFeedbackEnd - reverbFeedbackStart) / roundedSamplesPerTick;
+                
                 if (synth.isModActive(Config.modulators.dictionary["song reverb"].index, channelIndex, instrumentIndex)) {
                     useReverbStart *= (synth.getModValue(Config.modulators.dictionary["song reverb"].index, undefined, undefined, false) - Config.modulators.dictionary["song reverb"].convertRealFactor) / Config.reverbRange;
                     useReverbEnd *= (synth.getModValue(Config.modulators.dictionary["song reverb"].index, undefined, undefined, true) - Config.modulators.dictionary["song reverb"].convertRealFactor) / Config.reverbRange;
@@ -32665,7 +32663,11 @@ instrument.unisonExpression = step((raw - 20) / 20, 0.01)*2;
                 }
                 if (usesReverb) {
                     const averageMult = maxReverbMult * 2.0;
-                    const averageReverbDelaySeconds = (Config.reverbDelayBufferSize / 4.0) / samplesPerSecond;
+                    let prevClose=1
+                    if(instrument.reverbfeedback>19){
+                     prevClose=80
+                    }
+                    const averageReverbDelaySeconds = (Config.reverbDelayBufferSize*prevClose / 4.0) / samplesPerSecond; 
                     const attenuationPerSecond = Math.pow(averageMult, 1.0 / averageReverbDelaySeconds);
                     const halfLife = -1.0 / Math.log2(attenuationPerSecond);
                     const reverbDuration = halfLife * halfLifeMult;
@@ -32712,78 +32714,49 @@ instrument.unisonExpression = step((raw - 20) / 20, 0.01)*2;
         }
         updateWaves(instrument, samplesPerSecond) {
             this.volumeScale = 1.0;
+            if (instrument.type != 10) {
+                this.unisonVoices = instrument.unisonVoices;
+                this.unisonSpread = instrument.unisonSpread;
+                this.unisonOffset = instrument.unisonOffset;
+                this.unisonExpression = instrument.unisonExpression;
+                this.unisonSign = instrument.unisonSign;
+                if (this.unisonAntiPhased != instrument.unisonAntiPhased) {
+                    this.unisonAntiPhased = instrument.unisonAntiPhased;
+                    this.unisonInitialized = false;
+                }
+                this.unisonBuzzes = instrument.unisonBuzzes;
+            }
             if (instrument.type == 0) {
-                 this.wave = (this.aliases) ? Config.chipWaves[instrument.chipWave].samples : Config.chipWaves[instrument.chipWave].samples; 
+                const chipwaveIndex = Math.min(instrument.chipWave, Config.chipWaves.length - 1);
+                this.wave = (this.aliases) ? Config.rawChipWaves[chipwaveIndex].samples : Config.chipWaves[chipwaveIndex].samples;
                 this.isUsingAdvancedLoopControls = instrument.isUsingAdvancedLoopControls;
                 this.chipWaveLoopStart = instrument.chipWaveLoopStart;
                 this.chipWaveLoopEnd = instrument.chipWaveLoopEnd;
                 this.chipWaveLoopMode = instrument.chipWaveLoopMode;
                 this.chipWavePlayBackwards = instrument.chipWavePlayBackwards;
                 this.chipWaveStartOffset = instrument.chipWaveStartOffset;
-                this.unisonVoices = instrument.unisonVoices;
-                this.unisonSpread = instrument.unisonSpread;
-                this.unisonOffset = instrument.unisonOffset;
-                this.unisonExpression = instrument.unisonExpression;
-                this.unisonSign = instrument.unisonSign;
-            }
-            else if (instrument.type == 6) {
-                this.unisonVoices = instrument.unisonVoices;
-                this.unisonSpread = instrument.unisonSpread;
-                this.unisonOffset = instrument.unisonOffset;
-                this.unisonExpression = instrument.unisonExpression;
-                this.unisonSign = instrument.unisonSign;
             }
             else if (instrument.type == 9) {
                 this.wave = (this.aliases) ? instrument.customChipWave : instrument.customChipWaveIntegral;
                 this.volumeScale = 0.05;
-                this.unisonVoices = instrument.unisonVoices;
-                this.unisonSpread = instrument.unisonSpread;
-                this.unisonOffset = instrument.unisonOffset;
-                this.unisonExpression = instrument.unisonExpression;
-                this.unisonSign = instrument.unisonSign;
             }
             else if (instrument.type == 2) {
                 this.wave = getDrumWave(instrument.chipNoise, inverseRealFourierTransform, scaleElementsByFactor);
-                this.unisonVoices = instrument.unisonVoices;
-                this.unisonSpread = instrument.unisonSpread;
-                this.unisonOffset = instrument.unisonOffset;
-                this.unisonExpression = instrument.unisonExpression;
-                this.unisonSign = instrument.unisonSign;
             }
             else if (instrument.type == 5) {
                 this.wave = this.harmonicsWave.getCustomWave(instrument.harmonicsWave, instrument.type);
-                this.unisonVoices = instrument.unisonVoices;
-                this.unisonSpread = instrument.unisonSpread;
-                this.unisonOffset = instrument.unisonOffset;
-                this.unisonExpression = instrument.unisonExpression;
-                this.unisonSign = instrument.unisonSign;
             }
             else if (instrument.type == 7) {
                 this.wave = this.harmonicsWave.getCustomWave(instrument.harmonicsWave, instrument.type);
-                this.unisonVoices = instrument.unisonVoices;
-                this.unisonSpread = instrument.unisonSpread;
-                this.unisonOffset = instrument.unisonOffset;
-                this.unisonExpression = instrument.unisonExpression;
-                this.unisonSign = instrument.unisonSign;
             }
             else if (instrument.type == 3) {
                 this.wave = this.spectrumWave.getCustomWave(instrument.spectrumWave, 8);
-                this.unisonVoices = instrument.unisonVoices;
-                this.unisonSpread = instrument.unisonSpread;
-                this.unisonOffset = instrument.unisonOffset;
-                this.unisonExpression = instrument.unisonExpression;
-                this.unisonSign = instrument.unisonSign;
             }
             else if (instrument.type == 4) {
                 for (let i = 0; i < Config.drumCount; i++) {
                     this.drumsetSpectrumWaves[i].getCustomWave(instrument.drumsetSpectrumWaves[i], InstrumentState._drumsetIndexToSpectrumOctave(i));
                 }
                 this.wave = null;
-                this.unisonVoices = instrument.unisonVoices;
-                this.unisonSpread = instrument.unisonSpread;
-                this.unisonOffset = instrument.unisonOffset;
-                this.unisonExpression = instrument.unisonExpression;
-                this.unisonSign = instrument.unisonSign;
             }
             else {
                 this.wave = null;
@@ -33075,7 +33048,7 @@ instrument.unisonExpression = step((raw - 20) / 20, 0.01)*2;
                     if (tgtInstrument == null)
                         continue;
                     const str = Config.modulators[instrument.modulators[mod]].name;
-                    if (!((Config.modulators[instrument.modulators[mod]].associatedEffect != 15 && !(tgtInstrument.effects & (1 << Config.modulators[instrument.modulators[mod]].associatedEffect)))
+                    if (!((Config.modulators[instrument.modulators[mod]].associatedEffect != 16 && !(tgtInstrument.effects & (1 << Config.modulators[instrument.modulators[mod]].associatedEffect)))
                         || ((tgtInstrument.type != 1 && (tgtInstrument.type != 11&&tgtInstrument.type != 12) ) && (str == "fm slider 1" || str == "fm slider 2" || str == "fm slider 3" || str == "fm slider 4" || str == "fm feedback"))
                         || (tgtInstrument.type != 11&&tgtInstrument.type != 12) && (str == "fm slider 5" || str == "fm slider 6")
                         || tgtInstrument.type != 12 && (str == "fm slider 7" || str == "fm slider 8")
@@ -33453,6 +33426,7 @@ instrument.unisonExpression = step((raw - 20) / 20, 0.01)*2;
         play() { 
             if (this.isPlayingSong)
                 return;
+            Synth.clearCachedWaves()
             this.initModFilters(this.song);
             this.computeLatestModValues();
             this.activateAudio();
@@ -34821,7 +34795,6 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
         playTone(channelIndex, bufferIndex, runLength, tone) {
             const channelState = this.channels[channelIndex];
             const instrumentState = channelState.instruments[tone.instrumentIndex];
-            instrumentState.noteFrequency=tone
             if (instrumentState.synthesizer != null)
                 instrumentState.synthesizer(this, bufferIndex, runLength, tone, instrumentState);
             tone.envelopeComputer.clearEnvelopes();
@@ -34989,10 +34962,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             tone.expression = 0.0;
             tone.expressionDelta = 0.0;
             for (let i = 0; i < (instrument.type == 11 ? 6 : instrument.type == 12 ?8: Config.operatorCount); i++) {
-                tone.operatorWaves[i] = Synth.getOperatorWave(instrument.operators[i].waveform, instrument.operators[i].pulseWidth);
-                if(!window.ret){window.ret=true
-                console.log(JSON.stringify(tone.operatorWaves[i].samples))
-                }
+                tone.operatorWaves[i] = Synth.getCachedOperatorWave(instrument.operators[i].waveform, instrument.operators[i].pulseWidth);
             }
             if (released) {
                 const startTicksSinceReleased = tone.ticksSinceReleased;
@@ -35318,7 +35288,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                 tone.noteFilterCount++;
             }
             noteFilterExpression = Math.min(3.0, noteFilterExpression);
-            if (instrument.type == 1 || instrument.type == 11) {
+             if (instrument.type == 1 || instrument.type == 11) {
                 let sineExpressionBoost = 1.0;
                 let totalCarrierExpression = 0.0;
                 let arpeggioInterval = 0;
@@ -35353,8 +35323,92 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                         freqStart = targetFreqStart;
                         freqEnd = targetFreqEnd;
                     }
-                    tone.phaseDeltas[i] = freqStart * sampleTime;
-                    tone.phaseDeltaScales[i] = Math.pow(freqEnd / freqStart, 1.0 / roundedSamplesPerTick);
+                    const unisonVoices = instrument.unisonVoices;
+                    const unisonSpread = instrument.unisonSpread;
+                    const unisonOffset = instrument.unisonOffset;
+                    const unisonExpression = instrument.unisonExpression * unisonVoices;
+                    const unisonEnvelopeStart = envelopeStarts[4];
+                    const unisonEnvelopeEnd = envelopeEnds[4];
+                    const basePhaseDeltaScale = Math.pow(freqEnd / freqStart, 1.0 / roundedSamplesPerTick);
+                    const unisonStartA = Math.pow(2.0, (unisonOffset + unisonSpread) * unisonEnvelopeStart / 12.0);
+                    const unisonEndA = Math.pow(2.0, (unisonOffset + unisonSpread) * unisonEnvelopeEnd / 12.0);
+                    tone.phaseDeltas[i * unisonVoices + 0] = freqStart * sampleTime * unisonStartA;
+                    tone.phaseDeltaScales[i * unisonVoices + 0] = basePhaseDeltaScale * Math.pow(unisonEndA / unisonStartA, 1.0 / roundedSamplesPerTick);
+                    const divisor = (unisonVoices == 1) ? 1 : (unisonVoices - 1);
+                    for (let voice = 1; voice < unisonVoices; voice++) {
+                        const unisonStart = Math.pow(2.0, (unisonOffset + unisonSpread - (2 * voice * unisonSpread / divisor)) * unisonEnvelopeStart / 12.0) * (specialIntervalMult);
+                        const unisonEnd = Math.pow(2.0, (unisonOffset + unisonSpread - (2 * voice * unisonSpread / divisor)) * unisonEnvelopeEnd / 12.0) * (specialIntervalMult);
+                        tone.phaseDeltas[i * unisonVoices + voice] = freqStart * sampleTime * unisonStart;
+                        tone.phaseDeltaScales[i * unisonVoices + voice] = basePhaseDeltaScale * Math.pow(unisonEnd / unisonStart, 1.0 / roundedSamplesPerTick);
+                    }
+                    if ((!instrumentState.unisonInitialized || !tone.unisonHasUpdated) && instrument.unisonAntiPhased) {
+                        const wave = tone.operatorWaves[i].samples;
+                        function wavePoint(phase) {
+                            const flooredPhase = phase | 0;
+                            const remainder = phase - flooredPhase;
+                            const flooredPhase2 = flooredPhase + 1 >= wave.length ? flooredPhase + 1 - wave.length : flooredPhase + 1;
+                            return wave[flooredPhase] * (1 - remainder) + wave[flooredPhase2] * remainder;
+                        }
+                        const voiceCount = Config.unisonVoicesMax;
+                        const unisonSign = instrument.unisonSign;
+                        let accumulator = 0.0;
+                        for (let j = 0; j < voiceCount; j++) {
+                            tone.phases[i * unisonVoices + j] = accumulator;
+                            accumulator += -Math.log(Math.random());
+                        }
+                        let amplitudeOld = wavePoint(tone.phases[i * unisonVoices]);
+                        for (let j = 1; j < voiceCount; j++) {
+                            amplitudeOld += wavePoint(tone.phases[i * unisonVoices + j]) * unisonSign;
+                        }
+                        let phaseOld = 0.0;
+                        let zeroCrossingPhase = 0.0;
+                        const steps = 256;
+                        for (let j = 1; j <= steps; j++) {
+                            let phaseNew = j / steps * wave.length;
+                            let amplitudeNew = wavePoint(phaseNew + tone.phases[i * unisonVoices]);
+                            for (let k = 1; k < voiceCount; k++) {
+                                amplitudeNew += wavePoint(phaseNew + tone.phases[i * unisonVoices + k]) * unisonSign;
+                            }
+                            if ((amplitudeOld | 0) * (amplitudeNew | 0) <= 0) {
+                                for (let _ = 0; _ < 10; _++) {
+                                    const phaseCenter = (phaseOld + phaseNew) / 2;
+                                    let amplitudeNewer = wavePoint(phaseCenter + tone.phases[i * unisonVoices]);
+                                    for (let k = 1; k < voiceCount; k++) {
+                                        amplitudeNewer += wavePoint(phaseCenter + tone.phases[i * unisonVoices + k]) * unisonSign;
+                                    }
+                                    if (amplitudeOld * amplitudeNewer <= 0) {
+                                        phaseNew = phaseCenter;
+                                        amplitudeNew = amplitudeNewer;
+                                    }
+                                    else {
+                                        phaseOld = phaseCenter;
+                                        amplitudeOld = amplitudeNewer;
+                                    }
+                                }
+                                zeroCrossingPhase = (phaseOld + phaseNew) / 2;
+                                break;
+                            }
+                            phaseOld = phaseNew;
+                            amplitudeOld = amplitudeNew;
+                        }
+                        for (let j = 0; j < voiceCount; j++) {
+                            tone.phases[i * unisonVoices + j] += zeroCrossingPhase;
+                        }
+                        for (let j = 1; j < voiceCount - 1; j++) {
+                            const swappedIndex = j + Math.floor(Math.random() * (voiceCount - j));
+                            const temp = tone.phases[i];
+                            tone.phases[i * unisonVoices + j] = tone.phases[i * unisonVoices + swappedIndex];
+                            tone.phases[i * unisonVoices + swappedIndex] = temp;
+                        }
+                        instrumentState.unisonInitialized = true;
+                        tone.unisonHasUpdated = true;
+                    }
+                    else if (!instrumentState.unisonInitialized && !instrument.unisonAntiPhased) {
+                        for (let j = 0; j < Config.unisonVoicesMax; j++) {
+                            tone.phases[i * unisonVoices + j] = 0;
+                        }
+                        instrumentState.unisonInitialized = true;
+                    }
                     let amplitudeStart = instrument.operators[i].amplitude;
                     let amplitudeEnd = instrument.operators[i].amplitude;
                     if (i < 4) {
@@ -35373,8 +35427,8 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                     const amplitudeCurveEnd = Synth.operatorAmplitudeCurve(amplitudeEnd);
                     const amplitudeMultStart = amplitudeCurveStart * Config.operatorFrequencies[instrument.operators[i].frequency].amplitudeSign;
                     const amplitudeMultEnd = amplitudeCurveEnd * Config.operatorFrequencies[instrument.operators[i].frequency].amplitudeSign;
-                    let expressionStart = amplitudeMultStart;
-                    let expressionEnd = amplitudeMultEnd;
+                    let expressionStart = amplitudeMultStart * unisonExpression / 1.4;
+                    let expressionEnd = amplitudeMultEnd * unisonExpression / 1.4;
                     if (i < carrierCount) {
                         let pitchExpressionStart;
                         if (tone.prevPitchExpressions[i] != null) {
@@ -35402,15 +35456,14 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                         expressionStart *= ((startVal <= 0) ? ((startVal + Config.volumeRange / 2) / (Config.volumeRange / 2)) : Synth.instrumentVolumeToVolumeMult(startVal));
                         expressionEnd *= ((endVal <= 0) ? ((endVal + Config.volumeRange / 2) / (Config.volumeRange / 2)) : Synth.instrumentVolumeToVolumeMult(endVal));
                     }
- 
                     tone.operatorExpressions[i] = expressionStart;
                     tone.operatorExpressionDeltas[i] = (expressionEnd - expressionStart) / roundedSamplesPerTick;
                 }
                 sineExpressionBoost *= (Math.pow(2.0, (2.0 - 1.4 * instrument.feedbackAmplitude / 15.0)) - 1.0) / 3.0;
                 sineExpressionBoost *= 1.0 - Math.min(1.0, Math.max(0.0, totalCarrierExpression - 1) / 2.0);
                 sineExpressionBoost = 1.0 + sineExpressionBoost * 3.0;
-                const expressionStart = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionStart * chordExpressionStart * envelopeStarts[0]; 
-                const expressionEnd = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionEnd * chordExpressionEnd * envelopeEnds[0];
+                let expressionStart = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionStart * chordExpressionStart * envelopeStarts[0];
+                let expressionEnd = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionEnd * chordExpressionEnd * envelopeEnds[0];
                 if (isMono && tone.pitchCount <= instrument.monoChordTone) {
                     expressionStart = 0;
                     expressionEnd = 0;
@@ -35439,9 +35492,9 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                     const arpeggio = Math.floor(instrumentState.arpTime / Config.ticksPerArpeggio);
                     arpeggioInterval = tone.pitches[getArpeggioPitchIndex(tone.pitchCount, instrument.fastTwoNoteArp, arpeggio)] - tone.pitches[0];
                 }
-                const carrierCount = ( instrument.customAlgorithm.carrierCount ); 
-                for (let i = 0; i < ( Config.operatorCount+4 ); i++) {
-                    const associatedCarrierIndex = (instrument.type == 12 ? instrument.customAlgorithm.associatedCarrier[i] - 1 : Config.algorithms[instrument.algorithm].associatedCarrier[i] - 1);
+                const carrierCount = instrument.customAlgorithm.carrierCount;
+                for (let i = 0; i < 8; i++) {
+                    const associatedCarrierIndex = instrument.customAlgorithm.associatedCarrier[i] - 1 ;
                     const pitch = tone.pitches[arpeggiates ? 0 : isMono ? instrument.monoChordTone : ((i < tone.pitchCount) ? i : ((associatedCarrierIndex < tone.pitchCount) ? associatedCarrierIndex : 0))];
                     const freqMult = Config.operatorFrequencies[instrument.operators[i].frequency].mult;
                     const interval = Config.operatorCarrierInterval[associatedCarrierIndex] + arpeggioInterval;
@@ -35464,39 +35517,123 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                         freqStart = targetFreqStart;
                         freqEnd = targetFreqEnd;
                     }
+                    const unisonVoices = instrument.unisonVoices;
+                    const unisonSpread = instrument.unisonSpread;
+                    const unisonOffset = instrument.unisonOffset;
+                    const unisonExpression = instrument.unisonExpression * unisonVoices;
+                    const unisonEnvelopeStart = envelopeStarts[4];
+                    const unisonEnvelopeEnd = envelopeEnds[4];
+                    const basePhaseDeltaScale = Math.pow(freqEnd / freqStart, 1.0 / roundedSamplesPerTick);
+                    const unisonStartA = Math.pow(2.0, (unisonOffset + unisonSpread) * unisonEnvelopeStart / 12.0);
+                    const unisonEndA = Math.pow(2.0, (unisonOffset + unisonSpread) * unisonEnvelopeEnd / 12.0);
                     let rootKey = tone.operatorWaves[i]?.rootKey ?? 1
                     let sampleRate = tone.operatorWaves[i]?.sampleRate ?? 1
-                    if (sampleRate==1 && rootKey == 1){
-	                    tone.phaseDeltas[i] = freqStart * sampleTime;
-                    }else{
-                       	let wave = tone.operatorWaves[i].samples
-                        const baseSampleFreq = sampleRate / wave.length;
-                       	const pitchRatio = Math.pow(2, (pitch - rootKey) / 12); 
-                       	tone.phaseDeltas[i] =   (baseSampleFreq * pitchRatio) * freqMult * sampleTime;
+                    tone.phaseDeltaScales[i * unisonVoices + 0] = basePhaseDeltaScale * Math.pow(unisonEndA / unisonStartA, 1.0 / roundedSamplesPerTick);
+                    const divisor = (unisonVoices == 1) ? 1 : (unisonVoices - 1);
+                   for (let voice = 0; voice < unisonVoices; voice++) {
+    const unisonStart = Math.pow(2.0, (unisonOffset + unisonSpread - (2 * voice * unisonSpread / divisor)) * unisonEnvelopeStart / 12.0) * specialIntervalMult;
+    const unisonEnd = Math.pow(2.0, (unisonOffset + unisonSpread - (2 * voice * unisonSpread / divisor)) * unisonEnvelopeEnd / 12.0) * specialIntervalMult;
+
+    if (sampleRate == 1 && rootKey == 1){
+        tone.phaseDeltas[i * unisonVoices + voice] = freqStart * sampleTime * unisonStart;
+    } else {
+        let wave = tone.operatorWaves[i].samples.length;
+        const baseSampleFreq = sampleRate / wave;
+        const pitchRatio = Math.pow(2, (pitch - rootKey) / 12); 
+        tone.phaseDeltas[i * unisonVoices + voice] = (baseSampleFreq * pitchRatio) * freqMult * sampleTime * unisonStart;
+    }
+
+    tone.phaseDeltaScales[i * unisonVoices + voice] = basePhaseDeltaScale * Math.pow(unisonEnd / unisonStart, 1.0 / roundedSamplesPerTick);
+}
+
+                    if ((!instrumentState.unisonInitialized || !tone.unisonHasUpdated) && instrument.unisonAntiPhased) {
+                        const wave = tone.operatorWaves[i].samples ;
+                        function wavePoint(phase) {
+                            const flooredPhase = phase | 0;
+                            const remainder = phase - flooredPhase;
+                            const flooredPhase2 = flooredPhase + 1 >= wave.length ? flooredPhase + 1 - wave.length : flooredPhase + 1;
+                            return wave[flooredPhase] * (1 - remainder) + wave[flooredPhase2] * remainder;
+                        }
+                        const voiceCount = Config.unisonVoicesMax;
+                        const unisonSign = instrument.unisonSign;
+                        let accumulator = 0.0;
+                        for (let j = 0; j < voiceCount; j++) {
+                            tone.phases[i * unisonVoices + j] = accumulator;
+                            accumulator += -Math.log(Math.random());
+                        }
+                        let amplitudeOld = wavePoint(tone.phases[i * unisonVoices]);
+                        for (let j = 1; j < voiceCount; j++) {
+                            amplitudeOld += wavePoint(tone.phases[i * unisonVoices + j]) * unisonSign;
+                        }
+                        let phaseOld = 0.0;
+                        let zeroCrossingPhase = 0.0;
+                        const steps = 256;
+                        for (let j = 1; j <= steps; j++) {
+                            let phaseNew = j / steps * wave.length;
+                            let amplitudeNew = wavePoint(phaseNew + tone.phases[i * unisonVoices]);
+                            for (let k = 1; k < voiceCount; k++) {
+                                amplitudeNew += wavePoint(phaseNew + tone.phases[i * unisonVoices + k]) * unisonSign;
+                            }
+                            if ((amplitudeOld | 0) * (amplitudeNew | 0) <= 0) {
+                                for (let _ = 0; _ < 10; _++) {
+                                    const phaseCenter = (phaseOld + phaseNew) / 2;
+                                    let amplitudeNewer = wavePoint(phaseCenter + tone.phases[i * unisonVoices]);
+                                    for (let k = 1; k < voiceCount; k++) {
+                                        amplitudeNewer += wavePoint(phaseCenter + tone.phases[i * unisonVoices + k]) * unisonSign;
+                                    }
+                                    if (amplitudeOld * amplitudeNewer <= 0) {
+                                        phaseNew = phaseCenter;
+                                        amplitudeNew = amplitudeNewer;
+                                    }
+                                    else {
+                                        phaseOld = phaseCenter;
+                                        amplitudeOld = amplitudeNewer;
+                                    }
+                                }
+                                zeroCrossingPhase = (phaseOld + phaseNew) / 2;
+                                break;
+                            }
+                            phaseOld = phaseNew;
+                            amplitudeOld = amplitudeNew;
+                        }
+                        for (let j = 0; j < voiceCount; j++) {
+                            tone.phases[i * unisonVoices + j] += zeroCrossingPhase;
+                        }
+                        for (let j = 1; j < voiceCount - 1; j++) {
+                            const swappedIndex = j + Math.floor(Math.random() * (voiceCount - j));
+                            const temp = tone.phases[i];
+                            tone.phases[i * unisonVoices + j] = tone.phases[i * unisonVoices + swappedIndex];
+                            tone.phases[i * unisonVoices + swappedIndex] = temp;
+                        }
+                        instrumentState.unisonInitialized = true;
+                        tone.unisonHasUpdated = true;
                     }
-                    tone.phaseDeltaScales[i] = Math.pow(freqEnd / freqStart, 1.0 / roundedSamplesPerTick);
+                    else if (!instrumentState.unisonInitialized && !instrument.unisonAntiPhased) {
+                        for (let j = 0; j < Config.unisonVoicesMax; j++) {
+                            tone.phases[i * unisonVoices + j] = 0;
+                        }
+                        instrumentState.unisonInitialized = true;
+                    }
                     let amplitudeStart = instrument.operators[i].amplitude;
                     let amplitudeEnd = instrument.operators[i].amplitude;
                     if (i < 4) {
-                       const sliderIndex = Config.modulators.dictionary["fm slider 1"].index + i;
-                       if (this.isModActive(sliderIndex, channelIndex, tone.instrumentIndex)) {
-                         amplitudeStart *= this.getModValue(sliderIndex, channelIndex, tone.instrumentIndex, false) / 15.0;
-                         amplitudeEnd   *= this.getModValue(sliderIndex, channelIndex, tone.instrumentIndex, true)  / 15.0;
-                          }
-                      } else if (i < 8) {
-                       const sliderIndex = Config.modulators.dictionary["fm slider 5"].index + (i - 4);
-                       if (this.isModActive(sliderIndex, channelIndex, tone.instrumentIndex)) {
-                      amplitudeStart *= this.getModValue(sliderIndex, channelIndex, tone.instrumentIndex, false) / 15.0;
-                      amplitudeEnd   *= this.getModValue(sliderIndex, channelIndex, tone.instrumentIndex, true)  / 15.0;
-                      }
-                    } else {}
-
+                        if (this.isModActive(Config.modulators.dictionary["fm slider 1"].index + i, channelIndex, tone.instrumentIndex)) {
+                            amplitudeStart *= this.getModValue(Config.modulators.dictionary["fm slider 1"].index + i, channelIndex, tone.instrumentIndex, false) / 15.0;
+                            amplitudeEnd *= this.getModValue(Config.modulators.dictionary["fm slider 1"].index + i, channelIndex, tone.instrumentIndex, true) / 15.0;
+                        }
+                    }
+                    else {
+                        if (this.isModActive(Config.modulators.dictionary["fm slider 5"].index + i - 4, channelIndex, tone.instrumentIndex)) {
+                            amplitudeStart *= this.getModValue(Config.modulators.dictionary["fm slider 5"].index + i - 4, channelIndex, tone.instrumentIndex, false) / 15.0;
+                            amplitudeEnd *= this.getModValue(Config.modulators.dictionary["fm slider 5"].index + i - 4, channelIndex, tone.instrumentIndex, true) / 15.0;
+                        }
+                    }
                     const amplitudeCurveStart = Synth.operatorAmplitudeCurve(amplitudeStart);
                     const amplitudeCurveEnd = Synth.operatorAmplitudeCurve(amplitudeEnd);
                     const amplitudeMultStart = amplitudeCurveStart * Config.operatorFrequencies[instrument.operators[i].frequency].amplitudeSign;
                     const amplitudeMultEnd = amplitudeCurveEnd * Config.operatorFrequencies[instrument.operators[i].frequency].amplitudeSign;
-                    let expressionStart = amplitudeMultStart;
-                    let expressionEnd = amplitudeMultEnd;
+                    let expressionStart = amplitudeMultStart * unisonExpression / 1.4;
+                    let expressionEnd = amplitudeMultEnd * unisonExpression / 1.4;
                     if (i < carrierCount) {
                         let pitchExpressionStart;
                         if (tone.prevPitchExpressions[i] != null) {
@@ -35524,15 +35661,14 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                         expressionStart *= ((startVal <= 0) ? ((startVal + Config.volumeRange / 2) / (Config.volumeRange / 2)) : Synth.instrumentVolumeToVolumeMult(startVal));
                         expressionEnd *= ((endVal <= 0) ? ((endVal + Config.volumeRange / 2) / (Config.volumeRange / 2)) : Synth.instrumentVolumeToVolumeMult(endVal));
                     }
- 
                     tone.operatorExpressions[i] = expressionStart;
                     tone.operatorExpressionDeltas[i] = (expressionEnd - expressionStart) / roundedSamplesPerTick;
                 }
                 sineExpressionBoost *= (Math.pow(2.0, (2.0 - 1.4 * instrument.feedbackAmplitude / 15.0)) - 1.0) / 3.0;
                 sineExpressionBoost *= 1.0 - Math.min(1.0, Math.max(0.0, totalCarrierExpression - 1) / 2.0);
                 sineExpressionBoost = 1.0 + sineExpressionBoost * 3.0;
-                const expressionStart = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionStart * chordExpressionStart * envelopeStarts[0]; 
-                const expressionEnd = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionEnd * chordExpressionEnd * envelopeEnds[0];
+                let expressionStart = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionStart * chordExpressionStart * envelopeStarts[0];
+                let expressionEnd = baseExpression * sineExpressionBoost * noteFilterExpression * fadeExpressionEnd * chordExpressionEnd * envelopeEnds[0];
                 if (isMono && tone.pitchCount <= instrument.monoChordTone) {
                     expressionStart = 0;
                     expressionEnd = 0;
@@ -35551,8 +35687,7 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                 let feedbackEnd = feedbackAmplitudeEnd * envelopeEnds[17];
                 tone.feedbackMult = feedbackStart;
                 tone.feedbackDelta = (feedbackEnd - feedbackStart) / roundedSamplesPerTick;
-            }
-            else {
+            }else {
                 const freqEndRatio = Math.pow(2.0, (intervalEnd - intervalStart) * intervalScale / 12.0);
                 const basePhaseDeltaScale = Math.pow(freqEndRatio, 1.0 / roundedSamplesPerTick);
                 const isMono = chord.name == "monophonic";
@@ -35843,46 +35978,54 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
             return effect;
         }
         static getInstrumentSynthFunction(instrument) {  
-            if (instrument.type == 1) {
-                const fingerprint = instrument.algorithm + "_" + instrument.feedbackType;
+           if (instrument.type == 1) {
+                const voiceCount = instrument.unisonVoices;
+                const fingerprint = instrument.algorithm + "_" + instrument.feedbackType + "_" + voiceCount;
                 if (Synth.fmSynthFunctionCache[fingerprint] == undefined) {
                     const synthSource = [];
                     for (const line of Synth.fmSourceTemplate) {
                         if (line.indexOf("// CARRIER OUTPUTS") != -1) {
                             const outputs = [];
                             for (let j = 0; j < Config.algorithms[instrument.algorithm].carrierCount; j++) {
-                                outputs.push("operator" + j + "Scaled");
+                                for (let voice = 0; voice < voiceCount; voice++) {
+                                    outputs.push("operator" + j + "Scaled" + voice);
+                                }
                             }
                             synthSource.push(line.replace("/*operator#Scaled*/", outputs.join(" + ")));
                         }
                         else if (line.indexOf("// INSERT OPERATOR COMPUTATION HERE") != -1) {
                             for (let j = Config.operatorCount - 1; j >= 0; j--) {
-                                for (const operatorLine of Synth.operatorSourceTemplate) {
-                                    if (operatorLine.indexOf("/* + operator@Scaled*/") != -1) {
-                                        let modulators = "";
-                                        for (const modulatorNumber of Config.algorithms[instrument.algorithm].modulatedBy[j]) {
-                                            modulators += " + operator" + (modulatorNumber - 1) + "Scaled";
-                                        }
-                                        const feedbackIndices = Config.feedbacks[instrument.feedbackType].indices[j];
-                                        if (feedbackIndices.length > 0) {
-                                            modulators += " + feedbackMult * (";
-                                            const feedbacks = [];
-                                            for (const modulatorNumber of feedbackIndices) {
-                                                feedbacks.push("operator" + (modulatorNumber - 1) + "Output");
+                                for (let voice = 0; voice < voiceCount; voice++) {
+                                    for (const operatorLine of Synth.operatorSourceTemplate) {
+                                        if (operatorLine.indexOf("/* + operator@Scaled*/") != -1) {
+                                            let modulators = "";
+                                            for (const modulatorNumber of Config.algorithms[instrument.algorithm].modulatedBy[j]) {
+                                                modulators += " + operator" + (modulatorNumber - 1) + "Scaled" + voice;
                                             }
-                                            modulators += feedbacks.join(" + ") + ")";
+                                            const feedbackIndices = Config.feedbacks[instrument.feedbackType].indices[j];
+                                            if (feedbackIndices.length > 0) {
+                                                modulators += " + feedbackMult * (";
+                                                const feedbacks = [];
+                                                for (const modulatorNumber of feedbackIndices) {
+                                                    feedbacks.push("operator" + (modulatorNumber - 1) + "Output" + voice);
+                                                }
+                                                modulators += feedbacks.join(" + ") + ")";
+                                            }
+                                            synthSource.push(operatorLine.replace(/\#/g, j + "").replace(/\~/g, voice + "").replace("/* + operator@Scaled*/", modulators));
                                         }
-                                        synthSource.push(operatorLine.replace(/\#/g, j + "").replace("/* + operator@Scaled*/", modulators));
-                                    }
-                                    else {
-                                        synthSource.push(operatorLine.replace(/\#/g, j + ""));
+                                        else {
+                                            synthSource.push(operatorLine.replace(/\#/g, j + "").replace(/\~/g, voice + ""));
+                                        }
                                     }
                                 }
                             }
                         }
-                        else if (line.indexOf("#") != -1) {
+                        else if (line.indexOf("#") != -1 || line.indexOf("~") != -1) {
                             for (let j = 0; j < Config.operatorCount; j++) {
-                                synthSource.push(line.replace(/\#/g, j + ""));
+                                const vc = line.indexOf("~") != -1 ? voiceCount : 1;
+                                for (let voice = 0; voice < vc; voice++) {
+                                    synthSource.push(line.replace(/\#/g, j + "").replace(/\~/g, voice + ""));
+                                }
                             }
                         }
                         else {
@@ -35928,68 +36071,77 @@ for (let channelIndex = 0; channelIndex < this.song.getChannelCount(); channelIn
                 return Synth.modSynth;
             }
   else if (instrument.type == 11) {
-  	const fingerprint = instrument.customAlgorithm.name + "_" + instrument.customFeedbackType.name;
-  	if (Synth.fm6SynthFunctionCache[fingerprint] == undefined) {
-  		const synthSource = [];
-  		for (const line of Synth.fmSourceTemplate) {
-  			if (line.indexOf("// CARRIER OUTPUTS") != -1) {
-  				const outputs = [];
-  				for (let j = 0; j < instrument.customAlgorithm.carrierCount; j++) {
-  					outputs.push("operator" + j + "Scaled");
-  				}
-  				synthSource.push(line.replace("/*operator#Scaled*/", outputs.join(" + ")));
-  			}
-  			
-  			else if (line.indexOf("// INSERT OPERATOR COMPUTATION HERE") != -1) {
-  				for (let j = Config.operatorCount + 2 - 1; j >= 0; j--) {
-  					for (const operatorLine of Synth.operatorSourceTemplate) {
-  						if (operatorLine.indexOf("/* + operator@Scaled*/") != -1) {
-  							let modulators = "";
-  							for (const modulatorNumber of instrument.customAlgorithm.modulatedBy[j]) {
-  								modulators += " + operator" + (modulatorNumber - 1) + "Scaled";
-  							}
-  							const feedbackIndices = instrument.customFeedbackType.indices[j];
-  							if (feedbackIndices.length > 0) {
-  								modulators += " + feedbackMult * (";
-  								const feedbacks = [];
-  								for (const modulatorNumber of feedbackIndices) {
-  									feedbacks.push("operator" + (modulatorNumber - 1) + "Output");
-  								}
-  								modulators += feedbacks.join(" + ") + ")";
-  							}
-  							synthSource.push(operatorLine.replace(/\#/g, j + "").replace("/* + operator@Scaled*/", modulators));
-  						}
-  						else {
-  							synthSource.push(operatorLine.replace(/\#/g, j + ""));
-  						}
-  					}
-  				}
-  			}
-  			else if (line.indexOf("#") != -1) {
-  				for (let j = 0; j < Config.operatorCount + 2; j++) {
-  					synthSource.push(line.replace(/\#/g, j + ""));
-  				}
-  			}
-  			else {
-  				synthSource.push(line);
-  			}
-  		}
-  		const wrappedFm6Synth = "return (synth, bufferIndex, roundedSamplesPerTick, tone, instrument) => {" + synthSource.join("\n") + "}";
-  		Synth.fm6SynthFunctionCache[fingerprint] = new Function("Config", "Synth", wrappedFm6Synth)(Config, Synth);
-  	}
-  	return Synth.fm6SynthFunctionCache[fingerprint];
+   const voiceCount = instrument.unisonVoices;
+   const fingerprint = instrument.customAlgorithm.name + "_" + instrument.customFeedbackType.name + "_" + voiceCount;
+   if (Synth.fm6SynthFunctionCache[fingerprint] == undefined) {
+    const synthSource = [];
+    for (const line of Synth.fmSourceTemplate) {
+     if (line.indexOf("// CARRIER OUTPUTS") != -1) {
+      const outputs = [];
+      for (let j = 0; j < instrument.customAlgorithm.carrierCount; j++) {
+       for (let voice = 0; voice < voiceCount; voice++) {
+        outputs.push("operator" + j + "Scaled" + voice);
+       }
+      }
+      synthSource.push(line.replace("/*operator#Scaled*/", outputs.join(" + ")));
+     }
+     else if (line.indexOf("// INSERT OPERATOR COMPUTATION HERE") != -1) {
+      for (let j = Config.operatorCount + 2 - 1; j >= 0; j--) {
+       for (let voice = 0; voice < voiceCount; voice++) {
+        for (const operatorLine of Synth.operatorSourceTemplate) {
+         if (operatorLine.indexOf("/* + operator@Scaled*/") != -1) {
+          let modulators = "";
+          for (const modulatorNumber of instrument.customAlgorithm.modulatedBy[j]) {
+           modulators += " + operator" + (modulatorNumber - 1) + "Scaled" + voice;
+          }
+          const feedbackIndices = instrument.customFeedbackType.indices[j];
+          if (feedbackIndices.length > 0) {
+           modulators += " + feedbackMult * (";
+           const feedbacks = [];
+           for (const modulatorNumber of feedbackIndices) {
+            feedbacks.push("operator" + (modulatorNumber - 1) + "Output" + voice);
+           }
+           modulators += feedbacks.join(" + ") + ")";
+          }
+          synthSource.push(operatorLine.replace(/\#/g, j + "").replace(/\~/g, voice + "").replace("/* + operator@Scaled*/", modulators));
+         }
+         else {
+          synthSource.push(operatorLine.replace(/\#/g, j + "").replace(/\~/g, voice + ""));
+         }
+        }
+       }
+      }
+     }
+     else if (line.indexOf("#") != -1) {
+      for (let j = 0; j < Config.operatorCount + 2; j++) {
+       const vc = line.indexOf("~") != -1 ? voiceCount : 1;
+       for (let voice = 0; voice < vc; voice++) {
+        synthSource.push(line.replace(/\#/g, j + "").replace(/\~/g, voice + ""));
+       }
+      }
+     }
+     else {
+      synthSource.push(line);
+     }
+    }
+    const wrappedFm6Synth = "return (synth, bufferIndex, roundedSamplesPerTick, tone, instrument) => {" + synthSource.join("\n") + "}";
+    Synth.fm6SynthFunctionCache[fingerprint] = new Function("Config", "Synth", wrappedFm6Synth)(Config, Synth);
+   }
+   return Synth.fm6SynthFunctionCache[fingerprint];
   }
-else if (instrument.type === 12) { 
-    const fingerprint = instrument.customAlgorithm.name + "_" + instrument.customFeedbackType.name;
+  else if (instrument.type === 12) {
+    const voiceCount = instrument.unisonVoices | 0;
+    const fingerprint = instrument.customAlgorithm.name + "_" + instrument.customFeedbackType.name + "_" + voiceCount;
     if (Synth.fm8SynthFunctionCache[fingerprint] === undefined) {
-        const wrappedFm8Synth = (synth, bufferIndex, roundedSamplesPerTick, tone, instrument) => {
-            if (!tone.prevWaveIntegrals) {
-                tone.prevWaveIntegrals = tone.operatorWaves.map(op => op?.samples?.[0] || 0);
-            }
+        const wrappedFm12Synth = (synth, bufferIndex, roundedSamplesPerTick, tone, instrument) => {
             const data = synth.tempMonoInstrumentSampleBuffer;
             const applyFilters = Synth.applyFilters;
             const filters = tone.noteFilters;
             const filterCount = tone.noteFilterCount | 0;
+            const totalOps = (Config.operatorCount + 4) * voiceCount;
+            if (!tone.phases || tone.phases.length !== totalOps) {
+                tone.phases = new Float32Array(totalOps);tone.phaseDeltas = new Float32Array(totalOps);tone.phaseDeltaScales = new Float32Array(totalOps);tone.feedbackOutputs = new Float32Array(totalOps);tone.prevWaveIntegrals = new Float32Array(totalOps);
+            }
             let initialFilterInput1 = +tone.initialNoteFilterInput1;
             let initialFilterInput2 = +tone.initialNoteFilterInput2;
             let feedbackMult = +tone.feedbackMult;
@@ -35998,121 +36150,109 @@ else if (instrument.type === 12) {
             const expressionDelta = +tone.expressionDelta;
             const stopIndex = bufferIndex + roundedSamplesPerTick;
             const operatorCount = Config.operatorCount + 4;
-            const operators = new Array(operatorCount);
+            const operators = Array.from({ length: operatorCount }, () => new Array(voiceCount));
             for (let j = 0; j < operatorCount; j++) {
-                let wave = tone.operatorWaves[j]?.samples || [0];
-                const wl = wave.length > 256 ? wave.length - 1 : 1;
-                operators[j] = {
-                    Phase: ((tone.phases[j] - (tone.phases[j] | 0))) * wl,
-                    PhaseDelta: tone.phaseDeltas[j] * wl,
-                    PhaseDeltaScale: +tone.phaseDeltaScales[j],
-                    OutputMult: +tone.operatorExpressions[j],
-                    OutputDelta: +tone.operatorExpressionDeltas[j],
-                    Output: Number.isFinite(tone.feedbackOutputs[j]) ? tone.feedbackOutputs[j] : 0,
-                    Wave: wave,
-                    WaveLength: wl,
-                    moreThanClassicOpwaves: tone.operatorWaves[j]?.waveIndex > 7,
-                    PrevWaveIntegral: tone.prevWaveIntegrals[j]  
-                };
+                const wave = tone.operatorWaves[j]?.samples || [0];
+                const wl = wave.length || 1;
+                for (let v = 0; v < voiceCount; v++) {
+                    const idx = j * voiceCount + v;
+                    const unisonOffset = (instrument.unisonOffset || 0) * wl * (v / voiceCount);
+                    const spread = (v - (voiceCount - 1) / 2) * instrument.unisonSpread;
+                   const spreadFactor = Math.pow(2, spread / 12);
+                   const offsetFactor = Math.pow(2, instrument.unisonOffset / 12);
+                    operators[j][v] = {
+                    Phase: ((tone.phases[idx] + v ) % 1) * wl,
+                   	PhaseDelta: tone.phaseDeltas[idx] * wl ,PhaseDeltaScale: +tone.phaseDeltaScales[idx],OutputMult: +tone.operatorExpressions[j],OutputDelta: +tone.operatorExpressionDeltas[j],Output: Number.isFinite(tone.feedbackOutputs[idx]) ? tone.feedbackOutputs[idx] : 0,Wave: wave,WaveLength: wl,moreThanClassicOpwaves: tone.operatorWaves[j]?.waveIndex > 7,PrevWaveIntegral: tone.prevWaveIntegrals[idx]};
+                }
             }
             const isCarrier = new Array(operatorCount).fill(true);
             const modMap = instrument.customAlgorithm?.modulatedBy;
             if (modMap) {
-                for (let target = 0; target < operatorCount; target++) {
+                    for (let target = 0; target < operatorCount; target++) {
                     const mods = modMap[target];
-                    if (Array.isArray(mods)) {
-                        for (const idx of mods) {
-                            isCarrier[idx - 1] = false;
-                        }
-                    }
-                }
-            }
-            let prevFeedback = tone.feedbackOutputs.slice();
-            for (let sampleIndex = bufferIndex; sampleIndex < stopIndex; sampleIndex++) {
+                    if (Array.isArray(mods)) {for (const idx of mods) isCarrier[idx - 1] = false;}
+            }}
+            const prevFeedback = Array.from({ length: operatorCount }, () => new Float32Array(voiceCount));
+              for (let sampleIndex = bufferIndex; sampleIndex < stopIndex; sampleIndex++) {
                 let carrierOutput = 0;
-                for (let j = operatorCount - 1; j >= 0; j--) {
-                    const op = operators[j];
-                    let modulators = 0;
-                    const modulatedBy = modMap?.[j];
-                    if (Array.isArray(modulatedBy)) {
-                        for (const idx of modulatedBy) {
-                            const m = operators[idx - 1];
-                            if (m) modulators += m.OutputMult * m.Output;
+                for (let v = 0; v < voiceCount; v++) {
+                    for (let j = operatorCount - 1; j >= 0; j--) {
+                        const op = operators[j][v];
+                        let modulators = 0;
+                        const modulatedBy = modMap?.[j];
+                        if (Array.isArray(modulatedBy)) {
+                            for (const idx of modulatedBy) {
+                                modulators += operators[idx - 1][v].OutputMult * operators[idx - 1][v].Output;
+                            }
                         }
+                        // Feedback
+                        let feedback = 0;
+                        const fb = instrument.customFeedbackType?.indices[j];
+                        if (Array.isArray(fb)) {
+                            for (const idx of fb) feedback += prevFeedback[idx - 1][v] || 0;
+                        }
+                        feedback *= feedbackMult;
+                        const phaseMix = op.Phase + modulators + feedback;
+                        const wl = op.WaveLength;
+                        let p = phaseMix % wl;
+                        if (p < 0) p += wl;
+                        const i0 = p | 0;
+                        const i1 = (i0 + 1) % wl;
+                        const frac = p - i0;
+                        const w = op.Wave;
+                        let out;
+                        if (op.moreThanClassicOpwaves) {
+                            const nextIntegral = w[i0] + (w[i1] - w[i0]) * frac;
+                            const pd = Math.max(Math.abs(op.PhaseDelta), 0.1);
+                            out = (nextIntegral - op.PrevWaveIntegral) / pd;
+                            op.PrevWaveIntegral = nextIntegral;
+                        } else {
+                            out = w[i0] + (w[i1] - w[i0]) * frac;
+                        }
+                        op.Output = out;
+                        if (isCarrier[j]) carrierOutput += out * op.OutputMult;
+                        op.Phase += op.PhaseDelta;
+                        op.PhaseDelta *= op.PhaseDeltaScale;
+                        op.OutputMult += op.OutputDelta;
                     }
-                    let feedback = 0;
-                    const fb = instrument.customFeedbackType?.indices?.[j];
-                    if (Array.isArray(fb)) {
-                        for (const idx of fb) feedback += prevFeedback[idx - 1] || 0;
-                    }
-                    feedback *= feedbackMult;
-                    const phaseMix = op.Phase + modulators + feedback;
-                    const wl = op.WaveLength;
-                    let p = phaseMix % wl;
-                    if (p < 0) p += wl;
-                    const i0 = p | 0;
-                    const i1 = (i0 + 1) % wl;
-                    const frac = p - i0;
-                    const w = op.Wave;
-                    let out;
-                    if (op.moreThanClassicOpwaves) {
-                        const nextIntegral = w[i0] + (w[i1] - w[i0]) * frac;
-                        const pd = Math.max(Math.abs(op.PhaseDelta), 0.1); 
-                        out = (nextIntegral - op.PrevWaveIntegral) / pd;
-                        op.PrevWaveIntegral = nextIntegral;
-                    } else {
-                        out = w[i0] + (w[i1] - w[i0]) * frac;
-                    }
-                    op.Output = out;
-                    if (isCarrier[j]) carrierOutput += out * op.OutputMult;
-                    op.Phase += op.PhaseDelta;
-                    op.PhaseDelta *= op.PhaseDeltaScale;
-                    op.OutputMult += op.OutputDelta;
                 }
                 const inputSample = carrierOutput;
-                const sample = applyFilters(
-                    inputSample,
-                    initialFilterInput1,
-                    initialFilterInput2,
-                    filterCount,
-                    filters
-                );
+                const sample = applyFilters(inputSample, initialFilterInput1, initialFilterInput2, filterCount, filters);
                 initialFilterInput2 = initialFilterInput1;
                 initialFilterInput1 = inputSample;
-                feedbackMult += feedbackDelta;
-                data[sampleIndex] += sample * expression;
-                expression += expressionDelta;
-                for (let j = 0; j < operatorCount; j++) {
-                    prevFeedback[j] = operators[j].Output;
-                }
-            }
+                 feedbackMult += feedbackDelta;
+                 data[sampleIndex] += sample * expression;
+                 expression += expressionDelta;
+                 // feedback save
+                 for (let j = 0; j < operatorCount; j++) {
+                    for (let v = 0; v < voiceCount; v++) {prevFeedback[j][v] = operators[j][v].Output;}
+            }}
+            // Phase Updating and feedback shit
             for (let j = 0; j < operatorCount; j++) {
-                const op = operators[j];
-                tone.phases[j] = op.Phase / op.WaveLength;
-                tone.phaseDeltas[j] = op.PhaseDelta / op.WaveLength;
-                tone.operatorExpressions[j] = op.OutputMult;
-                tone.feedbackOutputs[j] = op.Output;
-                tone.prevWaveIntegrals[j] = op.PrevWaveIntegral;
+                for (let v = 0; v < voiceCount; v++) {
+                    const idx = j * voiceCount + v;
+                    const op = operators[j][v];
+                    tone.phases[idx] = op.Phase / op.WaveLength;
+                    tone.phaseDeltas[idx] = op.PhaseDelta / op.WaveLength;
+                    tone.feedbackOutputs[idx] = op.Output; 
+                    tone.prevWaveIntegrals[idx] = op.PrevWaveIntegral;
+                }
+                tone.operatorExpressions[j] = operators[j][0].OutputMult;
             }
             tone.feedbackMult = feedbackMult;
             tone.expression = expression;
             synth.sanitizeFilters(filters);
             tone.initialNoteFilterInput1 = initialFilterInput1;
             tone.initialNoteFilterInput2 = initialFilterInput2;
-        };
-        const wrappedFm8SynthOut =
-            "return (synth, bufferIndex, roundedSamplesPerTick, tone, instrument) => {" +
-            wrappedFm8Synth.toString().slice(wrappedFm8Synth.toString().indexOf("{") + 1, -1) +
-            "}";
-        Synth.fm8SynthFunctionCache[fingerprint] =
-            new Function("Config", "Synth", wrappedFm8SynthOut)(Config, Synth);
-    }
-    return Synth.fm8SynthFunctionCache[fingerprint];
-}
-else {
- throw new Error("Unrecognized instrument type: " + instrument.type);
-}
-}
+            };
+            Synth.fm8SynthFunctionCache[fingerprint] = wrappedFm12Synth;
+            }
+            return Synth.fm8SynthFunctionCache[fingerprint];
+          }
+          else {
+           throw new Error("Unrecognized instrument type: " + instrument.type);
+          }
+       }
         static wrap(x, b) {
             return (x % b + b) % b;
         }
@@ -36804,11 +36944,10 @@ else {
             }
             pickedStringFunction(synth, bufferIndex, roundedSamplesPerTick, tone, instrumentState);
         }
-        static effectsSynth(synth, outputDataL, outputDataR, bufferIndex, runLength, instrumentState) {
+     static effectsSynth(synth, outputDataL, outputDataR, bufferIndex, runLength, instrumentState) {
             const usesDistortion = effectsIncludeDistortion(instrumentState.effects);
             const usesFunction = effectsIncludeFunction(instrumentState.effects);
             const usesBitcrusher = effectsIncludeBitcrusher(instrumentState.effects);
-  
             const usesEqFilter = instrumentState.eqFilterCount > 0;
             const usesPanning = effectsIncludePanning(instrumentState.effects);
             const usesChorus = effectsIncludeChorus(instrumentState.effects);
@@ -36884,16 +37023,22 @@ else {
                 instrumentState.granularDelayLineDirty = true;
                 `;
                 }
+             
+
                 if (usesDistortion) {
                     effectsSource += `
-				
+
+let distortion = instrumentState.distortion;
+let distortionMode = instrumentState.ODmode;
+
 				const distortionBaseVolume = +Config.distortionBaseVolume;
-				let distortion = instrumentState.distortion;
+				
 				const distortionDelta = instrumentState.distortionDelta;
 				let distortionDrive = instrumentState.distortionDrive;
 				const distortionDriveDelta = instrumentState.distortionDriveDelta;
 				const distortionFractionalResolution = 4.0;
 				const distortionOversampleCompensation = distortionBaseVolume / distortionFractionalResolution;
+				
 				const distortionFractionalDelay1 = 1.0 / distortionFractionalResolution;
 				const distortionFractionalDelay2 = 2.0 / distortionFractionalResolution;
 				const distortionFractionalDelay3 = 3.0 / distortionFractionalResolution;
@@ -36911,8 +37056,10 @@ else {
 				let distortionFractionalInput2 = +instrumentState.distortionFractionalInput2;
 				let distortionFractionalInput3 = +instrumentState.distortionFractionalInput3;
 				let distortionPrevInput = +instrumentState.distortionPrevInput;
-				let distortionNextOutput = +instrumentState.distortionNextOutput;`;
+				let distortionNextOutput = +instrumentState.distortionNextOutput;
+				`;
                 }
+ 
                 if (usesBitcrusher) {
                     effectsSource += `
 				
@@ -36942,12 +37089,12 @@ else {
               
                 let waveform ;
                 if(ringModWaveformIndex > Config.operatorWaves.length){
-                waveform = Synth.getOperatorWave(ringModWaveformIndex-Config.operatorWaves.length, 0).samples;
+                waveform = Synth.getCachedOperatorWave(ringModWaveformIndex-Config.operatorWaves.length, 0).samples;
                 }else{
                 	waveform = Config.operatorWaves[ringModWaveformIndex].samples; 
                 }
                 if (ringModWaveformIndex == Config.operatorWaves.dictionary['pulse width'].index) {
-                    waveform = Synth.getOperatorWave(ringModWaveformIndex, ringModPulseWidth).samples;
+                    waveform = Synth.getCachedOperatorWave(ringModWaveformIndex, ringModPulseWidth).samples;
                 }
                 const waveformLength = waveform.length - 1;
                 `;
@@ -37066,7 +37213,9 @@ else {
                 }
                 if (usesReverb) {
                     effectsSource += `
-				
+				let reverbFeedback = +instrumentState.reverbFeedback;
+const reverbFeedbackDelta = +instrumentState.reverbFeedbackDelta;
+
 				const reverbMask = Config.reverbDelayBufferMask >>> 0; //TODO: Dynamic reverb buffer size.
 				const reverbDelayLine = instrumentState.reverbDelayLine;
 				instrumentState.reverbDelayLineDirty = true;
@@ -37173,26 +37322,49 @@ else {
                     effectsSource += `let sample = tempMonoInstrumentSampleBuffer[sampleIndex];
                 tempMonoInstrumentSampleBuffer[sampleIndex] = 0.0;`;
                 }
-                if (usesDistortion) {
-                    effectsSource += `
-					
-					const distortionReverse = 1.0 - distortion;
-					const distortionNextInput = sample * distortionDrive;
-					sample = distortionNextOutput;
-					distortionNextOutput = distortionNextInput / (distortionReverse * Math.abs(distortionNextInput) + distortion);
-					distortionFractionalInput1 = distortionFractionalDelayG1 * distortionNextInput + distortionPrevInput - distortionFractionalDelayG1 * distortionFractionalInput1;
-					distortionFractionalInput2 = distortionFractionalDelayG2 * distortionNextInput + distortionPrevInput - distortionFractionalDelayG2 * distortionFractionalInput2;
-					distortionFractionalInput3 = distortionFractionalDelayG3 * distortionNextInput + distortionPrevInput - distortionFractionalDelayG3 * distortionFractionalInput3;
-					const distortionOutput1 = distortionFractionalInput1 / (distortionReverse * Math.abs(distortionFractionalInput1) + distortion);
-					const distortionOutput2 = distortionFractionalInput2 / (distortionReverse * Math.abs(distortionFractionalInput2) + distortion);
-					const distortionOutput3 = distortionFractionalInput3 / (distortionReverse * Math.abs(distortionFractionalInput3) + distortion);
-					distortionNextOutput += distortionOutput1 * distortionNextOutputWeight1 + distortionOutput2 * distortionNextOutputWeight2 + distortionOutput3 * distortionNextOutputWeight3;
-					sample += distortionOutput1 * distortionPrevOutputWeight1 + distortionOutput2 * distortionPrevOutputWeight2 + distortionOutput3 * distortionPrevOutputWeight3;
-					sample *= distortionOversampleCompensation;
-					distortionPrevInput = distortionNextInput;
-					distortion += distortionDelta;
-					distortionDrive += distortionDriveDelta;`;
-                }
+
+               if (usesDistortion) {
+effectsSource += `
+const distortionReverse = 1.0 - distortion;
+const distortionNextInput = sample * distortionDrive; 
+sample = distortionNextOutput;
+function saturateSample(x, A = 1) {
+    if (x > A) return A;
+    if (x < -A) return -A;
+    return x;
+}
+function overdrive(x, drive = 1, level = 50) {
+    let y = x * drive;
+    y = Math.tanh(y); 
+    return (y * level);
+}
+function shape(x) {
+    if( distortionMode == 2 ){
+      const distortion2 = 1.1 - distortion;
+     	return saturateSample(x,distortion*3.5)
+    } else if (distortionMode == 1) {
+        const distortion2 = 1.1 - distortion;
+        return overdrive(x, distortion2, 0.8);
+    } else {
+        return x / (distortionReverse * Math.abs(x) + distortion);
+    }
+}
+distortionNextOutput = shape(distortionNextInput);
+distortionFractionalInput1 = distortionFractionalDelayG1 * distortionNextInput + distortionPrevInput - distortionFractionalDelayG1 * distortionFractionalInput1;
+distortionFractionalInput2 = distortionFractionalDelayG2 * distortionNextInput + distortionPrevInput - distortionFractionalDelayG2 * distortionFractionalInput2;
+distortionFractionalInput3 = distortionFractionalDelayG3 * distortionNextInput + distortionPrevInput - distortionFractionalDelayG3 * distortionFractionalInput3;
+const distortionOutput1 = shape(distortionFractionalInput1);
+const distortionOutput2 = shape(distortionFractionalInput2);
+const distortionOutput3 = shape(distortionFractionalInput3);
+distortionNextOutput += distortionOutput1 * distortionNextOutputWeight1 + distortionOutput2 * distortionNextOutputWeight2 + distortionOutput3 * distortionNextOutputWeight3;
+sample += distortionOutput1 * distortionPrevOutputWeight1 + distortionOutput2 * distortionPrevOutputWeight2 + distortionOutput3 * distortionPrevOutputWeight3;
+sample *= distortionOversampleCompensation;
+distortionPrevInput = distortionNextInput;
+distortion += distortionDelta;
+distortionDrive += distortionDriveDelta;
+`;
+}
+
                 if (usesBitcrusher) {
                     effectsSource += `
 					
@@ -37368,45 +37540,50 @@ instrumentState.customfunction[1] +'} catch {};'
 					echoMult += echoMultDelta;
                     `;
                 }
-                if (usesReverb) {
-                    effectsSource += `
-					
-					// Reverb, implemented using a feedback delay network with a Hadamard matrix and lowpass filters.
-					// good ratios:    0.555235 + 0.618033 + 0.818 +   1.0 = 2.991268
-					// Delay lengths:  3041     + 3385     + 4481  +  5477 = 16384 = 2^14
-					// Buffer offsets: 3041    -> 6426   -> 10907 -> 16384
-					const reverbDelayPos1 = (reverbDelayPos +  3041) & reverbMask;
-					const reverbDelayPos2 = (reverbDelayPos +  6426) & reverbMask;
-					const reverbDelayPos3 = (reverbDelayPos + 10907) & reverbMask;
-					const reverbSample0 = (reverbDelayLine[reverbDelayPos]);
-					const reverbSample1 = reverbDelayLine[reverbDelayPos1];
-					const reverbSample2 = reverbDelayLine[reverbDelayPos2];
-					const reverbSample3 = reverbDelayLine[reverbDelayPos3];
-					const reverbTemp0 = -(reverbSample0 + sampleL) + reverbSample1;
-					const reverbTemp1 = -(reverbSample0 + sampleR) - reverbSample1;
-					const reverbTemp2 = -reverbSample2 + reverbSample3;
-					const reverbTemp3 = -reverbSample2 - reverbSample3;
-					const reverbShelfInput0 = (reverbTemp0 + reverbTemp2) * reverb;
-					const reverbShelfInput1 = (reverbTemp1 + reverbTemp3) * reverb;
-					const reverbShelfInput2 = (reverbTemp0 - reverbTemp2) * reverb;
-					const reverbShelfInput3 = (reverbTemp1 - reverbTemp3) * reverb;
-					reverbShelfSample0 = reverbShelfB0 * reverbShelfInput0 + reverbShelfB1 * reverbShelfPrevInput0 - reverbShelfA1 * reverbShelfSample0;
-					reverbShelfSample1 = reverbShelfB0 * reverbShelfInput1 + reverbShelfB1 * reverbShelfPrevInput1 - reverbShelfA1 * reverbShelfSample1;
-					reverbShelfSample2 = reverbShelfB0 * reverbShelfInput2 + reverbShelfB1 * reverbShelfPrevInput2 - reverbShelfA1 * reverbShelfSample2;
-					reverbShelfSample3 = reverbShelfB0 * reverbShelfInput3 + reverbShelfB1 * reverbShelfPrevInput3 - reverbShelfA1 * reverbShelfSample3;
-					reverbShelfPrevInput0 = reverbShelfInput0;
-					reverbShelfPrevInput1 = reverbShelfInput1;
-					reverbShelfPrevInput2 = reverbShelfInput2;
-					reverbShelfPrevInput3 = reverbShelfInput3;
-					reverbDelayLine[reverbDelayPos1] = reverbShelfSample0 * delayInputMult;
-					reverbDelayLine[reverbDelayPos2] = reverbShelfSample1 * delayInputMult;
-					reverbDelayLine[reverbDelayPos3] = reverbShelfSample2 * delayInputMult;
-					reverbDelayLine[reverbDelayPos ] = reverbShelfSample3 * delayInputMult;
-					reverbDelayPos = (reverbDelayPos + 1) & reverbMask;
-					sampleL += reverbSample1 + reverbSample2 + reverbSample3;
-					sampleR += reverbSample0 + reverbSample2 - reverbSample3;
-					reverb += reverbDelta;`;
-                }
+             if (usesReverb) {
+        effectsSource += `
+        const reverbDelayPos1 = (reverbDelayPos + 3041) & reverbMask;
+        const reverbDelayPos2 = (reverbDelayPos + 6426) & reverbMask;
+        const reverbDelayPos3 = (reverbDelayPos + 10907) & reverbMask;
+        const reverbSample0 = reverbDelayLine[reverbDelayPos];
+        const reverbSample1 = reverbDelayLine[reverbDelayPos1];
+        const reverbSample2 = reverbDelayLine[reverbDelayPos2];
+        const reverbSample3 = reverbDelayLine[reverbDelayPos3];
+        // Feedback-only matrix
+        const fbTemp0 = -reverbSample0 + reverbSample1;
+        const fbTemp1 = -reverbSample0 - reverbSample1;
+        const fbTemp2 = -reverbSample2 + reverbSample3;
+        const fbTemp3 = -reverbSample2 - reverbSample3;
+        // Stereo input contribution
+        const inL = sampleL * reverb;
+        const inR = sampleR * reverb;
+        const reverbShelfInput0 = fbTemp0 * reverbFeedback + inL;
+        const reverbShelfInput1 = fbTemp1 * reverbFeedback + inR;
+        const reverbShelfInput2 = fbTemp2 * reverbFeedback + inL;
+        const reverbShelfInput3 = fbTemp3 * reverbFeedback + inR;
+        // Filtering
+        reverbShelfSample0 = reverbShelfB0 * reverbShelfInput0 + reverbShelfB1 * reverbShelfPrevInput0 - reverbShelfA1 * reverbShelfSample0;
+        reverbShelfSample1 = reverbShelfB0 * reverbShelfInput1 + reverbShelfB1 * reverbShelfPrevInput1 - reverbShelfA1 * reverbShelfSample1;
+        reverbShelfSample2 = reverbShelfB0 * reverbShelfInput2 + reverbShelfB1 * reverbShelfPrevInput2 - reverbShelfA1 * reverbShelfSample2;
+        reverbShelfSample3 = reverbShelfB0 * reverbShelfInput3 + reverbShelfB1 * reverbShelfPrevInput3 - reverbShelfA1 * reverbShelfSample3;
+        reverbShelfPrevInput0 = reverbShelfInput0;
+        reverbShelfPrevInput1 = reverbShelfInput1;
+        reverbShelfPrevInput2 = reverbShelfInput2; 
+        reverbShelfPrevInput3 = reverbShelfInput3;
+        reverbDelayLine[reverbDelayPos1] = reverbShelfSample0 * reverbFeedback* delayInputMult;
+        reverbDelayLine[reverbDelayPos2] = reverbShelfSample1 * reverbFeedback* delayInputMult;
+        reverbDelayLine[reverbDelayPos3] = reverbShelfSample2 * reverbFeedback*delayInputMult ;
+        reverbDelayLine[reverbDelayPos ] = reverbShelfSample3 * reverbFeedback*delayInputMult;
+        reverbDelayPos = (reverbDelayPos + 1) & reverbMask;
+        // Output ITHK 
+        sampleL += reverbShelfSample0 + reverbShelfSample2;
+        sampleR += reverbShelfSample1 + reverbShelfSample3;
+        reverb += reverbDelta;
+        reverbFeedback += reverbFeedbackDelta;
+        instrumentState.reverbFeedback = reverbFeedback;
+    `;
+}
+
                 effectsSource += `
 					
 					outputDataL[sampleIndex] += sampleL * mixVolume;
@@ -37441,7 +37618,7 @@ instrumentState.customfunction[1] +'} catch {};'
                 }
                 if (usesDistortion) {
                     effectsSource += `
-				
+				 
 				instrumentState.distortion = distortion;
 				instrumentState.distortionDrive = distortionDrive;
 				
@@ -37455,7 +37632,8 @@ instrumentState.customfunction[1] +'} catch {};'
 				instrumentState.distortionFractionalInput2 = distortionFractionalInput2;
 				instrumentState.distortionFractionalInput3 = distortionFractionalInput3;
 				instrumentState.distortionPrevInput = distortionPrevInput;
-				instrumentState.distortionNextOutput = distortionNextOutput;`;
+				instrumentState.distortionNextOutput = distortionNextOutput;
+				`;
                 }
   
                 if (usesBitcrusher) {
@@ -38394,38 +38572,69 @@ instrumentState.customfunction[1] +'} catch {};'
         static centsToDetune(cents) {
             return cents + Config.detuneCenter;
         }
-    static getOperatorWave(waveform, pulseWidth) {
-    let wave;
-    if (waveform != 2 && waveform != 7 && waveform < Config.operatorWaves.length) {
-        wave = Config.operatorWaves[waveform];
-    } else if (waveform >= Config.operatorWaves.length) {
-        wave = Config.chipWaves[waveform - Config.operatorWaves.length];
-    } else if (waveform == 7) {
-        wave = Config.expOperatorWaves[pulseWidth];
-    } else {
-        wave = Config.pwmOperatorWaves[pulseWidth];
-    }
-    if (waveform > 7) {
-    let srcSamples = wave.samples; 
-    let samples;
-    if (waveform > 7) {
-        samples = new Float32Array(srcSamples.length - 1);
-        for (let i = 0; i < samples.length; i++) {
-            samples[i] = srcSamples[i + 1]; 
-        }
-    } else {
-        samples = new Float32Array(srcSamples);
-    }
-    return {
-    	...wave,
-        samples,
-        waveIndex: waveform,
-    };
-    }else{
-    	return wave;
+         
+ static getOperatorWave(waveform, pulseWidth) {
+ 	let wave;
+ 	if (waveform != 2 && waveform != 7 && waveform < Config.operatorWaves.length) {
+ 		wave = Config.operatorWaves[waveform];
+ 	} else if (waveform >= Config.operatorWaves.length) {
+ 		wave = Config.chipWaves[waveform - Config.operatorWaves.length];
+ 	} else if (waveform == 7) {
+ 		wave = Config.expOperatorWaves[pulseWidth];
+ 	} else {
+ 		wave = Config.pwmOperatorWaves[pulseWidth];
+ 	}
+ 	if (waveform > 7) {
+ 		let srcSamples = wave.samples;
+ 		let samples;
+ 		if (waveform > 7) {
+ 			samples = new Float32Array(srcSamples.length - 1);
+ 			for (let i = 0; i < samples.length; i++) {
+ 				samples[i] = srcSamples[i + 1];
+ 			}
+ 		} else {
+ 			samples = new Float32Array(srcSamples);
+ 		}
+ 		let max = 0;
+for (let i = 0; i < samples.length; i++) {
+    max = Math.max(max, Math.abs(samples[i]));
+}
+if (max > 0) {
+    for (let i = 0; i < samples.length; i++) {
+        samples[i] /= max;
     }
 }
 
+ 		return {
+ 			...wave,
+ 			samples,
+ 			waveIndex: waveform,
+ 		};
+ 	} else {
+ 		return wave;
+ 	}
+ }
+static getCachedOperatorWave(waveform, pulseWidth) {
+	let key 
+	if(waveform > Config.operatorWaves.length){
+	if(!this.operatorWaveCache){
+		this.operatorWaveCache = new Map();
+	}
+ key = waveform + ":" + pulseWidth;
+	if (this.operatorWaveCache.has(key)) return this.operatorWaveCache.get(key);
+	}
+	const wave = this.getOperatorWave(waveform, pulseWidth);
+	if(waveform > Config.operatorWaves.length){
+	this.operatorWaveCache.set(key, wave);
+	}
+	return wave;
+}
+static clearCachedWaves() {
+	if(!this.operatorWaveCache){
+		this.operatorWaveCache = new Map();
+	}
+	this.operatorWaveCache.clear();
+}
         getSamplesPerTick() {
             if (this.song == null)
                 return 0;
@@ -38531,18 +38740,99 @@ instrumentState.customfunction[1] +'} catch {};'
     Synth.supersawFunctionCache = [];
     Synth.harmonicsFunctionCache = [];
     Synth.loopableChipFunctionCache = Array(Config.unisonVoicesMax + 1).fill(undefined);
-    Synth.fmSourceTemplate = (`
+
+function createStorage(dbName = "myDB", storeName = "store") {
+	const dbPromise = new Promise((resolve, reject) => {
+		const request = indexedDB.open(dbName, 1);
+		request.onupgradeneeded = (event) => {
+			const db = event.target.result;
+			if (!db.objectStoreNames.contains(storeName)) {
+				db.createObjectStore(storeName);
+			}
+		};
+		request.onsuccess = () => {
+			resolve(request.result);
+		};
+		request.onerror = () => {
+			reject(request.error);
+		};
+	});
+	async function save(slot, data) {
+		const db = await dbPromise;
+		return new Promise((resolve, reject) => {
+			const tx = db.transaction([storeName], "readwrite");
+			const store = tx.objectStore(storeName);
+			const req = store.put(data, slot);
+			req.onsuccess = () => resolve();
+			req.onerror = () => reject(req.error);
+		});
+	}
+	async function remove(slot) {
+		const db = await dbPromise;
+		return new Promise((resolve, reject) => {
+			const tx = db.transaction([storeName], "readwrite");
+			const store = tx.objectStore(storeName);
+			const req = store.delete(slot);
+			req.onsuccess = () => resolve();
+			req.onerror = () => reject(req.error);
+		});
+	}
+	
+	function load(slot, callback) {
+		dbPromise.then(db => {
+			const tx = db.transaction([storeName], "readonly");
+			const store = tx.objectStore(storeName);
+			const req = store.get(slot);
+			req.onsuccess = () => callback(req.result ?? null);
+			req.onerror = () => callback(null);
+		}).catch(() => callback(null));
+	}
+	return { save, load, remove, dbPromise };
+}
+let THEMESDB = createStorage("Themes", "themes")
+async function loadFiles2() {
+	CustomThemes = {};
+	const db = await THEMESDB.dbPromise;
+	const tx = db.transaction(["themes"], "readonly");
+	const store = tx.objectStore("themes");
+	const req = store.openCursor();
+	req.onsuccess = (event) => {
+		const cursor = event.target.result;
+		if (cursor) {
+			CustomThemes[cursor.key] = cursor.value;
+			cursor.continue();
+		} else {
+			updateThemes()
+		}
+	};
+}
+setTimeout(loadFiles2, 800) 
+     reloadsite = function (){ cleanMemoryBeforeNavigation() ;setTimeout(function (){ location.reload() },50); } 
+    exports.Channel = Channel;
+    exports.ColorConfig = ColorConfig;
+    exports.Config = Config;
+    exports.EditorConfig = EditorConfig;
+    exports.Instrument = Instrument;
+    exports.Note = Note;
+    exports.Pattern = Pattern;
+    exports.Song = Song;
+    
+        Synth.fmSourceTemplate = (`
 		const data = synth.tempMonoInstrumentSampleBuffer;
-		const sineWave = Config.sineWave;
+        const voiceCount = instrument.unisonVoices;
+
+        const operator#Wave = tone.operatorWaves[#].samples;
+        const waveLength# = operator#Wave.length - 1;
+        const waveMask# = operator#Wave.length - 2;
 			
 		// I'm adding 1000 to the phase to ensure that it's never negative even when modulated by other waves because negative numbers don't work with the modulus operator very well.
-		let operator#Phase       = +((tone.phases[#] - (tone.phases[#] | 0)) + 1000) * ` + Config.sineWaveLength + `;
-		let operator#PhaseDelta  = +tone.phaseDeltas[#] * ` + Config.sineWaveLength + `;
-		let operator#PhaseDeltaScale = +tone.phaseDeltaScales[#];
+		let operator#Phase~       = +((+tone.phases[# * voiceCount + ~] -(+tone.phases[# * voiceCount + ~] | 0)) + 1000) * waveLength#;
+		let operator#PhaseDelta~  = +tone.phaseDeltas[# * voiceCount + ~] * waveLength#;
+		let operator#PhaseDeltaScale~ = +tone.phaseDeltaScales[# * voiceCount + ~];
 		let operator#OutputMult  = +tone.operatorExpressions[#];
 		const operator#OutputDelta = +tone.operatorExpressionDeltas[#];
-		let operator#Output      = +tone.feedbackOutputs[#];
-        const operator#Wave      = tone.operatorWaves[#].samples;
+		let operator#Output~      = +tone.feedbackOutputs[# * voiceCount + ~];
+        
 		let feedbackMult         = +tone.feedbackMult;
 		const feedbackDelta        = +tone.feedbackDelta;
         let expression = +tone.expression;
@@ -38566,8 +38856,8 @@ instrumentState.customfunction[1] +'} catch {};'
 				
 				feedbackMult += feedbackDelta;
 				operator#OutputMult += operator#OutputDelta;
-				operator#Phase += operator#PhaseDelta;
-			operator#PhaseDelta *= operator#PhaseDeltaScale;
+				operator#Phase~ += operator#PhaseDelta~;
+			operator#PhaseDelta~ *= operator#PhaseDeltaScale~;
 			
 			const output = sample * expression;
 			expression += expressionDelta;
@@ -38575,10 +38865,10 @@ instrumentState.customfunction[1] +'} catch {};'
 			data[sampleIndex] += output;
 			}
 			
-			tone.phases[#] = operator#Phase / ` + Config.sineWaveLength + `;
-			tone.phaseDeltas[#] = operator#PhaseDelta / ` + Config.sineWaveLength + `;
+			tone.phases[# * voiceCount + ~] = operator#Phase~ / waveLength#;
+			tone.phaseDeltas[# * voiceCount + ~] = operator#PhaseDelta~ / waveLength#;
 			tone.operatorExpressions[#] = operator#OutputMult;
-		    tone.feedbackOutputs[#] = operator#Output;
+		    tone.feedbackOutputs[# * voiceCount + ~] = operator#Output~;
 		    tone.feedbackMult = feedbackMult;
 		    tone.expression = expression;
 			
@@ -38587,31 +38877,15 @@ instrumentState.customfunction[1] +'} catch {};'
 		tone.initialNoteFilterInput2 = initialFilterInput2;
 		`).split("\n");
     Synth.operatorSourceTemplate = (`
-				const operator#PhaseMix = operator#Phase/* + operator@Scaled*/;
-				const operator#PhaseInt = operator#PhaseMix|0;
-				const operator#Index    = operator#PhaseInt & ` + Config.sineWaveMask + `;
-                const operator#Sample   = operator#Wave[operator#Index];
-                operator#Output         = operator#Sample + (operator#Wave[operator#Index + 1] - operator#Sample) * (operator#PhaseMix - operator#PhaseInt);
-				const operator#Scaled   = operator#OutputMult * operator#Output;
+				const operator#PhaseMix~ = operator#Phase~/* + operator@Scaled*/;
+				const operator#PhaseInt~ = operator#PhaseMix~|0;
+				const operator#Index~    = operator#PhaseInt~ & waveMask#;
+                const operator#Sample~   = operator#Wave[operator#Index~];
+                operator#Output~         = operator#Sample~ + (operator#Wave[operator#Index~ + 1] - operator#Sample~) * (operator#PhaseMix~ - operator#PhaseInt~);
+				const operator#Scaled~   = operator#OutputMult * operator#Output~;
 		`).split("\n");
- 
-
- 
-  
 
 
-
-     reloadsite = function (){ cleanMemoryBeforeNavigation() ;setTimeout(function (){ location.reload() },50); } 
- 
-    
-    exports.Channel = Channel;
-    exports.ColorConfig = ColorConfig;
-    exports.Config = Config;
-    exports.EditorConfig = EditorConfig;
-    exports.Instrument = Instrument;
-    exports.Note = Note;
-    exports.Pattern = Pattern;
-    exports.Song = Song;
     exports.Synth = Synth;
     
 

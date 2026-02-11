@@ -32,10 +32,7 @@
     <style type="text/css">
 html { background: var(--page-margin, black); overflow-x: hidden; font-size: large; font-family: 'B612', sans-serif; line-height: 1.3; color: var(--primary-text, white); } body { margin: auto; overflow-x: hidden; display: none; flex-direction: column; align-items: center; align-content: center; } button{ background:var(--ui-widget-background, #444); color:var(--primary-text, black); padding:4px; border:none; outline:none; border-radius: 5px; margin:1px; } button:disabled{ background:color-mix(in srgb, var(--ui-widget-background, #444) 70%, black); color:#777; cursor:not-allowed; } input[type="number"] { background: var(--editor-background, black); color: var(--primary-text, black); padding: 2px; border: 1px solid var(--input-box-outline, black); border-radius: 5px; margin: 1px; width: 60px; } input[type="text"] { background: var(--editor-background, black); color: var(--primary-text, black); padding: 2px; border: 1px solid var(--input-box-outline, black); border-radius: 5px; margin: 1px; width: 60px; } input[type="file"]::file-selector-button { background: var(--ui-widget-background, #222); color: var(--primary-text, white); border: 1px solid var(--input-box-outline, black); border-radius: 6px; padding: 6px 12px; margin-right: 8px; cursor: pointer; transition: background 0.2s, transform 0.1s; } input[type="file"]::file-selector-button:hover { background: var(--primary-hover, #444); } input[type="file"]::file-selector-button:active { transform: scale(0.97); } select { background: var(--editor-background, black); color: var(--primary-text, black); padding: 4px; border: 2px solid var(--input-box-outline, black); border-radius: 5px; margin: 1px; width: 60px; }
 #beepboxEditorContainer { min-height: 645px; overflow: auto; background: var(--editor-background, black); width: 100%; max-width: 710px; padding-left: 30px; padding-right: 30px; } #text-content { overflow: auto; background: var(--editor-background, black); width: 100%; max-width: 710px; padding-left: 30px; padding-right: 30px; } #Hotdog { display: none; } h1 { font-size: 1.7rem; text-align: center; margin-top: 0.5em; margin-bottom: 0.5em; -webkit-text-stroke-width: 0; color: var(--mod-title, #247d1d); } h2 { font-size: 1.5rem; text-align: center; margin-top: 0.5em; margin-bottom: 0.5em; -webkit-text-stroke-width: 0; } .centerDiv { margin: 0px auto; } a { color: var(--link-accent, #98f); } .donation form { display: inline; } .donation input[type="submit"] { appearance: none; -webkit-appearance: none; background: none; border: none; font-family: inherit; font-size: inherit; color: var(--link-accent, #98f); text-decoration: underline; cursor: pointer; padding: 0; margin: 0; } ; @media (min-width: 711px) { html { width: 100%; } body { width: 100%; } .column-container { width: 710px; display: flex; gap: 25px; } .instructions-column { min-width: 0; } .bsky-column { width: 300px; flex-shrink: 0; } }; @media (max-width: 710px) { body { width: 100%; } .column-container { display: flex; flex-direction: column; align-items: center; } }
-#randomtext{color:#159E58;font-size: 25px;}
-* {
-  -webkit-tap-highlight-color: rgba(255,255,255,0.05);
-}
+#randomtext{color:#159E58;font-size: 25px;}* {-webkit-tap-highlight-color: rgba(255,255,255,0.05);}::selection {background: var(--secondary-text);}
 
 
     </style>
@@ -205,12 +202,11 @@ html { background: var(--page-margin, black); overflow-x: hidden; font-size: lar
                     </p>     
                 </section>
             </main>
-            <aside class="bsky-column">
-		    	 	<h2>
-				</h2>
-				<div>
-				</div>
-			</aside>
+<bsky-embed
+						feed="at://did:plc:mbrx5fkqsdgk5l2dfhygecm6/app.bsky.feed.generator/aaabsv7gjrgl2"mode="dark"link-target="_blank"link-image="false"limit="5"load-more="true"disable-styles="false"custom-styles="a.mt-4.rounded-md.border.border-slate-300.block {display: none;} .flex > div { max-width: 90%; } .whitespace-pre-wrap { word-wrap: break-word;}"
+					  ></bsky-embed>
+<script async>if (window.localStorage.getItem("showDescription") != "false") {const bsky_script = document.createElement("script");bsky_script.src = "https://cdn.jsdelivr.net/npm/bsky-embed@0.2.2/dist/bsky-embed.es.min.js";bsky_script.type = "module";document.head.appendChild(bsky_script);}
+</script>
 </div>
 </div>
 <script>
@@ -290,21 +286,10 @@ document.getElementById("jummboxPlant").innerText = randomarr2[parseInt(Math.ran
 </body>
 </html>
 <script>
- 
-    function applyZoom() {
-      const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
-      const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-      if (isMobile && isLandscape) {
-        document.body.style.zoom = "0.";
-      } else {
-        document.body.style.zoom = "1";
-      }
-    }
-
- 
 const isMobile2=/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent)
 document.documentElement.classList.add(isMobile2?"mobile":"pc")
-
 </script>
   
+ 
+ 
  
