@@ -470,7 +470,7 @@ ColorConfig.setTheme(colorTheme === null ? ColorConfig.defaultTheme : colorTheme
 }
 	}
 }
-updateThemes()
+updateThemes() 
     const scrollBarTest = document.body.appendChild(HTML.div({ style: "width:30px; height:30px; overflow: auto;" }, HTML.div({ style: "width:100%;height:40px" })));
     if (scrollBarTest.firstChild.clientWidth < 30) {
         document.documentElement.classList.add("obtrusive-scrollbars");
@@ -6230,7 +6230,16 @@ static clearAllRecoveredSongs() {
                 this._didSomething();
         }
     }
-
+    class ChangeRevMode extends ChangeInstrumentSlider {
+        constructor(doc, oldValue, newValue) {
+            super(doc);
+            this._instrument.revMode = newValue;
+            doc.notifier.changed();
+            doc.synth.unsetMod(Config.modulators.dictionary["revMode"].index, doc.channel, doc.getCurrentInstrument()); 
+            if (oldValue != newValue)
+                this._didSomething();
+        }
+    }
     class ChangeDistortion extends ChangeInstrumentSlider {
         constructor(doc, oldValue, newValue) {
             super(doc);
@@ -7948,7 +7957,7 @@ class ChangeOperatorWaveform extends Change {
         constructor(doc, oldValue, newValue) {
             super(doc);
             this._instrument.reverbfeedback = newValue;
-            doc.synth.unsetMod(Config.modulators.dictionary["reverbfeedback"].index, doc.channel, doc.getCurrentInstrument());
+            doc.synth.unsetMod(Config.modulators.dictionary["reverb feedback"].index, doc.channel, doc.getCurrentInstrument());
             doc.notifier.changed();
             if (oldValue != newValue)
                 this._didSomething();
@@ -11064,7 +11073,7 @@ labels.forEach(label => {
             this.notesOutsideScale = window.localStorage.getItem("notesOutsideScale") == "true";
             this.showLetters = window.localStorage.getItem("showLetters") != "false";
             this.showChannels = window.localStorage.getItem("showChannels") != "false";
-            this.scrollableEditor = false // window.localStorage.getItem("scrollableEditor") == "true";
+            this.scrollableEditor = false; // window.localStorage.getItem("scrollableEditor") == "true";
             this.showScrollBar = window.localStorage.getItem("showScrollBar") != "false";
             
             this.useCustomSelectPrompt = window.localStorage.getItem("useCustomSelectPrompt") == "true";
@@ -11138,7 +11147,7 @@ labels.forEach(label => {
             window.localStorage.setItem("showLetters", this.showLetters ? "true" : "false");
             window.localStorage.setItem("showChannels", this.showChannels ? "true" : "false");
             window.localStorage.setItem("showScrollBar", this.showScrollBar ? "true" : "false");
-            window.localStorage.setItem("scrollableEditor", this.scrollableEditor ? "true" : "false");
+          //  window.localStorage.setItem("scrollableEditor", this.scrollableEditor ? "true" : "false"); 
             window.localStorage.setItem("useCustomSelectPrompt", this.useCustomSelectPrompt ? "true" : "false");
             window.localStorage.setItem("alwaysFineNoteVol", this.alwaysFineNoteVol ? "true" : "false");
             window.localStorage.setItem("displayVolumeBar", this.displayVolumeBar ? "true" : "false");
@@ -19900,7 +19909,7 @@ for (let channel of this._doc.song.channels) {
                     instrument.reverb = slider.getValueBeforeProspectiveChange();
                 }
             }else if (change instanceof ChangeFeedbackReverb) {
-                var modulator = Config.modulators.dictionary["reverbfeedback"];
+                var modulator = Config.modulators.dictionary["reverb feedback"];
                 applyToMods.push(modulator.index);
                 if (toApply)
                     applyValues.push(instrument.reverbfeedback - modulator.convertRealFactor);
@@ -23330,7 +23339,7 @@ script(container) {
 }
 destroy() {}
 }
-class AdvancedEditorPlugin {
+class AdvancedEditorPlugin { 
 static title = "Advanced Audio Editor";constructor() {this.paused = false;this.ticks = 0;this._raf = null;}
 render() {return `<div style="font-family: sans-serif; background: #111; color: #fff; padding: 2rem;">
   <style>
@@ -23688,7 +23697,7 @@ function offsetXToSample(offsetX) {
   const rect = UUID18289CANVAS.getBoundingClientRect();
   const UUID18289CANVASX = offsetX - rect.left;
   const visibleSamples = UUID18289CUBUFF.length / UUID18289_SCALEX;
-const samplesPerPixel = visibleSamples / UUID18289CANVAS.width*2.5 ;
+const samplesPerPixel = visibleSamples / UUID18289CANVAS.width*4;
 return ((UUID18289_SCROLLX * visibleSamples + UUID18289CANVASX * samplesPerPixel)
 );
 }
@@ -25375,7 +25384,6 @@ class CustomThemesPlugin {
 static title = "Custom Themes";constructor() {this.paused = false;this.ticks = 0;this._raf = null;} 
 render() {
   return `
-    <h2 style="color: var(--primary-text); font-size: 1.4em; margin-bottom: 0.5em;">Custom Themes</h2>
     <div class="menu" style="
       display: flex; 
       flex-direction: column; 
@@ -26198,8 +26206,9 @@ class SelectPlugin {
 	--disabled-note-secondary:  #666; }` });
             this._cancelButton = button$7({ class: "cancelButton" });
             this._okayButton = button$7({ class: "okayButton", style: "width:45%;" }, "Okay");
+            this._openPluginBtn = button$7({ class: "btThemes" , onclick : ()=>{editor._setPrompt("plugin:customThemes")} , style: "width:45%;" }, "Better Themes");
             this._resetButton = button$7({ style: "height: auto; min-height: var(--button-size);" }, "Reset to defaults");
-            this.container = div$7({ class: "prompt noSelection", style: "width: 300px;" }, h2$6("Import"), p$1({ style: "text-align: left; margin: 0.5em 0;" }, "You can upload images to create a custom theme. The first image will become the editor background, and the second image will be tiled across the webpage."), div$7({ style: "text-align: left; margin-top: 0.5em; margin-bottom: 0.5em;" }, "You can find a list of custom themes made by other users on the ", a$1({ target: "_blank", href: "https://docs.google.com/spreadsheets/d/1dGjEcLgJrPwzBExPmwA9pbE_KVQ3jNrnTBrd46d2IKo/edit" }, "custom theme sheet.")), div$7(), p$1({ style: "text-align: left; margin: 0;" }, "Editor Background Image:", this._fileInput), p$1({ style: "text-align: left; margin: 0.5em 0;" }, "Website Background Image:", this._fileInput2), div$7(), p$1({ style: "text-align: left; margin: 0;" }, "Replace the text below with your custom theme data to load it:"), this._colorInput, div$7({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._resetButton), div$7({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton), this._cancelButton);
+            this.container = div$7({ class: "prompt noSelection", style: "width: 300px;" }, h2$6("Import"), p$1({ style: "text-align: left; margin: 0.5em 0;" }, "You can upload images to create a custom theme. The first image will become the editor background, and the second image will be tiled across the webpage."), div$7({ style: "text-align: left; margin-top: 0.5em; margin-bottom: 0.5em;" }, "You can find a list of custom themes made by other users on the ", a$1({ target: "_blank", href: "https://docs.google.com/spreadsheets/d/1dGjEcLgJrPwzBExPmwA9pbE_KVQ3jNrnTBrd46d2IKo/edit" }, "custom theme sheet.")), div$7(), p$1({ style: "text-align: left; margin: 0;" }, "Editor Background Image:", this._fileInput), p$1({ style: "text-align: left; margin: 0.5em 0;" }, "Website Background Image:", this._fileInput2), div$7(), p$1({ style: "text-align: left; margin: 0;" }, "Replace the text below with your custom theme data to load it:"),  this._colorInput, p$1({ style: "text-align: left; margin: 0;" }, "If you want more themes you want  you can use Custom Themes Plugin "), this._openPluginBtn,  div$7({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._resetButton), div$7({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" }, this._okayButton), this._cancelButton);
             this._close = () => {
                 this._doc.prompt = null;
                 this._doc.undo();
@@ -26439,6 +26448,11 @@ const existingThemeValues = new Set(
                 case "reverb":
                     {
                         message = div$5(h2$4("Reverb"), p("Reverb is like a continuous echo effect. A little bit helps instruments sound more natural. Adding a lot of reverb can add sense of depth or mystery, but too much reverb can kinda \"smear\" sounds so that it's harder to distinguish notes or instruments, especially for lower \"bass\" notes."));
+                    }
+                    break;
+                case "revMode":
+                    {
+                        message = div$5(h2$4("Reverb Mode"), p("Reverb Mode allows you to select the Reverb Mode."),p("\"Reverb\" - Classic FDN (Feedback Delay Network) Beepbox Reverb ,"),p("\"Reverb + Feedback\" - Plate Reverb with extra feedback, creating a denser, more cosmic space vibe,"),p(" \"Spring\" - Spring Reverb, typical classic good for rising reverb that sounds springs. sounds noisy !"));
                     }
                     break;
                 case "reverbfeedback":
@@ -30817,6 +30831,8 @@ class CustomSelectModal{
             this._reverbSlider = new Slider(input({ style: "margin: 0; position: sticky,", type: "range", min: "0", max: Config.reverbRange - 1, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangeReverb(this.doc, oldValue, newValue), false);
             this._feedbackReverb = new Slider(input({ style: "margin: 0; position: sticky,", type: "range", min: "0", max: Config.reverbRange - 1, value: Config.reverbRange /2 , step: "1" }), this.doc, (oldValue, newValue) => new ChangeFeedbackReverb(this.doc, oldValue, newValue), false);
             this._reverbRow =div( div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("reverb") }, "Reverb:"), this._reverbSlider.container), div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("reverbfeedback") }, "Feedback:"), this._feedbackReverb.container) );
+            this._reverbMode = new SelectBlock(select({},option({ value: 0 }, "Reverb"),option({ value: 1 }, "Reverb + Feedback"),option({ value: 2 }, "Spring" )),this.doc,(oldValue, newValue) => new ChangeRevMode(this.doc, oldValue, newValue)) ;
+             this._revModeRow = div({ class: "selectRow" },span({ class: "tip",onclick: () => this._openPrompt("revMode") }, "Mode:"), this._reverbMode.container);
             this._ringModWaveSelect = buildOptions(select({}), Config.operatorWaves.map(wave => wave.name));
             this._ringModPulsewidthSlider = new Slider(input({ style: "margin-left: 10px; width: 85%;", type: "range", min: "0", max: Config.pwmOperatorWaves.length - 1, value: "0", step: "1", title: "Pulse Width" }), this.doc, (oldValue, newValue) => new ChangeRingModPulseWidth(this.doc, oldValue, newValue), true);
             this._ringModSlider = new Slider(input({ style: "margin: 0;", type: "range", min: "0", max: Config.ringModRange - 1, value: "0", step: "1" }), this.doc, (oldValue, newValue) => new ChangeRingMod(this.doc, oldValue, newValue), false);
@@ -31074,7 +31090,7 @@ this._strumSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip",
             this._feedbackAmplitudeSlider = new Slider(input({ type: "range", min: "0", max: Config.operatorAmplitudeMax, value: "0", step: "1", title: "Feedback Amplitude" }), this.doc, (oldValue, newValue) => new ChangeFeedbackAmplitude(this.doc, oldValue, newValue), false);
             this._feedbackRow2 = div({ class: "selectRow" }, span({ class: "tip", onclick: () => this._openPrompt("feedbackVolume") }, "Fdback Vol:"), this._feedbackAmplitudeSlider.container);
             this._addEnvelopeButton = button({ type: "button", class: "add-envelope" });
-            this._customInstrumentSettingsGroup = div({ class: "editor-controls" }, this._panSliderRow, this._panDropdownGroup, this._chipWaveSelectRow, this._chipWaveError, this._chipNoiseSelectRow, this._useChipWaveAdvancedLoopControlsRow, this._chipWaveLoopModeSelectRow, this._chipWaveLoopStartRow, this._chipWaveLoopEndRow, this._chipWaveStartOffsetRow, this._chipWavePlayBackwardsRow, this._customWaveDraw, this._eqFilterTypeRow, this._eqFilterRow, this._eqFilterSimpleCutRow, this._eqFilterSimplePeakRow, this._fadeInOutRow, this._algorithmSelectRow, this._algorithm6OpSelectRow, this._phaseModGroup, this._feedbackRow1, this._feedback6OpRow1, this._feedbackRow2, this._spectrumRow, this._harmonicsRow, this._drumsetGroup, this._supersawDynamismRow, this._supersawSpreadRow, this._supersawShapeRow, this._pulseWidthRow, this._pulseWidthDropdownGroup, this._stringSustainRow, this._unisonSelectRow, this._unisonDropdownGroup, div({ style: `padding: 2px 0; margin-left: 2em; display: flex; align-items: center;` }, span({ style: `flex-grow: 1; text-align: center;` }, span({ class: "tip", onclick: () => this._openPrompt("effects") }, "Effects")), div({ class: "effects-menu" }, this._effectsSelect)), this._transitionRow, this._transitionDropdownGroup, this._chordSelectRow, this._chordStrumDropdownGroup,this._chordDropdownGroup, this._pitchShiftRow, this._octaveShiftRow , this._functionRow,  this._detuneSliderRow, this._vibratoSelectRow, this._vibratoDropdownGroup, this._noteFilterTypeRow, this._noteFilterRow, this._noteFilterSimpleCutRow, this._noteFilterSimplePeakRow, this._distortionRow, this._aliasingRow, this._modeRow, this._bitcrusherQuantizationRow, this._bitcrusherFreqRow, this._chorusRow, this._echoSustainRow, this._echoDelayRow, this._reverbRow, this._ringModContainerRow,  this._phaserMixRow, this._phaserFreqRow, this._phaserFeedbackRow, this._phaserStagesRow,  this._granularContainerRow, div({ style: `padding: 2px 0; margin-left: 2em; display: flex; align-items: center;` }, span({ style: `flex-grow: 1; text-align: center;` }, span({ class: "tip", onclick: () => this._openPrompt("envelopes") }, "Envelopes")), this._envelopeDropdown, this._addEnvelopeButton), this._envelopeDropdownGroup, this.envelopeEditor.container);
+            this._customInstrumentSettingsGroup = div({ class: "editor-controls" }, this._panSliderRow, this._panDropdownGroup, this._chipWaveSelectRow, this._chipWaveError, this._chipNoiseSelectRow, this._useChipWaveAdvancedLoopControlsRow, this._chipWaveLoopModeSelectRow, this._chipWaveLoopStartRow, this._chipWaveLoopEndRow, this._chipWaveStartOffsetRow, this._chipWavePlayBackwardsRow, this._customWaveDraw, this._eqFilterTypeRow, this._eqFilterRow, this._eqFilterSimpleCutRow, this._eqFilterSimplePeakRow, this._fadeInOutRow, this._algorithmSelectRow, this._algorithm6OpSelectRow, this._phaseModGroup, this._feedbackRow1, this._feedback6OpRow1, this._feedbackRow2, this._spectrumRow, this._harmonicsRow, this._drumsetGroup, this._supersawDynamismRow, this._supersawSpreadRow, this._supersawShapeRow, this._pulseWidthRow, this._pulseWidthDropdownGroup, this._stringSustainRow, this._unisonSelectRow, this._unisonDropdownGroup, div({ style: `padding: 2px 0; margin-left: 2em; display: flex; align-items: center;` }, span({ style: `flex-grow: 1; text-align: center;` }, span({ class: "tip", onclick: () => this._openPrompt("effects") }, "Effects")), div({ class: "effects-menu" }, this._effectsSelect)), this._transitionRow, this._transitionDropdownGroup, this._chordSelectRow, this._chordStrumDropdownGroup,this._chordDropdownGroup, this._pitchShiftRow, this._octaveShiftRow , this._functionRow,  this._detuneSliderRow, this._vibratoSelectRow, this._vibratoDropdownGroup, this._noteFilterTypeRow, this._noteFilterRow, this._noteFilterSimpleCutRow, this._noteFilterSimplePeakRow, this._distortionRow, this._aliasingRow, this._modeRow, this._bitcrusherQuantizationRow, this._bitcrusherFreqRow, this._chorusRow, this._echoSustainRow, this._echoDelayRow, this._reverbRow, this._revModeRow, this._ringModContainerRow,  this._phaserMixRow, this._phaserFreqRow, this._phaserFeedbackRow, this._phaserStagesRow,  this._granularContainerRow, div({ style: `padding: 2px 0; margin-left: 2em; display: flex; align-items: center;` }, span({ style: `flex-grow: 1; text-align: center;` }, span({ class: "tip", onclick: () => this._openPrompt("envelopes") }, "Envelopes")), this._envelopeDropdown, this._addEnvelopeButton), this._envelopeDropdownGroup, this.envelopeEditor.container);
             this._instrumentCopyGroup = div({ class: "editor-controls" }, div({ class: "selectRow" }, this._instrumentCopyButton, this._instrumentPasteButton));
             this._instrumentExportGroup = div({ class: "editor-controls" }, div({ class: "selectRow" }, this._instrumentExportButton, this._instrumentImportButton));
             
@@ -31606,6 +31622,8 @@ this._strumSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip",
                        	selectEl.appendChild(opt);
                        });
                        	}
+         
+
                        for (let i = 0; i < this._operatorWaveformSelects.length; i++) {
                        const select = this._operatorWaveformSelects[i];
                            if (!select) continue;
@@ -31641,11 +31659,12 @@ this._strumSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip",
                         for (let i = 0; i < Config.operatorCount + (instrument.type == 11 ? 2 : instrument.type == 12 ? 4 : 0); i++) {
                             const isCarrier = instrument.type == 1 ? (i < Config.algorithms[instrument.algorithm].carrierCount) : (i < instrument.customAlgorithm.carrierCount);
                             this._operatorRows[i].style.color = isCarrier ? ColorConfig.primaryText : "";
+                            
                             setSelectedValue(this._operatorFrequencySelects[i], instrument.operators[i].frequency);
                             this._operatorAmplitudeSliders[i].updateValue(instrument.operators[i].amplitude);
                             const maxWave = Config.operatorWaves.length;
                             if (instrument.type == 11) {
-                              for (let i = 0; i < instrument.operators.length; i++) {
+                              for (let i = 0; i < Config.operatorCount + (instrument.type == 11 ? 2 : instrument.type == 12 ? 4 : 0); i++) {
                                if (instrument.operators[i].waveform >= maxWave) {
                                  instrument.operators[i].waveform = 0;
                                }
@@ -31689,12 +31708,14 @@ this._strumSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip",
                             this._feedback6OpRow1.style.display = "";
                             this._operatorRows[4].style.display = "";
                             this._operatorRows[5].style.display = "";
+                            this._operatorRows[6].style.display = "none";
+                            this._operatorRows[7].style.display = "none";
+                            this._operatorDropdownGroups[6].style.display = "none";
+                            this._operatorDropdownGroups[7].style.display = "none";
                             this._algorithm6OpSelectRow.style.marginBottom = "40px";
                             this._algorithm6OpSelectRow.style.marginRight = "2.5em";
                             this._operatorDropdownGroups[4].style.display = (this._openOperatorDropdowns[4] ? "" : "none");
                             this._operatorDropdownGroups[5].style.display = (this._openOperatorDropdowns[5] ? "" : "none");
-                            this._operatorRows[6].style.display = "none";
-                            this._operatorRows[7].style.display = "none";
                             this._algorithmSelectRow.style.display = "none";
                             this._feedbackRow1.style.display = "none";
                         }else if (instrument.type == 12) {
@@ -31723,6 +31744,7 @@ this._strumSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip",
                             this._operatorRows[5].style.display = "none";
                             this._operatorRows[6].style.display = "none";
                             this._operatorRows[7].style.display = "none";
+
                             this._operatorDropdownGroups[4].style.display = "none";
                             this._operatorDropdownGroups[5].style.display = "none";
                             this._operatorDropdownGroups[6].style.display = "none";
@@ -31909,11 +31931,16 @@ this._strumSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip",
                     }
                     if (effectsIncludeReverb(instrument.effects)) {
                         this._reverbRow.style.display = "";
+                        this._revModeRow.style.display = "";
+                        this._reverbMode.updateValue(instrument.revMode)
                         this._reverbSlider.updateValue(instrument.reverb);
+                        if (instrument.revMode == 0) {
+                        this._feedbackReverb.container.parentElement.style.display = "none";} else {this._feedbackReverb.container.parentElement.style.display = "";}
                         this._feedbackReverb.updateValue(instrument.reverbfeedback);
                     }
                     else {
                         this._reverbRow.style.display = "none";
+                        this._revModeRow.style.display = "none";
                     }
                     if (effectsIncludePhaser(instrument.effects)) {
                         this._phaserMixRow.style.display = "";
@@ -32441,7 +32468,7 @@ this._strumSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip",
                                 }
                                 if (anyInstrumentReverbs) {
                                     settingList.push("reverb");
-                                    settingList.push("reverbfeedback")
+                                    settingList.push("reverb feedback")
                                 }
                                 if (!allInstrumentReverbs) {
                                     unusedSettingList.push("+ reverb");
@@ -32838,10 +32865,12 @@ this._strumSpeedRow = div({ class: "selectRow dropFader" }, span({ class: "tip",
                     }
                     return;
                 }
+                let isInputFocused=false
+                 for (let i = 0; i < Config.operatorCount + 4; i++) {if (document.activeElement === this._operatorFrequencySelects[i]) {isInputFocused = true;break;}}
                 if (document.activeElement == this._panSliderInputBox
                     || document.activeElement == this._pwmSliderInputBox
                     || document.activeElement == this._detuneSliderInputBox||
-                    document.activeElement == this._pitchShiftBox || document.activeElement == this._octaveShiftBox || document.activeElement == this._fnInput ||  document.activeElement == this._instrumentName 
+                    document.activeElement == this._pitchShiftBox || document.activeElement == this._octaveShiftBox || document.activeElement == this._fnInput ||  document.activeElement == this._instrumentName ||  isInputFocused
                     || document.activeElement == this._instrumentVolumeSliderInputBox
                     || document.activeElement == this._chipWaveLoopStartStepper
                     || document.activeElement == this._chipWaveLoopEndStepper
@@ -34318,10 +34347,12 @@ break;
                 this._modSliderValues[i] = [];
             }
             this._phaseModGroup.appendChild(div({ class: "selectRow", style: `color: ${ColorConfig.secondaryText}; height: 1em; margin-top: 0.5em;` }, div({ style: "margin-right: .1em; visibility: hidden;" }, 1 + "."), div({ style: "width: 3em; margin-right: .3em;", class: "tip", onclick: () => this._openPrompt("operatorFrequency") }, "Freq:"), div({ class: "tip", onclick: () => this._openPrompt("operatorVolume") }, "Volume:")));
-            for (let i = 0; i < Config.operatorCount + 4; i++) {
+            for (let i = 0; i < Config.operatorCount + 4 ; i++) {
                 const operatorIndex = i;
                 const operatorNumber = div({ style: "margin-right: 0px; color: " + ColorConfig.secondaryText + ";" }, i + 1 + "");
-                const frequencySelect = buildOptions(select({ style: "width: 100%;", title: "Frequency" }), Config.operatorFrequencies.map(freq => freq.name));
+            //                    const frequencySelect =  buildOptions(select({ style: "width: 100%;", title: "Frequency" }), Config.operatorFrequencies.map(freq => freq.name));
+  const frequencySelect = buildOptions(select({ style: "width: 100%;", title: "Frequency" }), Config.operatorFrequencies.map(freq => freq.name));
+                 
                 const amplitudeSlider = new Slider(input({ type: "range", min: "0", max: Config.operatorAmplitudeMax, value: "0", step: "1", title: "Volume" }), this.doc, (oldValue, newValue) => new ChangeOperatorAmplitude(this.doc, operatorIndex, oldValue, newValue), false);
                 let waveformSelect = buildOptions(select({ style: "width: 100%;", title: "Waveform" }), Config.operatorWaves.map(wave => wave.name));  
                 const waveformDropdown = button({ style: "margin-left:0em; margin-right: 2px; height:1.5em; width: 8px; max-width: 10px; padding: 0px; font-size: 8px;", onclick: () => this._toggleDropdownMenu(4, i) }, "▼");
@@ -34334,6 +34365,7 @@ break;
                 this._operatorRows[i] = row; 
                 this._operatorAmplitudeSliders[i] = amplitudeSlider;
                 this._operatorFrequencySelects[i] = frequencySelect;
+
                 this._operatorDropdowns[i] = waveformDropdown;
                 this._operatorWaveformHints[i] = waveformDropdownHint;
                 this._operatorWaveformSelects[i] = waveformSelect;
@@ -34813,7 +34845,7 @@ this._instrumentName.addEventListener("input", () => {
                     return this._decimalOffsetSlider;
                 case Config.modulators.dictionary["reverb"].index:
                     return this._reverbSlider;
-                case Config.modulators.dictionary["reverbfeedback"].index:
+                case Config.modulators.dictionary["reverb feedback"].index:
                     return this._reverbSlider;
                 case Config.modulators.dictionary["distortion"].index:
                     return this._feedbackReverb;
@@ -35010,9 +35042,9 @@ this._instrumentName.addEventListener("input", () => {
                    case "plugin:melMaker":
                    case "plugin:customThemes":
                    case "plugin:other": {
+                   	  if (!editor.doc._pendingPlugin) {const id = promptName.split(":")[1]; const selector = new SelectPlugin(this.doc);selector.openPlugin(id);break; }
+                   	  
                       const data = editor.doc._pendingPlugin;
-                      if (!data) {
-                      console.error("No pending plugin!");break;}
                       const { title, html, plugin } = data;
                       const win = new PluginContainer(title, html, () => {
                       if (plugin && plugin.destroy) plugin.destroy();

@@ -323,7 +323,7 @@ if (document.readyState !== "loading") {
 		}, 600);
 	}, 500);
 }
-				if(loadedBB==0){
+				if(loadedBB==0 && !skipsamplesLoading ){
 					if (document.readyState === "loading") {
 						setTimeout(() => { loadingText.innerText = "Loading Page" }, 50);
      document.addEventListener('DOMContentLoaded', () => {
@@ -341,6 +341,9 @@ if (document.readyState !== "loading") {
 				 RUNBEEPBOX()
     }
 				} else if(loadedBB==1){
+					if(skipsamplesLoading){
+						loadingScreen.style.display = "none";
+					}
  				updateSampledWaves()
 				}
 			}

@@ -1,7 +1,10 @@
 let selectedFile = null;
 let audioContext = new(window.AudioContext || window.webkitAudioContext)();
 var beepbox
+let RunOneTime=0;
 function RUNBEEPBOX(){
+	if(RunOneTime)return;
+	RunOneTime=true
 try {
 function writeBase64Int( number, number) {
     let result = "";
@@ -1117,11 +1120,15 @@ function readBase64Int(str, index, digits) {
     ColorConfig._styleElement = document.head.appendChild(HTML.style({ type: "text/css" }));
 
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|android|ipad|playbook|silk/i.test(navigator.userAgent);
+     
     
-    
-    updateThemes = function() {
+updateThemes = function() {
 	if (CustomThemes) {
 		ColorConfig.themes = { ...ColorConfig.themes, ...CustomThemes };
+		if (!skipsamplesLoading) {
+			const colorTheme = getLocalStorageItem("colorTheme");
+			ColorConfig.setTheme(colorTheme === null ? ColorConfig.defaultTheme : colorTheme);
+		}
 	}
 }
 updateThemes()
